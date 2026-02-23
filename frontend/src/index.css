@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+    --font-sans: "Inter", "system-ui", "sans-serif";
+    --font-plus-jakarta: "Plus Jakarta Sans", sans-serif;
+    --font-space-grotesk: "Space Grotesk", sans-serif;
+
+    --animate-float: float 20s linear infinite;
+    --animate-float-slow: float 30s linear infinite;
+
+    @keyframes float {
+        0% {
+            transform: translateY(110vh);
+        }
+
+        100% {
+            transform: translateY(-200px);
+        }
+    }
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-sans);
+}

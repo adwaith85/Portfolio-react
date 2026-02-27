@@ -102,17 +102,8 @@ const codeSnippets = [
     "socket.io",
     "Binary Search",
     "Big O Notation",
-    "Heap Memory",
-    "Stack Overflow",
-    "Terminal bash",
-    "Debouncing",
-    "Throttling",
-    "Closure",
-    "Prototype Chain",
     "Event Loop",
-    "Microtasks",
     "Web Sockets",
-    "WebRTC",
 ];
 
 export default function AnimatedBackground() {

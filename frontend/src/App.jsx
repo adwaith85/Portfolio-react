@@ -598,13 +598,13 @@ const App = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                         {/* Project 1: E-Commerce */}
                         <motion.div
-                            initial={{ opacity: 0, y: 30 }}
+                            initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 }}
                             viewport={{ once: true }}
-                            className="group relative h-52 md:h-64 w-full rounded-2xl overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-500 bg-slate-900 border border-slate-800"
+                            className="group relative h-64 w-full rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 bg-slate-900 border border-slate-800"
                         >
-                            <div className="absolute inset-0 bg-slate-950/50 group-hover:bg-slate-950/80 transition-colors duration-500 z-10" />
+                            <div className="absolute inset-0 bg-slate-950/60 md:bg-slate-950/50 md:group-hover:bg-slate-950/80 transition-colors duration-500 z-10" />
                             <img
                                 src={ecommerceImg}
                                 alt="E-Commerce Web Application"
@@ -624,21 +624,20 @@ const App = () => {
                                     <h3 className="text-xl font-bold text-white font-sans leading-tight drop-shadow-md">E-Commerce App</h3>
                                 </div>
 
-                                {/* Hidden Content (Reveals on Hover) */}
-                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
-
-                                    {/* Links Slide Down From Top */}
-                                    <div className="flex gap-4 -translate-y-10 group-hover:translate-y-0 transition-transform duration-500 delay-100">
-                                        <a href="https://github.com/adwaith85/project-Ecommerce-" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/80 backdrop-blur-md flex items-center justify-center text-white hover:bg-cyan-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="View Code">
+                                {/* Revealable Content (Always visible on mobile) */}
+                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 z-30">
+                                    {/* Links */}
+                                    <div className="flex gap-4 translate-y-0 md:-translate-y-10 md:group-hover:translate-y-0 transition-transform duration-500">
+                                        <a href="https://github.com/adwaith85/project-Ecommerce-" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/90 backdrop-blur-md flex items-center justify-center text-white hover:bg-cyan-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="View Code">
                                             <Github size={18} />
                                         </a>
-                                        <a href="http://34.224.26.244" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/80 backdrop-blur-md flex items-center justify-center text-white hover:bg-cyan-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="Live Demo">
+                                        <a href="http://34.224.26.244" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/90 backdrop-blur-md flex items-center justify-center text-white hover:bg-cyan-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="Live Demo">
                                             <ExternalLink size={18} />
                                         </a>
                                     </div>
 
-                                    {/* Description Slide Up From Bottom */}
-                                    <p className="text-center text-sm font-medium text-slate-300 mt-4 translate-y-10 group-hover:translate-y-0 transition-transform duration-500 delay-100 leading-relaxed px-4">
+                                    {/* Description */}
+                                    <p className="text-center text-xs md:text-sm font-medium text-slate-300 mt-4 translate-y-0 md:translate-y-10 md:group-hover:translate-y-0 transition-transform duration-500 leading-relaxed px-4">
                                         Full-stack shopping application featuring product listing, cart functionality, and secure checkout.
                                     </p>
                                 </div>
@@ -647,13 +646,13 @@ const App = () => {
 
                         {/* Project 2: Uber-Like */}
                         <motion.div
-                            initial={{ opacity: 0, y: 30 }}
+                            initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
+                            transition={{ delay: 0.15 }}
                             viewport={{ once: true }}
-                            className="group relative h-52 md:h-64 w-full rounded-2xl overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-500 bg-slate-900 border border-slate-800"
+                            className="group relative h-64 w-full rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 bg-slate-900 border border-slate-800"
                         >
-                            <div className="absolute inset-0 bg-slate-950/50 group-hover:bg-slate-950/80 transition-colors duration-500 z-10" />
+                            <div className="absolute inset-0 bg-slate-950/60 md:bg-slate-950/50 md:group-hover:bg-slate-950/80 transition-colors duration-500 z-10" />
                             <img
                                 src={uberImg}
                                 alt="Uber-Like Cab Booking"
@@ -671,16 +670,16 @@ const App = () => {
                                     <h3 className="text-xl font-bold text-white font-sans leading-tight drop-shadow-md">Uber Clone</h3>
                                 </div>
 
-                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
-                                    <div className="flex gap-4 -translate-y-10 group-hover:translate-y-0 transition-transform duration-500 delay-100">
-                                        <a href="https://github.com/adwaith85/Project-Uber" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/80 backdrop-blur-md flex items-center justify-center text-white hover:bg-purple-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="View Code">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 z-30">
+                                    <div className="flex gap-4 translate-y-0 md:-translate-y-10 md:group-hover:translate-y-0 transition-transform duration-500">
+                                        <a href="https://github.com/adwaith85/Project-Uber" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/90 backdrop-blur-md flex items-center justify-center text-white hover:bg-purple-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="View Code">
                                             <Github size={18} />
                                         </a>
-                                        <a href="https://project-uber-2.onrender.com" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/80 backdrop-blur-md flex items-center justify-center text-white hover:bg-purple-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="Live Demo">
+                                        <a href="https://project-uber-2.onrender.com" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/90 backdrop-blur-md flex items-center justify-center text-white hover:bg-purple-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="Live Demo">
                                             <ExternalLink size={18} />
                                         </a>
                                     </div>
-                                    <p className="text-center text-sm font-medium text-slate-300 mt-4 translate-y-10 group-hover:translate-y-0 transition-transform duration-500 delay-100 leading-relaxed px-4">
+                                    <p className="text-center text-xs md:text-sm font-medium text-slate-300 mt-4 translate-y-0 md:translate-y-10 md:group-hover:translate-y-0 transition-transform duration-500 leading-relaxed px-4">
                                         Ride booking platform with separate rider and driver dashboards using real-time updates.
                                     </p>
                                 </div>
@@ -689,13 +688,13 @@ const App = () => {
 
                         {/* Project: Uber Driver */}
                         <motion.div
-                            initial={{ opacity: 0, y: 30 }}
+                            initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.25 }}
+                            transition={{ delay: 0.2 }}
                             viewport={{ once: true }}
-                            className="group relative h-52 md:h-64 w-full rounded-2xl overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-500 bg-slate-900 border border-slate-800"
+                            className="group relative h-64 w-full rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 bg-slate-900 border border-slate-800"
                         >
-                            <div className="absolute inset-0 bg-slate-950/50 group-hover:bg-slate-950/80 transition-colors duration-500 z-10" />
+                            <div className="absolute inset-0 bg-slate-950/60 md:bg-slate-950/50 md:group-hover:bg-slate-950/80 transition-colors duration-500 z-10" />
                             <img
                                 src={uberDriverImg}
                                 alt="Uber Driver Web Application"
@@ -713,16 +712,16 @@ const App = () => {
                                     <h3 className="text-xl font-bold text-white font-sans leading-tight drop-shadow-md">Uber Driver</h3>
                                 </div>
 
-                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
-                                    <div className="flex gap-4 -translate-y-10 group-hover:translate-y-0 transition-transform duration-500 delay-100">
-                                        <a href="https://github.com/adwaith85/Project-Uber" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/80 backdrop-blur-md flex items-center justify-center text-white hover:bg-purple-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="View Code">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 z-30">
+                                    <div className="flex gap-4 translate-y-0 md:-translate-y-10 md:group-hover:translate-y-0 transition-transform duration-500">
+                                        <a href="https://github.com/adwaith85/Project-Uber" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/90 backdrop-blur-md flex items-center justify-center text-white hover:bg-purple-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="View Code">
                                             <Github size={18} />
                                         </a>
-                                        <a href="https://project-uber-1.onrender.com/" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/80 backdrop-blur-md flex items-center justify-center text-white hover:bg-purple-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="Live Demo">
+                                        <a href="https://project-uber-1.onrender.com/" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/90 backdrop-blur-md flex items-center justify-center text-white hover:bg-purple-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="Live Demo">
                                             <ExternalLink size={18} />
                                         </a>
                                     </div>
-                                    <p className="text-center text-sm font-medium text-slate-300 mt-4 translate-y-10 group-hover:translate-y-0 transition-transform duration-500 delay-100 leading-relaxed px-4">
+                                    <p className="text-center text-xs md:text-sm font-medium text-slate-300 mt-4 translate-y-0 md:translate-y-10 md:group-hover:translate-y-0 transition-transform duration-500 leading-relaxed px-4">
                                         Ride booking platform specialized for drivers, featuring real-time ride requests and earnings management.
                                     </p>
                                 </div>
@@ -732,13 +731,13 @@ const App = () => {
 
                         {/* Project 3: Chat App */}
                         <motion.div
-                            initial={{ opacity: 0, y: 30 }}
+                            initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
+                            transition={{ delay: 0.25 }}
                             viewport={{ once: true }}
-                            className="group relative h-52 md:h-64 w-full rounded-2xl overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-500 bg-slate-900 border border-slate-800"
+                            className="group relative h-64 w-full rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 bg-slate-900 border border-slate-800"
                         >
-                            <div className="absolute inset-0 bg-slate-950/50 group-hover:bg-slate-950/80 transition-colors duration-500 z-10" />
+                            <div className="absolute inset-0 bg-slate-950/60 md:bg-slate-950/50 md:group-hover:bg-slate-950/80 transition-colors duration-500 z-10" />
                             <img
                                 src={chatImg}
                                 alt="Chat Application"
@@ -756,26 +755,26 @@ const App = () => {
                                     <h3 className="text-xl font-bold text-white font-sans leading-tight drop-shadow-md">Chat Application</h3>
                                 </div>
 
-                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
-                                    <div className="flex gap-4 -translate-y-10 group-hover:translate-y-0 transition-transform duration-500 delay-100">
-                                        <a href="https://github.com/adwaith85/Chat-App" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/80 backdrop-blur-md flex items-center justify-center text-white hover:bg-indigo-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="View Code">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 z-30">
+                                    <div className="flex gap-4 translate-y-0 md:-translate-y-10 md:group-hover:translate-y-0 transition-transform duration-500">
+                                        <a href="https://github.com/adwaith85/Chat-App" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/90 backdrop-blur-md flex items-center justify-center text-white hover:bg-indigo-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="View Code">
                                             <Github size={18} />
                                         </a>
                                     </div>
-                                    <p className="text-center text-sm font-medium text-slate-300 mt-4 translate-y-10 group-hover:translate-y-0 transition-transform duration-500 delay-100 leading-relaxed px-4">
+                                    <p className="text-center text-xs md:text-sm font-medium text-slate-300 mt-4 translate-y-0 md:translate-y-10 md:group-hover:translate-y-0 transition-transform duration-500 leading-relaxed px-4">
                                         Real-time messaging platform with authentication and random user matching features.
                                     </p>
                                 </div>
                             </div>
                         </motion.div>
                         <motion.div
-                            initial={{ opacity: 0, y: 30 }}
+                            initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
                             viewport={{ once: true }}
-                            className="group relative h-52 md:h-64 w-full rounded-2xl overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-500 bg-slate-900 border border-slate-800"
+                            className="group relative h-64 w-full rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 bg-slate-900 border border-slate-800"
                         >
-                            <div className="absolute inset-0 bg-slate-950/50 group-hover:bg-slate-950/80 transition-colors duration-500 z-10" />
+                            <div className="absolute inset-0 bg-slate-950/60 md:bg-slate-950/50 md:group-hover:bg-slate-950/80 transition-colors duration-500 z-10" />
                             <img
                                 src={todoImg}
                                 alt="To-Do Application"
@@ -793,16 +792,16 @@ const App = () => {
                                     <h3 className="text-xl font-bold text-white font-sans leading-tight drop-shadow-md">Task Manager</h3>
                                 </div>
 
-                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
-                                    <div className="flex gap-4 -translate-y-10 group-hover:translate-y-0 transition-transform duration-500 delay-100">
-                                        <a href="https://github.com/adwaith85/To-Do-App" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/80 backdrop-blur-md flex items-center justify-center text-white hover:bg-pink-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="View Code">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 z-30">
+                                    <div className="flex gap-4 translate-y-0 md:-translate-y-10 md:group-hover:translate-y-0 transition-transform duration-500">
+                                        <a href="https://github.com/adwaith85/To-Do-App" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/90 backdrop-blur-md flex items-center justify-center text-white hover:bg-pink-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="View Code">
                                             <Github size={18} />
                                         </a>
-                                        <a href="http://3.80.9.91" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/80 backdrop-blur-md flex items-center justify-center text-white hover:bg-pink-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="Live Demo">
+                                        <a href="http://3.80.9.91" target="_blank" className="w-10 h-10 rounded-xl bg-slate-800/90 backdrop-blur-md flex items-center justify-center text-white hover:bg-pink-500 hover:text-slate-950 transition-all duration-300 border border-white/10 hover:scale-110 shadow-lg" title="Live Demo">
                                             <ExternalLink size={18} />
                                         </a>
                                     </div>
-                                    <p className="text-center text-sm font-medium text-slate-300 mt-4 translate-y-10 group-hover:translate-y-0 transition-transform duration-500 delay-100 leading-relaxed px-4">
+                                    <p className="text-center text-xs md:text-sm font-medium text-slate-300 mt-4 translate-y-0 md:translate-y-10 md:group-hover:translate-y-0 transition-transform duration-500 leading-relaxed px-4">
                                         Simple yet powerful task management app with persistent storage and clean UI.
                                     </p>
                                 </div>
@@ -928,7 +927,7 @@ const App = () => {
                                             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                                             className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 md:p-5 focus:outline-none focus:border-cyan-500/50 transition-all font-medium placeholder:text-slate-700 resize-none text-sm"
                                         />
-                                    </div> 
+                                    </div>
                                 </div>
                                 <button
                                     disabled={formStatus === 'sending'}

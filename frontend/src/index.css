@@ -66,3 +66,10 @@ body { background: #06060e; }
   transform-style: preserve-3d;
   perspective: 1000px;
 }
+
+/* Hanging text rope animation */
+@keyframes hang-sway {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(3deg); }
+  75% { transform: rotate(-3deg); }
+}

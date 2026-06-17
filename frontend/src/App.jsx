@@ -6,7 +6,7 @@ import {
   CheckCircle2, Calendar, Zap, Twitter, Facebook,
   Lightbulb, Users, Target, Glasses, Brain,
   Braces, Palette, GraduationCap, Star, Award,
-  Code, Sparkles, ArrowUpRight, ChevronDown,
+  Code, Sparkles, ChevronDown,
   Globe, Hexagon, Fingerprint, Menu, X
 } from 'lucide-react';
 
@@ -263,6 +263,52 @@ function TiltCard({ children, className = '' }) {
   );
 }
 
+/* ─── HANGING TEXT ─── */
+function HangingText({ text = "WEB DEVELOPER" }) {
+  const letters = text.split('');
+  return (
+    <div className="flex items-start justify-center gap-[3px] md:gap-[5px] h-20 md:h-24">
+      {letters.map((letter, i) => (
+        <motion.div
+          key={i}
+          className="flex flex-col items-center cursor-default"
+          style={{ transformOrigin: 'top center' }}
+          animate={{
+            rotate: [0, 3, -2, 4, -3, 1, 0],
+          }}
+          transition={{
+            duration: 3 + (i % 3) * 0.7,
+            repeat: Infinity,
+            delay: i * 0.12,
+            ease: 'easeInOut',
+          }}
+          whileHover={{
+            rotate: [0, -30, 35, -25, 30, -18, 12, -6, 0],
+            scale: 1.15,
+            transition: { duration: 0.7, ease: 'easeOut' },
+          }}
+        >
+          <div className="w-[1px] h-10 md:h-12 bg-gradient-to-b from-indigo-400/60 via-indigo-400/20 to-transparent" />
+          <motion.span
+            className="text-2xl md:text-3xl lg:text-4xl font-black tracking-tight inline-block"
+            animate={{
+              color: ['#818cf8', '#22d3ee', '#c4b5fd', '#f472b6', '#fbbf24', '#34d399', '#818cf8'],
+            }}
+            transition={{
+              duration: 6,
+              repeat: Infinity,
+              ease: 'linear',
+              delay: i * 0.25,
+            }}
+          >
+            {letter === ' ' ? '\u00A0' : letter}
+          </motion.span>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
 /* ============================================================
    MAIN APP
    ============================================================ */
@@ -271,6 +317,7 @@ const App = () => {
   const [formStatus, setFormStatus] = useState('idle');
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
   const [expandedSkill, setExpandedSkill] = useState(null);
+  const [selectedCert, setSelectedCert] = useState(null);
   const mouse = useMousePos();
 
   const horizRef = useRef(null);
@@ -347,13 +394,6 @@ const App = () => {
 
         {/* Glass panel hero */}
         <div className="relative z-10 text-center px-6 max-w-5xl">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}>
-            <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full glass text-indigo-300 text-[11px] font-bold tracking-[0.2em] uppercase mb-8">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Open for Opportunities
-              <Sparkles size={12} className="text-amber-400/60" />
-            </div>
-          </motion.div>
 
           <motion.h1 initial={{ opacity: 0, y: 30, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.9, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
@@ -373,14 +413,9 @@ const App = () => {
             <span className="text-indigo-300 font-semibold">MERN Stack</span> — precision meets creativity.
           </motion.p>
 
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 0.6 }}
-            className="flex flex-wrap justify-center gap-3 mt-8">
-            <MagneticBtn href="#contact" className="px-7 py-3 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-bold rounded-xl text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-shadow">
-              Start Project <ArrowUpRight size={14} />
-            </MagneticBtn>
-            <MagneticBtn href="#projects" className="px-7 py-3 glass text-white/60 font-bold rounded-xl text-sm hover:text-white hover:bg-white/[0.07] transition-all">
-              Explore Work
-            </MagneticBtn>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.6 }}
+            className="mt-8">
+            <HangingText text="WEB DEVELOPER" />
           </motion.div>
         </div>
 
@@ -705,7 +740,7 @@ const App = () => {
                   <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Present</span>
                   <h3 className="text-xl md:text-2xl font-bold text-white mt-2">Open for Opportunities</h3>
                   <p className="text-white/40 text-sm mt-3 leading-relaxed">Currently seeking a full-time role where I can contribute, grow, and build impactful products with a passionate team.</p>
-                  <MagneticBtn href="#contact" className="mt-5 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-bold rounded-xl text-xs tracking-widest uppercase shadow-lg shadow-indigo-500/20">
+                  <MagneticBtn onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })} className="mt-5 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white font-bold rounded-xl text-xs tracking-widest uppercase shadow-lg shadow-indigo-500/20">
                     Let's Talk
                   </MagneticBtn>
                 </div>
@@ -730,22 +765,39 @@ const App = () => {
 
           <div className="flex flex-wrap justify-center gap-6">
             {[
-              { src: cert1Img, label: 'Certificate I' },
-              { src: cert2Img, label: 'Certificate II' },
-              { src: cert3Img, label: 'Certificate III' }
+              { src: cert1Img },
+              { src: cert2Img },
+              { src: cert3Img }
             ].map((cert, i) => (
               <ScaleIn key={i} delay={i * 0.1}>
-                <TiltCard className="glass rounded-2xl overflow-hidden border border-white/10 w-[280px] md:w-[320px] group cursor-pointer"
+                <TiltCard className="glass rounded-2xl overflow-hidden border border-white/10 w-[240px] md:w-[280px] group cursor-pointer"
                   whileHover={{ scale: 1.02 }}>
-                  <div className="aspect-[4/3] relative overflow-hidden">
-                    <img src={cert.src} alt={cert.label} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#06060e] via-transparent to-transparent opacity-60" />
+                  <div className="aspect-[4/3] relative overflow-hidden bg-[#06060e] flex items-center justify-center">
+                    <img src={cert.src} alt="Certificate"
+                      className="w-full h-full object-contain transition-all duration-500 blur-sm group-hover:blur-none p-2"
+                      onClick={() => setSelectedCert(cert.src)} />
                   </div>
-                  <div className="p-4"><p className="text-xs font-bold text-white/60 uppercase tracking-widest">{cert.label}</p></div>
                 </TiltCard>
               </ScaleIn>
             ))}
           </div>
+
+          {/* Lightbox */}
+          <AnimatePresence>
+            {selectedCert && (
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+                onClick={() => setSelectedCert(null)}
+              >
+                <motion.img
+                  initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}
+                  src={selectedCert} alt="Certificate Full"
+                  className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+                  onClick={(e) => e.stopPropagation()} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </section>
 

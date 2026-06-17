@@ -141,13 +141,15 @@ function FloatingNav({ sections }) {
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         className="fixed top-5 left-1/2 -translate-x-1/2 z-[9999]">
         <div className="glass-s rounded-2xl px-2 py-1.5 flex items-center gap-1 shadow-2xl shadow-indigo-500/5">
-          {sections.map((id) => (
-            <button key={id} onClick={() => scrollTo(id)}
-              className={`relative px-3 py-2 text-[9px] font-bold uppercase tracking-[0.2em] transition-all duration-300 rounded-lg ${active === id ? 'text-white' : 'text-white/30 hover:text-white/60'}`}>
-              {active === id && <motion.div layoutId="nav-active" className="absolute inset-0 bg-white/10 rounded-lg" transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }} />}
-              <span className="relative z-10">{labels[id]}</span>
-            </button>
-          ))}
+          <div className="hidden lg:flex items-center gap-1">
+            {sections.map((id) => (
+              <button key={id} onClick={() => scrollTo(id)}
+                className={`relative px-3 py-2 text-[9px] font-bold uppercase tracking-[0.2em] transition-all duration-300 rounded-lg ${active === id ? 'text-white' : 'text-white/30 hover:text-white/60'}`}>
+                {active === id && <motion.div layoutId="nav-active" className="absolute inset-0 bg-white/10 rounded-lg" transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }} />}
+                <span className="relative z-10">{labels[id]}</span>
+              </button>
+            ))}
+          </div>
           <button onClick={() => setMenuOpen(true)} className="p-2 text-white/40 hover:text-white lg:hidden"><Menu size={16} /></button>
         </div>
       </motion.nav>
@@ -292,7 +294,7 @@ function HangingText({ text = "WEB DEVELOPER" }) {
           <motion.span
             className="text-2xl md:text-3xl lg:text-4xl font-black tracking-tight inline-block"
             animate={{
-              color: ['#818cf8', '#22d3ee', '#c4b5fd', '#f472b6', '#fbbf24', '#34d399', '#818cf8'],
+              color: ['#6366f1', '#7c3aed', '#0d9488', '#be185d', '#059669', '#1d4ed8', '#6d28d9', '#b91c1c', '#4338ca', '#0f766e', '#9d174d', '#4f46e5'],
             }}
             transition={{
               duration: 6,
@@ -427,7 +429,7 @@ const App = () => {
       {/* ================================================================
           2. ABOUT — Cinematic Reveal
           ================================================================ */}
-      <section id="about" className="relative py-32 md:py-44 px-6 overflow-hidden">
+      <section id="about" className="relative py-10 md:py-18 px-6 overflow-hidden">
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="space-y-8">
@@ -674,13 +676,13 @@ const App = () => {
                       </div>
                       <h3 className="text-base md:text-lg font-bold text-white">{p.title}</h3>
                     </div>
-                    <motion.div initial={{ opacity: 0, y: 8 }} whileHover={{ opacity: 1, y: 0 }} className="mt-1.5 space-y-2">
+                    <div className="mt-1.5 space-y-2 md:opacity-0 md:group-hover:opacity-100 md:translate-y-2 md:group-hover:translate-y-0 transition-all duration-300">
                       <p className="text-[11px] text-white/50 leading-relaxed line-clamp-2">{p.desc}</p>
                       <div className="flex gap-1.5">
                         <a href={p.github} target="_blank" className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-white/60 hover:bg-indigo-500 hover:text-white transition-all border border-white/10"><Github size={12} /></a>
                         {p.demo && <a href={p.demo} target="_blank" className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-white/60 hover:bg-cyan-500 hover:text-white transition-all border border-white/10"><ExternalLink size={12} /></a>}
                       </div>
-                    </motion.div>
+                    </div>
                   </div>
                 </TiltCard>
               ))}
@@ -770,9 +772,9 @@ const App = () => {
               { src: cert3Img }
             ].map((cert, i) => (
               <ScaleIn key={i} delay={i * 0.1}>
-                <TiltCard className="glass rounded-2xl overflow-hidden border border-white/10 w-[240px] md:w-[280px] group cursor-pointer"
+                <TiltCard className="glass rounded-2xl overflow-hidden w-[240px] md:w-[280px] group cursor-pointer"
                   whileHover={{ scale: 1.02 }}>
-                  <div className="aspect-[4/3] relative overflow-hidden bg-[#06060e] flex items-center justify-center">
+                  <div className="aspect-[4/3] relative overflow-hidden bg-transparent flex items-center justify-center">
                     <img src={cert.src} alt="Certificate"
                       className="w-full h-full object-contain transition-all duration-500 blur-sm group-hover:blur-none p-2"
                       onClick={() => setSelectedCert(cert.src)} />
@@ -905,6 +907,7 @@ const App = () => {
                 { i: <Linkedin size={14} />, l: 'https://linkedin.com/in/adwaith-a-kumar', h: 'hover:bg-[#0077b5]' },
                 { i: <Twitter size={14} />, l: 'https://x.com/Adwaith710', h: 'hover:bg-[#1DA1F2]' },
                 { i: <Facebook size={14} />, l: 'https://www.facebook.com/share/17zqpHjQSh/', h: 'hover:bg-[#1877F2]' },
+                { i: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>, l: 'https://www.instagram.com/7_ad_wait_h_8/', h: 'hover:bg-[#E4405F]' },
                 { i: <Mail size={14} />, l: 'mailto:adwaithadhu85227@gmail.com', h: 'hover:bg-[#EA4335]' }
               ].map((s, i) => (
                 <motion.a key={i} href={s.l} target="_blank" rel="noopener noreferrer"

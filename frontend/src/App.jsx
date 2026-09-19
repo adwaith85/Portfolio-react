@@ -73,12 +73,13 @@ const softSkills = [
 ];
 
 const projects = [
-  { img: ecommerceImg, tag: 'MERN Stack', title: 'ShopCart', desc: 'Full-stack shopping with cart, auth, and Stripe checkout.', color: 'indigo', github: 'https://github.com/adwaith85/project-Ecommerce-', demo: 'https://shop-cart.adwaid.online/' },
+  { img: genmiseoImg, tag: 'E-Commerce', title: 'Genmise', desc: 'Online shopping and content creation platform.', color: 'emerald', github: 'https://github.com/adwaith85/ecomm-backend', demo: 'https://genmise.adwaid.online/' },
   { img: uberImg, tag: 'Real-Time', title: 'Oober', desc: 'Ride-booking platform with rider/driver dashboards + live tracking.', color: 'cyan', github: 'https://github.com/adwaith85/Project-Uber', demo: 'https://oober.adwaid.online/' },
   { img: uberDriverImg, tag: 'Real-Time', title: 'Oober Driver', desc: 'Driver platform for ride management, earnings, and requests.', color: 'cyan', github: 'https://github.com/adwaith85/Project-Uber', demo: 'https://oober-driver.adwaid.online/' },
   { img: chatImg, tag: 'WebSocket', title: 'Chat App', desc: 'Real-time messaging with auth, matching, and conversations.', color: 'violet', github: 'https://github.com/adwaith85/Chat-App', demo: null },
-  { img: todoImg, tag: 'Productivity', title: 'Task Manager', desc: 'Task management with persistent storage and smooth UX.', color: 'emerald', github: 'https://github.com/adwaith85/To-Do-App', demo: 'https://todo.adwaid.online/' },
-  { img: genmiseoImg, tag: 'E-Commerce', title: 'Genmise', desc: 'Online shopping and content creation platform.', color: 'emerald', github: 'https://github.com/adwaith85/ecomm-backend', demo: 'https://genmise.adwaid.online/' },
+  { img: todoImg, tag: 'Productivity', title: 'Task Manager', desc: 'Task management with persistent storage and smooth UX.', color: 'emerald', github: 'https://github.com/adwaith85/To-Do-App', demo: 'https://gonnado.adwaid.online/' },
+  { img: ecommerceImg, tag: 'MERN Stack', title: 'ShopCart', desc: 'Full-stack shopping with cart, auth, and Stripe checkout.', color: 'indigo', github: 'https://github.com/adwaith85/project-Ecommerce-', demo: 'https://shop-cart.adwaid.online/' },
+
 ];
 
 const certificates = [

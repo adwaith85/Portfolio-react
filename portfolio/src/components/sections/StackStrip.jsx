@@ -1,17 +1,23 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { stack } from "../../data/stack";
+import { swarm } from "../cursors/swarmApi";
 import { typeReveal } from "../../engine/buildKit";
+import {
+  createViewportReveal,
+  cursorIntro,
+  cursorOutro,
+} from "../../engine/viewport";
+import useAgentsEnabled from "../../engine/useAgentsEnabled";
 import Logo from "../ui/Logo";
 
-gsap.registerPlugin(ScrollTrigger);
-
 const BASE_SPEED = 55; // pixels per second, moving left. Raise it to go faster.
+const AG = { head: 12, marquee: 13 };
 
 function Chip({ item, dup = false }) {
   return (
     <li
+      data-stack-chip
       {...(dup ? { "aria-hidden": "true", "data-dup": "" } : {})}
       className="group/chip mr-8 flex shrink-0 items-center gap-2.5 sm:mr-12 sm:gap-3 lg:mr-14"
     >
@@ -27,59 +33,190 @@ export default function StackStrip() {
   const root = useRef(null);
   const view = useRef(null);
   const track = useRef(null);
+  const enabled = useAgentsEnabled();
 
-  /* builds itself when it enters the screen, plays backward when you scroll back up */
+  /* heading + marquee wipe, each with its own viewport trigger */
   useLayoutEffect(() => {
     const el = root.current;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) return;
 
     const ctx = gsap.context(() => {
-      const $ = (s) => el.querySelector(s);
-      const line = $("[data-line]");
-      const kicker = $("[data-kicker]");
-      const head = $("[data-head]");
-      const v = $("[data-view]");
-      const handle = $("[data-handle]");
+      const line = el.querySelector("[data-line]");
+      const kicker = el.querySelector("[data-kicker]");
+      const head = el.querySelector("[data-head]");
+      const v = el.querySelector("[data-view]");
+      const handle = el.querySelector("[data-handle]");
 
       if (line) gsap.set(line, { scaleX: 0, transformOrigin: "0% 50%" });
-      const kickerAndHead = [kicker, head].filter(Boolean);
-      if (kickerAndHead.length) gsap.set(kickerAndHead, { autoAlpha: 0 });
+      [kicker, head].filter(Boolean).forEach((n) => gsap.set(n, { autoAlpha: 0 }));
       if (v) gsap.set(v, { clipPath: "inset(0 100% 0 0)" });
       if (handle) gsap.set(handle, { autoAlpha: 0 });
-
-      const p = { v: 0 };
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: el,
-          start: "top 88%",
-          toggleActions: "play none none reverse",
-        },
-      });
-
-      if (line) tl.to(line, { scaleX: 1, duration: 0.7, ease: "power3.out" }, 0);
-      if (kicker) tl.add(typeReveal(kicker, { duration: 0.35 }), 0.15);
-      if (head) tl.add(typeReveal(head, { duration: 0.55 }), 0.35);
-      if (handle) tl.set(handle, { autoAlpha: 1 }, 0.3);
-      if (v && handle) {
-        tl.to(
-          p,
-          {
-            v: 1,
-            duration: 1.1,
-            ease: "power2.inOut",
-            onUpdate: () => {
-              v.style.clipPath = `inset(0 ${(1 - p.v) * 100}% 0 0)`;
-              handle.style.left = `${p.v * 100}%`;
-            },
-          },
-          0.3
-        );
-      }
-      if (handle) tl.set(handle, { autoAlpha: 0 }, 1.4);
     }, root);
 
-    return () => ctx.revert();
+    const stop = createViewportReveal({
+      root: el,
+      sectionId: "stack",
+      enabled,
+      reduced,
+      start: "top 95%",
+      speed: 1.35,
+      back: 2.2,
+      groups: [
+        {
+          element: el.querySelector("[data-stack-heading]"),
+          agents: [AG.head],
+          build: () => {
+            const $ = (s) => el.querySelector(s);
+            const line = $("[data-line]");
+            const kicker = $("[data-kicker]");
+            const head = $("[data-head]");
+
+            const tl = gsap.timeline();
+            cursorIntro(tl, [AG.head], 0);
+
+            if (line) {
+              tl.to(line, { scaleX: 1, duration: 0.7, ease: "power3.out" }, 0);
+            }
+            if (kicker) {
+              tl.add(
+                swarm.moveTo(AG.head, kicker, {
+                  duration: 0.45,
+                  offset: { x: 0, y: 0.5 },
+                }),
+                0
+              );
+              tl.add(() => swarm.click(AG.head), 0.45);
+              tl.add(typeReveal(kicker, { duration: 0.35, agent: AG.head }), 0.5);
+            }
+            if (head) {
+              tl.add(typeReveal(head, { duration: 0.5, agent: AG.head }), 0.9);
+            }
+
+            cursorOutro(tl, [AG.head], { at: ">+=0.35" });
+            return tl;
+          },
+        },
+        {
+          element: el.querySelector("[data-view]"),
+          agents: [AG.marquee],
+          once: true,
+          build: () => {
+            const $ = (s) => el.querySelector(s);
+            const v = $("[data-view]");
+            const handle = $("[data-handle]");
+            const p = { v: 0 };
+
+            const tl = gsap.timeline();
+            cursorIntro(tl, [AG.marquee], 0);
+
+            if (v) {
+              tl.add(
+                swarm.moveTo(AG.marquee, v, {
+                  duration: 0.5,
+                  offset: { x: 0, y: 0.5 },
+                }),
+                0
+              );
+              tl.add(() => swarm.click(AG.marquee), 0.5);
+            }
+            if (handle) tl.set(handle, { autoAlpha: 1 }, 0.45);
+
+            if (v && handle) {
+              tl.to(
+                p,
+                {
+                  v: 1,
+                  duration: 1.1,
+                  ease: "power2.inOut",
+                  onUpdate: () => {
+                    v.style.clipPath = `inset(0 ${(1 - p.v) * 100}% 0 0)`;
+                    handle.style.left = `${p.v * 100}%`;
+                    if (enabled) swarm.placeAt(AG.marquee, v, p.v, 0.5);
+                  },
+                },
+                0.55
+              );
+            }
+
+            if (handle) tl.set(handle, { autoAlpha: 0 }, 1.7);
+            cursorOutro(tl, [AG.marquee], { at: 1.7 });
+            return tl;
+          },
+        },
+      ],
+    });
+
+    return () => {
+      stop();
+      ctx.revert();
+    };
+  }, [enabled]);
+
+  /* Logos reveal one by one as the moving row brings them into view.
+     Each chip is unobserved after its first reveal, so a logo looping round
+     again never re-triggers an animation. */
+  useEffect(() => {
+    const v = view.current;
+    if (!v) return;
+
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) return;
+
+    const chips = [...v.querySelectorAll("[data-stack-chip]")];
+    if (!chips.length) return;
+
+    chips.forEach((c) => delete c.dataset.revealed);
+
+    const tweens = [];
+    const ctx = gsap.context(() => {
+      gsap.set(chips, { opacity: 0, y: 8, scale: 0.9 });
+    }, v);
+
+    const reveal = (el) => {
+      if (el.dataset.revealed === "1") return;
+      el.dataset.revealed = "1";
+      tweens.push(
+        gsap.to(el, {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.45,
+          ease: "power2.out",
+          delay: Math.random() * 0.07,
+        })
+      );
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          io.unobserve(entry.target);
+          reveal(entry.target);
+        });
+      },
+      { root: v, rootMargin: "0px 6% 0px 6%", threshold: 0.2 }
+    );
+
+    chips.forEach((c) => io.observe(c));
+
+    // Safety net for browsers that do not report transformed marquee children:
+    // reveal only the chips that are genuinely on screen, never the offscreen ones.
+    const fallback = setTimeout(() => {
+      const vr = v.getBoundingClientRect();
+      chips.forEach((c) => {
+        const r = c.getBoundingClientRect();
+        if (r.right > vr.left && r.left < vr.right) reveal(c);
+      });
+    }, 700);
+
+    return () => {
+      clearTimeout(fallback);
+      io.disconnect();
+      tweens.forEach((t) => t.kill());
+      ctx.revert();
+    };
   }, []);
 
   /* the marquee: moves by itself, and can be dragged / swiped / scrolled sideways */
@@ -188,11 +325,16 @@ export default function StackStrip() {
   }, []);
 
   return (
-    <section id="stack" ref={root} aria-label="Tech stack" className="relative">
+    <section
+      id="stack"
+      ref={root}
+      aria-label="Tech stack"
+      className="relative overflow-x-clip"
+    >
       <i data-line className="absolute inset-x-0 top-0 h-px bg-line" />
 
       {/* heading: top-left, above the moving row */}
-      <div className="px-gutter pt-5 lg:pt-6">
+      <div data-stack-heading className="px-gutter pt-5 lg:pt-6">
         <p
           data-kicker
           className="block w-fit text-[0.78rem] font-light uppercase tracking-[0.08em] text-muted"

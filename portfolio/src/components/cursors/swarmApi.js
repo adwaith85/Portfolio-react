@@ -8,10 +8,32 @@ const PAD = 48;
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
-const randomPoint = () => ({
-  x: rand(PAD, window.innerWidth - PAD),
-  y: rand(PAD, window.innerHeight - PAD),
-});
+// While roaming, keep the cursors reasonably spread out. A pure random point
+// lets 20 agents pile up in the same corner, which looks messy. Each agent
+// picks a point, then nudges away from any cursor that is already close.
+const randomPoint = (self = null) => {
+  let x = rand(PAD, window.innerWidth - PAD);
+  let y = rand(PAD, window.innerHeight - PAD);
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    let crowded = false;
+    for (let i = 0; i < agents.length; i++) {
+      const a = agents[i];
+      if (!a || a === self || !a.wrap) continue;
+      const ax = Number(gsap.getProperty(a.wrap, "x")) || 0;
+      const ay = Number(gsap.getProperty(a.wrap, "y")) || 0;
+      if (Math.abs(ax - x) < 52 && Math.abs(ay - y) < 42) {
+        crowded = true;
+        break;
+      }
+    }
+    if (!crowded) break;
+    x = rand(PAD, window.innerWidth - PAD);
+    y = rand(PAD, window.innerHeight - PAD);
+  }
+
+  return { x, y };
+};
 
 // viewport position of an element (or selector). offset is 0..1 inside the element
 function pointOf(target, offset = { x: 0.5, y: 0.5 }) {
@@ -128,7 +150,7 @@ export const swarm = {
     const a = agents[i];
     if (!a || a.claimed) return;
     const step = () => {
-      const p = randomPoint();
+      const p = randomPoint(a);
       const tl = gsap.timeline({ onComplete: step });
       tl.to(a.wrap, {
         x: p.x,
@@ -136,7 +158,7 @@ export const swarm = {
         duration: rand(0.7, 2.0),
         ease: "power3.inOut",
       });
-      if (Math.random() < 0.4) {
+      if (Math.random() < 0.32) {
         tl.add(() => {
           swarm.click(i);
         });
@@ -174,7 +196,26 @@ export const swarm = {
 
   // the DOM elements of some agents, so a build can fade them with GSAP
   els(list) {
+    if (!Array.isArray(list)) return [];
     return list.map((i) => agents[i] && agents[i].wrap).filter(Boolean);
+  },
+
+  // claim a whole lease at once (a viewport group owns a set of agents)
+  claimMany(list) {
+    if (!Array.isArray(list)) return;
+    list.forEach((i) => swarm.claim(i));
+  },
+
+  // per-agent visibility, used by the viewport groups so one group leaving
+  // never hides the cursors another visible group is still using
+  show(i) {
+    const a = agents[i];
+    if (a) a.wrap.style.visibility = "visible";
+  },
+
+  hide(i) {
+    const a = agents[i];
+    if (a) a.wrap.style.visibility = "hidden";
   },
 
   // hide/show every cursor without touching its opacity (used for scroll-back)

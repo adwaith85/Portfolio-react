@@ -4,15 +4,16 @@ import { content } from "../../data/content";
 import { stack } from "../../data/stack";
 import { swarm } from "../cursors/swarmApi";
 import { typeReveal } from "../../engine/buildKit";
-import { playOnEnter } from "../../engine/sectionBuild";
+import {
+  createViewportReveal,
+  cursorIntro,
+  cursorOutro,
+} from "../../engine/viewport";
 import useAgentsEnabled from "../../engine/useAgentsEnabled";
 import Logo from "../ui/Logo";
 
-/* which cursor does which job
-   0 = heading, 1 = featured card, 2+3 = row two, 4+5 = row three */
-const AG = { head: 0, feat: 1, rows: [[2, 3], [4, 5]] };
-const USED = [AG.head, AG.feat, ...AG.rows.flat()];
-const ROW_START = [1.5, 2.6]; // when each row of normal cards begins (seconds)
+/* which cursor does which job (all leases are disjoint inside this section) */
+const AG = { head: 0, feat: 1, cards: [2, 3, 4, 5] };
 
 const BLUE = "#4c8dff";
 const NORMAL = { fill: "#121212", edge: "rgba(255,255,255,0.1)" };
@@ -84,165 +85,170 @@ function Shell({ tag, colors = NORMAL, className = "", children, ...rest }) {
   );
 }
 
-/* The whole section as one timeline. Called lazily, when the section is first reached. */
-function buildProjects(root) {
-  const $ = (s) => root.querySelector(s);
-  const all = (s) => [...root.querySelectorAll(s)];
+/* a cursor drags a frame out corner to corner, recolors it, nudges it, draws its bar.
+   returns the time at which the frame's content can start typing */
+function drawFrame(tl, frame, ag, t0 = 0) {
+  if (!frame) return t0;
+  const sel = frame.querySelector("[data-sel]");
+  const handles = sel ? sel.querySelectorAll("[data-handle]") : [];
+  const tag = sel ? sel.querySelector("[data-tag]") : null;
+  const bg = frame.querySelector("[data-bg]");
+  const bar = frame.querySelector("[data-bar]");
+  const p = { v: 0 };
 
-  const tl = gsap.timeline({ paused: true });
+  tl.add(swarm.moveTo(ag, frame, { duration: 0.5, offset: { x: 0, y: 0 } }), t0);
+  if (sel) tl.set(sel, { autoAlpha: 1 }, t0 + 0.5);
+  tl.add(() => swarm.click(ag), t0 + 0.5);
 
-  /* cursors rise in from below the screen */
-  const els = swarm.els(USED);
-  if (els.length) {
-    tl.set(
-      els,
-      {
-        opacity: 1,
-        x: () => gsap.utils.random(40, window.innerWidth - 40),
-        y: () => window.innerHeight + 30,
+  tl.to(
+    p,
+    {
+      v: 1,
+      duration: 0.55,
+      ease: "power2.out",
+      onUpdate: () => {
+        const r = (1 - p.v) * 100;
+        if (sel) {
+          sel.style.width = `${p.v * 100}%`;
+          sel.style.height = `${p.v * 100}%`;
+        }
+        if (bg) bg.style.clipPath = `inset(0 ${r}% ${r}% 0)`;
+        swarm.placeAt(ag, frame, p.v, p.v);
       },
-      0
+    },
+    t0 + 0.55
+  );
+  if (handles.length) {
+    tl.fromTo(
+      handles,
+      { scale: 0 },
+      { scale: 1, duration: 0.25, stagger: 0.03, ease: "back.out(3)" },
+      t0 + 1.05
+    );
+  }
+  if (tag) {
+    tl.fromTo(
+      tag,
+      { autoAlpha: 0, y: 4 },
+      { autoAlpha: 1, y: 0, duration: 0.2 },
+      t0 + 1.05
     );
   }
 
-  /* a cursor drags a frame out corner to corner, recolors it, nudges it, draws its bar.
-     returns the time at which the frame's content can start typing */
-  const drawFrame = (frame, ag, t0) => {
-    if (!frame) return t0;
-    const sel = frame.querySelector("[data-sel]");
-    const handles = sel ? sel.querySelectorAll("[data-handle]") : [];
-    const tag = sel ? sel.querySelector("[data-tag]") : null;
-    const bg = frame.querySelector("[data-bg]");
-    const bar = frame.querySelector("[data-bar]");
-    const p = { v: 0 };
-
-    tl.add(swarm.moveTo(ag, frame, { duration: 0.5, offset: { x: 0, y: 0 } }), t0);
-    if (sel) tl.set(sel, { autoAlpha: 1 }, t0 + 0.5);
-    tl.add(() => swarm.click(ag), t0 + 0.5);
-
+  tl.add(
+    swarm.moveTo(ag, frame, { duration: 0.35, offset: { x: 0.5, y: 0.5 } }),
+    t0 + 1.15
+  );
+  tl.add(() => swarm.click(ag), t0 + 1.5);
+  if (bg) {
     tl.to(
-      p,
-      {
-        v: 1,
-        duration: 0.55,
-        ease: "power2.out",
-        onUpdate: () => {
-          const r = (1 - p.v) * 100;
-          if (sel) {
-            sel.style.width = `${p.v * 100}%`;
-            sel.style.height = `${p.v * 100}%`;
-          }
-          if (bg) bg.style.clipPath = `inset(0 ${r}% ${r}% 0)`;
-          swarm.placeAt(ag, frame, p.v, p.v);
-        },
-      },
-      t0 + 0.55
+      bg,
+      { backgroundColor: bg.dataset.fill, borderColor: bg.dataset.edge, duration: 0.4 },
+      t0 + 1.5
     );
-    if (handles.length) {
-      tl.fromTo(
-        handles,
-        { scale: 0 },
-        { scale: 1, duration: 0.25, stagger: 0.03, ease: "back.out(3)" },
-        t0 + 1.05
-      );
-    }
-    if (tag) {
-      tl.fromTo(tag, { autoAlpha: 0, y: 4 }, { autoAlpha: 1, y: 0, duration: 0.2 }, t0 + 1.05);
-    }
+  }
+  tl.fromTo(
+    frame,
+    { scale: 1 },
+    { scale: 1.02, duration: 0.15, yoyo: true, repeat: 1, ease: "power2.inOut" },
+    t0 + 1.55
+  );
+  if (bar) tl.to(bar, { scaleX: 1, duration: 0.45, ease: "power3.out" }, t0 + 1.65);
+  if (sel) tl.to(sel, { autoAlpha: 0, duration: 0.25 }, t0 + 1.75);
 
-    tl.add(swarm.moveTo(ag, frame, { duration: 0.35, offset: { x: 0.5, y: 0.5 } }), t0 + 1.15);
-    tl.add(() => swarm.click(ag), t0 + 1.5);
-    if (bg) {
-      tl.to(
-        bg,
-        { backgroundColor: bg.dataset.fill, borderColor: bg.dataset.edge, duration: 0.4 },
-        t0 + 1.5
-      );
-    }
-    tl.fromTo(
-      frame,
-      { scale: 1 },
-      { scale: 1.02, duration: 0.15, yoyo: true, repeat: 1, ease: "power2.inOut" },
-      t0 + 1.55
-    );
-    if (bar) tl.to(bar, { scaleX: 1, duration: 0.45, ease: "power3.out" }, t0 + 1.65);
-    if (sel) tl.to(sel, { autoAlpha: 0, duration: 0.25 }, t0 + 1.75);
+  return t0 + 1.65;
+}
 
-    return t0 + 1.65;
-  };
+/* ---------- one builder per viewport group ---------- */
 
-  /* ---------- heading ---------- */
+function buildHeading(rootEl) {
+  const $ = (s) => rootEl.querySelector(s);
   const label = $("[data-label]");
   const h1 = $("[data-h1]");
   const h2 = $("[data-h2]");
   const sub2 = $("[data-sub2]");
+
+  const tl = gsap.timeline();
+  cursorIntro(tl, [AG.head], 0);
+
   if (label) {
-    tl.add(swarm.moveTo(AG.head, label, { duration: 0.5, offset: { x: 0, y: 0.5 } }), 0);
+    tl.add(
+      swarm.moveTo(AG.head, label, { duration: 0.45, offset: { x: 0, y: 0.5 } }),
+      0
+    );
+    tl.add(() => swarm.click(AG.head), 0.45);
     tl.add(typeReveal(label, { duration: 0.35, agent: AG.head }), 0.5);
   }
-  if (h1) tl.add(typeReveal(h1, { duration: 0.45, agent: AG.head }), 0.85);
-  if (h2) tl.add(typeReveal(h2, { duration: 0.4, agent: AG.head }), 1.3);
-  if (sub2) tl.add(typeReveal(sub2, { duration: 0.6, smooth: true, agent: AG.head }), 1.65);
+  if (h1) tl.add(typeReveal(h1, { duration: 0.45, agent: AG.head }), 0.9);
+  if (h2) tl.add(typeReveal(h2, { duration: 0.4, agent: AG.head }), 1.35);
+  if (sub2) {
+    tl.add(
+      typeReveal(sub2, { duration: 0.55, smooth: true, agent: AG.head }),
+      1.75
+    );
+  }
 
-  /* ---------- project cards ---------- */
-  all("[data-card]").forEach((card, k) => {
-    let ag;
-    let t0;
-    if (k === 0) {
-      // the featured card is built alone by cursor 1
-      ag = AG.feat;
-      t0 = 0.4;
-    } else {
-      // normal cards: two cursors work in parallel, one per card in the row
-      const row = Math.floor((k - 1) / 2);
-      const col = (k - 1) % 2;
-      ag = AG.rows[row] ? AG.rows[row][col] : AG.head;
-      t0 = (ROW_START[row] ?? 3.7) + col * 0.15;
-    }
+  cursorOutro(tl, [AG.head], { at: ">+=0.45" });
+  return tl;
+}
 
-    const base = drawFrame(card, ag, t0);
+function buildCard(card, agents) {
+  const ag = agents[0];
+  const tl = gsap.timeline();
+  cursorIntro(tl, agents, 0);
 
-    const num = card.querySelector("[data-pnum]");
-    const img = card.querySelector("[data-pimg]");
-    const title = card.querySelector("[data-title]");
-    const text = card.querySelector("[data-ltext]");
-    const chips = [...card.querySelectorAll("[data-chip]")];
-    const links = [...card.querySelectorAll("[data-link]")];
-    const arrow = card.querySelector("[data-arrow]");
+  const base = drawFrame(tl, card, ag, 0.05);
 
-    if (img) tl.fromTo(img, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, base - 0.1);
-    if (num) {
-      tl.fromTo(
-        num,
-        { autoAlpha: 0, scale: 0.5 },
-        { autoAlpha: 1, scale: 1, duration: 0.4, ease: "back.out(2)" },
-        base
-      );
-    }
-    if (title) tl.add(typeReveal(title, { duration: 0.4 }), base + 0.1);
-    if (text) tl.add(typeReveal(text, { duration: 0.6, smooth: true }), base + 0.35);
-    if (chips.length) {
-      tl.fromTo(
-        chips,
-        { autoAlpha: 0, scale: 0.4 },
-        { autoAlpha: 1, scale: 1, duration: 0.35, stagger: 0.07, ease: "back.out(2.5)" },
-        base + 0.8
-      );
-    }
-    if (links.length) {
-      tl.fromTo(
-        links,
-        { autoAlpha: 0, y: 6 },
-        { autoAlpha: 1, y: 0, duration: 0.35, stagger: 0.1, ease: "power2.out" },
-        base + 1.2
-      );
-    }
-    if (arrow) tl.to(arrow, { autoAlpha: 1, duration: 0.3 }, base + 1.3);
-  });
+  const num = card.querySelector("[data-pnum]");
+  const img = card.querySelector("[data-pimg]");
+  const title = card.querySelector("[data-title]");
+  const text = card.querySelector("[data-ltext]");
+  const chips = [...card.querySelectorAll("[data-chip]")];
+  const links = [...card.querySelectorAll("[data-link]")];
+  const arrow = card.querySelector("[data-arrow]");
 
-  /* ---------- finish: cursors fade out 1 second after the last action ---------- */
-  if (els.length) tl.to(els, { opacity: 0, duration: 0.5 }, ">+=1");
+  if (img) tl.fromTo(img, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, base - 0.1);
+  if (num) {
+    tl.fromTo(
+      num,
+      { autoAlpha: 0, scale: 0.5 },
+      { autoAlpha: 1, scale: 1, duration: 0.4, ease: "back.out(2)" },
+      base
+    );
+  }
+  if (title) tl.add(typeReveal(title, { duration: 0.4 }), base + 0.1);
+  if (text) tl.add(typeReveal(text, { duration: 0.55, smooth: true }), base + 0.35);
+  if (chips.length) {
+    tl.fromTo(
+      chips,
+      { autoAlpha: 0, scale: 0.4 },
+      {
+        autoAlpha: 1,
+        scale: 1,
+        duration: 0.35,
+        stagger: 0.07,
+        ease: "back.out(2.5)",
+      },
+      base + 0.8
+    );
+  }
+  if (links.length) {
+    tl.fromTo(
+      links,
+      { autoAlpha: 0, y: 6 },
+      {
+        autoAlpha: 1,
+        y: 0,
+        duration: 0.35,
+        stagger: 0.1,
+        ease: "power2.out",
+      },
+      base + 1.2
+    );
+  }
+  if (arrow) tl.to(arrow, { autoAlpha: 1, duration: 0.3 }, base + 1.3);
 
+  cursorOutro(tl, agents, { at: ">+=0.4" });
   return tl;
 }
 
@@ -260,6 +266,7 @@ function Card({ project: p, n, featured }) {
     >
       <Shell
         data-card=""
+        data-featured={featured ? "" : undefined}
         tag={`article.project-${num}`}
         className={`w-full flex-1 ${featured ? "lg:min-h-[13rem]" : "lg:min-h-[10.5rem]"}`}
       >
@@ -382,7 +389,7 @@ export default function Projects() {
       return;
     }
 
-    // hidden starting state, so nothing flashes before the build reaches it
+    // hidden starting state, so nothing flashes before its group is reached
     const ctx = gsap.context(() => {
       const revealEls = all(
         "[data-label],[data-h1],[data-h2],[data-sub2],[data-pnum],[data-pimg],[data-title],[data-ltext],[data-chip],[data-link],[data-arrow],[data-sel],[data-tag]"
@@ -404,24 +411,42 @@ export default function Projects() {
       if (sels.length) gsap.set(sels, { width: "0%", height: "0%" });
     }, root);
 
-    const stop = playOnEnter(
-      el,
-      () => {
-        let t;
-        ctx.add(() => {
-          t = buildProjects(el);
-        });
-        return t;
+    const headingEl = el.querySelector("header");
+    const cardEls = all("[data-card]");
+
+    const groups = [
+      headingEl && {
+        element: headingEl,
+        agents: [AG.head],
+        build: () => buildHeading(el),
       },
-      { useAgents: enabled, start: "top 60%", speed: 1.35, back: 2.4 }
-    );
+      ...cardEls.map((card, k) => {
+        const featured = card.hasAttribute("data-featured");
+        const agents = featured ? [AG.feat] : [AG.cards[(k - 1) % AG.cards.length]];
+        return {
+          element: card,
+          agents,
+          build: (node) => buildCard(node, agents),
+        };
+      }),
+    ].filter(Boolean);
+
+    const stop = createViewportReveal({
+      root: el,
+      sectionId: "projects",
+      enabled,
+      reduced,
+      start: "top 95%",
+      speed: 1.35,
+      back: 2.2,
+      groups,
+    });
 
     return () => {
       stop();
       ctx.revert();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [enabled]);
 
   return (
     <section

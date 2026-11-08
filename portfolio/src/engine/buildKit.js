@@ -1,14 +1,5 @@
 import gsap from "gsap";
 import { swarm } from "../components/cursors/swarmApi";
-import { agentStore } from "./agentStore";
-
-const CODE_COLORS = {
-  sel: "text-[#ff7b86]",
-  prop: "text-[#7dd3fc]",
-  val: "text-[#fde68a]",
-  plain: "text-[#c9c4bf]",
-  ok: "text-emerald-400",
-};
 
 /* Text appears left to right like typing.
    - steps: letter-by-letter feel (default). smooth: true gives a soft wipe instead.
@@ -97,48 +88,5 @@ export function dragSelect(wrap, sel, { agent, duration = 0.5, pad = 12 } = {}) 
     { autoAlpha: 1, y: 0, duration: 0.2 },
     "<"
   );
-  return tl;
-}
-
-/* Types one syntax-colored line into the code panel body. */
-export function typeCode(body, segments, { duration = 0.35 } = {}) {
-  const tl = gsap.timeline();
-  if (!body) return tl;
-
-  const state = { n: 0 };
-  let spans = [];
-  const total = segments.reduce((sum, [text]) => sum + text.length, 0);
-
-  tl.add(() => {
-    state.n = 0;
-    const line = document.createElement("div");
-    line.className = "whitespace-pre";
-    spans = segments.map(([text, kind]) => {
-      const s = document.createElement("span");
-      s.className = CODE_COLORS[kind] || CODE_COLORS.plain;
-      line.appendChild(s);
-      return { s, text };
-    });
-    body.insertBefore(line, body.querySelector("[data-code-caret]"));
-  });
-
-  tl.to(state, {
-    n: total,
-    duration,
-    ease: "none",
-    onUpdate() {
-      let left = Math.round(state.n);
-      spans.forEach(({ s, text }) => {
-        const take = Math.max(0, Math.min(text.length, left));
-        s.textContent = text.slice(0, take);
-        left -= take;
-      });
-      body.scrollTop = body.scrollHeight;
-    },
-    onComplete() {
-      agentStore.addActions(1);
-    },
-  });
-
   return tl;
 }

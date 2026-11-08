@@ -31,8 +31,8 @@ export const content = {
   },
 
   sections: [
-    { id: "what-i-do", num: "02", label: "WHAT I DO", headline: ["FROM IDEA.", "TO LIVE."], note: "Build comes in Step 4" },
-    { id: "projects", num: "03", label: "SELECTED WORK", headline: ["THE WORK.", "THE PROOF."], note: "Build comes in Step 5" },
+    { id: "what-i-do", headline: ["FROM IDEA.", "TO LIVE."] },
+    { id: "projects", headline: ["THE WORK.", "THE PROOF."] },
     { id: "about", num: "04", label: "ABOUT ME", headline: ["THE PERSON.", "BEHIND THE CODE."], note: "Build comes in Step 6" },
     { id: "education", num: "05", label: "EDUCATION", headline: ["THE ROUTE.", "SO FAR."], note: "Build comes in Step 7" },
     { id: "experience", num: "06", label: "EXPERIENCE", headline: ["KEEP BUILDING.", "KEEP GROWING."], note: "Build comes in Step 8" },
@@ -59,7 +59,6 @@ export const content = {
       demo: "https://shop-cart.adwaid.online",
       github: "https://github.com/adwaith85/project-Ecommerce-",
       image: "",
-      featured: true,
     },
     {
       title: "To-Do Application",

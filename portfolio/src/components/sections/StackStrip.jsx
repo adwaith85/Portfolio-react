@@ -2,24 +2,39 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { stack } from "../../data/stack";
 import { swarm } from "../cursors/swarmApi";
-import { typeReveal } from "../../engine/buildKit";
 import {
   createViewportReveal,
   cursorIntro,
   cursorOutro,
+  cursorMove,
+  cursorClick,
 } from "../../engine/viewport";
 import useAgentsEnabled from "../../engine/useAgentsEnabled";
+import {
+  Words,
+  makeOverlay,
+  clearOverlays,
+  dragBox,
+  typeWords,
+} from "../../engine/swarmBuild";
 import Logo from "../ui/Logo";
 
 const BASE_SPEED = 55; // pixels per second, moving left. Raise it to go faster.
-const AG = { head: 12, marquee: 13 };
+
+// 3 cursors write the heading, 2 open the marquee, 15 point at the logos:
+// 20 agents in this section, all distinct.
+const AG = {
+  head: [0, 1, 2],
+  wipe: [3, 4],
+  logos: Array.from({ length: 15 }, (_, i) => i + 5),
+};
 
 function Chip({ item, dup = false }) {
   return (
     <li
       data-stack-chip
       {...(dup ? { "aria-hidden": "true", "data-dup": "" } : {})}
-      className="group/chip mr-8 flex shrink-0 items-center gap-2.5 sm:mr-12 sm:gap-3 lg:mr-14"
+      className="group/chip mr-8 flex shrink-0 items-center gap-2.5 outline-offset-[6px] transition-[translate,scale] duration-200 hover:-translate-y-1 hover:scale-110 hover:outline hover:outline-1 hover:outline-dashed hover:outline-[#4c8dff]/70 sm:mr-12 sm:gap-3 lg:mr-14"
     >
       <Logo item={item} />
       <span className="whitespace-nowrap text-[0.68rem] font-medium uppercase tracking-[0.12em] text-muted transition-colors group-hover/chip:text-ink sm:text-[0.72rem]">
@@ -43,13 +58,11 @@ export default function StackStrip() {
 
     const ctx = gsap.context(() => {
       const line = el.querySelector("[data-line]");
-      const kicker = el.querySelector("[data-kicker]");
-      const head = el.querySelector("[data-head]");
       const v = el.querySelector("[data-view]");
       const handle = el.querySelector("[data-handle]");
 
       if (line) gsap.set(line, { scaleX: 0, transformOrigin: "0% 50%" });
-      [kicker, head].filter(Boolean).forEach((n) => gsap.set(n, { autoAlpha: 0 }));
+      gsap.set(el.querySelectorAll("[data-w],[data-period]"), { autoAlpha: 0 });
       if (v) gsap.set(v, { clipPath: "inset(0 100% 0 0)" });
       if (handle) gsap.set(handle, { autoAlpha: 0 });
     }, root);
@@ -65,62 +78,90 @@ export default function StackStrip() {
       groups: [
         {
           element: el.querySelector("[data-stack-heading]"),
-          agents: [AG.head],
+          agents: AG.head,
           build: () => {
             const $ = (s) => el.querySelector(s);
             const line = $("[data-line]");
             const kicker = $("[data-kicker]");
             const head = $("[data-head]");
+            const period = $("[data-period]");
+            const [a, b, c] = AG.head;
+            const ovb = makeOverlay(el);
+            const ovc = makeOverlay(el);
 
             const tl = gsap.timeline();
-            cursorIntro(tl, [AG.head], 0);
+            cursorIntro(tl, AG.head, 0);
 
+            // a drags the top rule open
             if (line) {
-              tl.to(line, { scaleX: 1, duration: 0.7, ease: "power3.out" }, 0);
-            }
-            if (kicker) {
-              tl.add(
-                swarm.moveTo(AG.head, kicker, {
-                  duration: 0.45,
-                  offset: { x: 0, y: 0.5 },
-                }),
-                0
+              cursorMove(tl, a, line, {
+                at: 0,
+                duration: 0.35,
+                offset: { x: 0, y: 0.5 },
+              });
+              cursorClick(tl, a, 0.35);
+              cursorMove(tl, a, line, {
+                at: 0.35,
+                duration: 0.55,
+                offset: { x: 1, y: 0.5 },
+              });
+              tl.to(
+                line,
+                { scaleX: 1, duration: 0.55, ease: "power3.out" },
+                0.35
               );
-              tl.add(() => swarm.click(AG.head), 0.45);
-              tl.add(typeReveal(kicker, { duration: 0.35, agent: AG.head }), 0.5);
             }
-            if (head) {
-              tl.add(typeReveal(head, { duration: 0.5, agent: AG.head }), 0.9);
+            // b and c each draw a box, then write the two heading lines word by word
+            const tk = dragBox(tl, ovb, b, kicker, el, 0.05, {
+              tag: "p.kicker",
+              dur: 0.25,
+            });
+            const tkEnd = typeWords(tl, kicker, b, tk, 0.03);
+            const th = dragBox(tl, ovc, c, head, el, 0.35, {
+              tag: "p.heading",
+              dur: 0.25,
+            });
+            const thEnd = typeWords(tl, head, c, th, 0.04);
+            if (period) {
+              tl.fromTo(period, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.2 }, thEnd);
             }
 
-            cursorOutro(tl, [AG.head], { at: ">+=0.35" });
+            cursorOutro(tl, AG.head, { at: Math.max(tkEnd, thEnd) + 0.5 });
             return tl;
           },
         },
         {
           element: el.querySelector("[data-view]"),
-          agents: [AG.marquee],
+          agents: [...AG.wipe, ...AG.logos],
           once: true,
           build: () => {
             const $ = (s) => el.querySelector(s);
             const v = $("[data-view]");
             const handle = $("[data-handle]");
             const p = { v: 0 };
+            const [wa, wb] = AG.wipe;
 
             const tl = gsap.timeline();
-            cursorIntro(tl, [AG.marquee], 0);
+            cursorIntro(tl, [...AG.wipe, ...AG.logos], 0);
 
+            // wa follows the wipe edge; wb grabs and releases the blue handle
             if (v) {
-              tl.add(
-                swarm.moveTo(AG.marquee, v, {
-                  duration: 0.5,
-                  offset: { x: 0, y: 0.5 },
-                }),
-                0
-              );
-              tl.add(() => swarm.click(AG.marquee), 0.5);
+              cursorMove(tl, wa, v, {
+                at: 0,
+                duration: 0.45,
+                offset: { x: 0, y: 0.5 },
+              });
+              cursorClick(tl, wa, 0.45);
             }
             if (handle) tl.set(handle, { autoAlpha: 1 }, 0.45);
+            if (handle) {
+              cursorMove(tl, wb, handle, {
+                at: 0.15,
+                duration: 0.3,
+                offset: { x: 0.5, y: 0.5 },
+              });
+              cursorClick(tl, wb, 0.45);
+            }
 
             if (v && handle) {
               tl.to(
@@ -132,15 +173,38 @@ export default function StackStrip() {
                   onUpdate: () => {
                     v.style.clipPath = `inset(0 ${(1 - p.v) * 100}% 0 0)`;
                     handle.style.left = `${p.v * 100}%`;
-                    if (enabled) swarm.placeAt(AG.marquee, v, p.v, 0.5);
+                    if (enabled) swarm.placeAt(wa, v, p.v, 0.5);
                   },
                 },
                 0.55
               );
             }
 
+            // the 15 logo cursors arrive across the strip and click each logo
+            // into place. Targets are measured when the tween starts, so they
+            // follow the moving marquee instead of using stale positions.
+            if (v) {
+              const vr = v.getBoundingClientRect();
+              const chips = [...el.querySelectorAll("[data-stack-chip]")];
+              const onscreen = chips.filter((chip) => {
+                const r = chip.getBoundingClientRect();
+                return r.right > vr.left && r.left < vr.right;
+              });
+              const targets = onscreen.length ? onscreen : chips.slice(0, 8);
+              AG.logos.forEach((ag, k) => {
+                const target = targets[k % targets.length];
+                if (!target) return;
+                // each logo cursor draws a small box over its logo and clicks it
+                dragBox(tl, makeOverlay(el), ag, target, el, 0.95 + k * 0.045, {
+                  tag: "li.logo",
+                  dur: 0.18,
+                  pad: 2,
+                });
+              });
+            }
+
             if (handle) tl.set(handle, { autoAlpha: 0 }, 1.7);
-            cursorOutro(tl, [AG.marquee], { at: 1.7 });
+            cursorOutro(tl, [...AG.wipe, ...AG.logos], { at: 2.0 });
             return tl;
           },
         },
@@ -149,6 +213,7 @@ export default function StackStrip() {
 
     return () => {
       stop();
+      clearOverlays(el);
       ctx.revert();
     };
   }, [enabled]);
@@ -337,15 +402,18 @@ export default function StackStrip() {
       <div data-stack-heading className="px-gutter pt-5 lg:pt-6">
         <p
           data-kicker
-          className="block w-fit text-[0.78rem] font-light uppercase tracking-[0.08em] text-muted"
+          className="block w-fit text-[0.78rem] font-light uppercase tracking-[0.08em] text-muted transition-colors duration-200 hover:text-ink"
         >
-          Built with
+          <Words text="Built with" />
         </p>
         <p
           data-head
-          className="mt-1 block w-fit text-[0.95rem] font-semibold uppercase leading-tight tracking-tight text-ink"
+          className="mt-1 block w-fit text-[0.95rem] font-semibold uppercase leading-tight tracking-tight text-ink transition-colors duration-200 hover:text-red"
         >
-          The full stack<span className="text-red">.</span>
+          <Words text="The full stack" />
+          <span data-period className="text-red">
+            .
+          </span>
         </p>
       </div>
 

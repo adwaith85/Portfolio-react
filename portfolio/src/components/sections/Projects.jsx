@@ -10,22 +10,33 @@ import {
   cursorOutro,
 } from "../../engine/viewport";
 import useAgentsEnabled from "../../engine/useAgentsEnabled";
+import {
+  BLUE,
+  Words,
+  makeOverlay,
+  clearOverlays,
+  dragBox,
+  typeWords,
+} from "../../engine/swarmBuild";
 import Logo from "../ui/Logo";
 
-/* which cursor does which job (all leases are disjoint inside this section) */
-const AG = { head: 0, feat: 1, cards: [2, 3, 4, 5] };
+/* Cursor leases: heading 2 cursors, project rows alternate between two sets of 6. */
+const AG = {
+  head: [0, 1],
+  rows: [
+    [2, 3, 4, 5, 6, 7],
+    [8, 9, 10, 11, 12, 13],
+  ],
+};
 
-const BLUE = "#4c8dff";
 const NORMAL = { fill: "#121212", edge: "rgba(255,255,255,0.1)" };
 
 const byName = Object.fromEntries(stack.map((s) => [s.name, s]));
 const toolItem = (n) => byName[n] || { name: n, abbr: n.slice(0, 2) };
 
-/* "shop.png" -> /projects/shop.png. Full URLs and /paths are used as they are. */
 const imageSrc = (img) =>
   !img ? "" : /^(https?:)?\//.test(img) ? img : `/projects/${img}`;
 
-/* the link labels for one project */
 const linksOf = (p) => {
   const out = [];
   if (p.demo) out.push({ label: p.demo2 ? "User app" : "Demo", href: p.demo });
@@ -34,8 +45,8 @@ const linksOf = (p) => {
   return out;
 };
 
-/* design-tool selection box that a cursor drags out over a frame */
-function SelBox({ tag }) {
+/* design-tool selection box that a cursor drags out over the row frame */
+function SelBox({ tag, mirror }) {
   const corners = [
     "-left-1 -top-1",
     "-right-1 -top-1",
@@ -45,7 +56,9 @@ function SelBox({ tag }) {
   return (
     <span
       data-sel
-      className="pointer-events-none absolute left-0 top-0 z-[3] border border-dashed"
+      className={`pointer-events-none absolute top-0 z-[3] border border-dashed ${
+        mirror ? "right-0" : "left-0"
+      }`}
       style={{ borderColor: BLUE }}
     >
       {corners.map((c) => (
@@ -58,7 +71,9 @@ function SelBox({ tag }) {
       ))}
       <b
         data-tag
-        className="absolute -top-6 left-0 whitespace-nowrap rounded-sm px-1.5 py-[3px] text-[10px] font-semibold leading-none text-white"
+        className={`absolute -top-6 whitespace-nowrap rounded-sm px-1.5 py-[3px] text-[10px] font-semibold leading-none text-white ${
+          mirror ? "right-0" : "left-0"
+        }`}
         style={{ background: BLUE }}
       >
         {tag}
@@ -67,36 +82,39 @@ function SelBox({ tag }) {
   );
 }
 
-/* a frame: the colored box (drawn by a cursor), a red top bar, and its content */
-function Shell({ tag, colors = NORMAL, className = "", children, ...rest }) {
+function Shell({ tag, mirror, className = "", children, ...rest }) {
   return (
     <div data-frame {...rest} className={`relative ${className}`}>
       <span
         data-bg
-        data-fill={colors.fill}
-        data-edge={colors.edge}
-        className="absolute inset-0 rounded-[3px] border"
-        style={{ backgroundColor: colors.fill, borderColor: colors.edge }}
+        data-fill={NORMAL.fill}
+        data-edge={NORMAL.edge}
+        className="absolute inset-0 rounded-[3px] border transition-colors duration-300 group-hover/card:border-red/50!"
+        style={{ backgroundColor: NORMAL.fill, borderColor: NORMAL.edge }}
       />
       <i data-bar className="absolute left-0 top-0 h-[2px] w-full origin-left bg-red" />
-      <SelBox tag={tag} />
+      <SelBox tag={tag} mirror={mirror} />
       <div className="relative h-full">{children}</div>
     </div>
   );
 }
 
-/* a cursor drags a frame out corner to corner, recolors it, nudges it, draws its bar.
-   returns the time at which the frame's content can start typing */
-function drawFrame(tl, frame, ag, t0 = 0) {
-  if (!frame) return t0;
+/* ---------- cursor building blocks ---------- */
+
+/* cursor drags the row frame out corner to corner (mirrored on even rows) */
+function drawFrame(tl, frame, ag, t0, mirror) {
   const sel = frame.querySelector("[data-sel]");
   const handles = sel ? sel.querySelectorAll("[data-handle]") : [];
   const tag = sel ? sel.querySelector("[data-tag]") : null;
   const bg = frame.querySelector("[data-bg]");
   const bar = frame.querySelector("[data-bar]");
   const p = { v: 0 };
+  const fx = (v) => (mirror ? 1 - v : v);
 
-  tl.add(swarm.moveTo(ag, frame, { duration: 0.5, offset: { x: 0, y: 0 } }), t0);
+  tl.add(
+    swarm.moveTo(ag, frame, { duration: 0.5, offset: { x: mirror ? 1 : 0, y: 0 } }),
+    t0
+  );
   if (sel) tl.set(sel, { autoAlpha: 1 }, t0 + 0.5);
   tl.add(() => swarm.click(ag), t0 + 0.5);
 
@@ -112,8 +130,12 @@ function drawFrame(tl, frame, ag, t0 = 0) {
           sel.style.width = `${p.v * 100}%`;
           sel.style.height = `${p.v * 100}%`;
         }
-        if (bg) bg.style.clipPath = `inset(0 ${r}% ${r}% 0)`;
-        swarm.placeAt(ag, frame, p.v, p.v);
+        if (bg) {
+          bg.style.clipPath = mirror
+            ? `inset(0 0 ${r}% ${r}%)`
+            : `inset(0 ${r}% ${r}% 0)`;
+        }
+        swarm.placeAt(ag, frame, fx(p.v), p.v);
       },
     },
     t0 + 0.55
@@ -127,18 +149,9 @@ function drawFrame(tl, frame, ag, t0 = 0) {
     );
   }
   if (tag) {
-    tl.fromTo(
-      tag,
-      { autoAlpha: 0, y: 4 },
-      { autoAlpha: 1, y: 0, duration: 0.2 },
-      t0 + 1.05
-    );
+    tl.fromTo(tag, { autoAlpha: 0, y: 4 }, { autoAlpha: 1, y: 0, duration: 0.2 }, t0 + 1.05);
   }
-
-  tl.add(
-    swarm.moveTo(ag, frame, { duration: 0.35, offset: { x: 0.5, y: 0.5 } }),
-    t0 + 1.15
-  );
+  tl.add(swarm.moveTo(ag, frame, { duration: 0.35, offset: { x: 0.5, y: 0.5 } }), t0 + 1.15);
   tl.add(() => swarm.click(ag), t0 + 1.5);
   if (bg) {
     tl.to(
@@ -155,127 +168,310 @@ function drawFrame(tl, frame, ag, t0 = 0) {
   );
   if (bar) tl.to(bar, { scaleX: 1, duration: 0.45, ease: "power3.out" }, t0 + 1.65);
   if (sel) tl.to(sel, { autoAlpha: 0, duration: 0.25 }, t0 + 1.75);
-
   return t0 + 1.65;
 }
 
-/* ---------- one builder per viewport group ---------- */
+/* ---------- group builders ---------- */
 
 function buildHeading(rootEl) {
   const $ = (s) => rootEl.querySelector(s);
-  const label = $("[data-label]");
-  const h1 = $("[data-h1]");
-  const h2 = $("[data-h2]");
-  const sub2 = $("[data-sub2]");
-
+  const [a, b] = AG.head;
   const tl = gsap.timeline();
-  cursorIntro(tl, [AG.head], 0);
+  cursorIntro(tl, AG.head, 0);
 
-  if (label) {
-    tl.add(
-      swarm.moveTo(AG.head, label, { duration: 0.45, offset: { x: 0, y: 0.5 } }),
-      0
-    );
-    tl.add(() => swarm.click(AG.head), 0.45);
-    tl.add(typeReveal(label, { duration: 0.35, agent: AG.head }), 0.5);
-  }
-  if (h1) tl.add(typeReveal(h1, { duration: 0.45, agent: AG.head }), 0.9);
-  if (h2) tl.add(typeReveal(h2, { duration: 0.4, agent: AG.head }), 1.35);
-  if (sub2) {
-    tl.add(
-      typeReveal(sub2, { duration: 0.55, smooth: true, agent: AG.head }),
-      1.75
-    );
-  }
+  let t = typeWords(tl, $("[data-h1]"), a, 0.05, 0.05);
+  t = typeWords(tl, $("[data-h2]"), a, t, 0.05);
+  const t2 = typeWords(tl, $("[data-sub]"), b, 0.2, 0.02);
 
-  cursorOutro(tl, [AG.head], { at: ">+=0.45" });
+  cursorOutro(tl, AG.head, { at: Math.max(t, t2) + 0.4 });
   return tl;
 }
 
-function buildCard(card, agents) {
-  const ag = agents[0];
+function buildRow(card, agents) {
+  const [A, B, C, D, E, F] = agents;
+  const row = card.closest("[data-row]");
+  const mirror = row.dataset.mirror === "1";
+  const q = (s) => card.querySelector(s);
+  const qa = (s) => [...card.querySelectorAll(s)];
+
+  const ov = {};
+  [B, C, D, E, F].forEach((i) => {
+    ov[i] = makeOverlay(row);
+  });
+
   const tl = gsap.timeline();
   cursorIntro(tl, agents, 0);
 
-  const base = drawFrame(tl, card, ag, 0.05);
+  // A drags the row frame out
+  const base = drawFrame(tl, card, A, 0.05, mirror);
 
-  const num = card.querySelector("[data-pnum]");
-  const img = card.querySelector("[data-pimg]");
-  const title = card.querySelector("[data-title]");
-  const text = card.querySelector("[data-ltext]");
-  const chips = [...card.querySelectorAll("[data-chip]")];
-  const links = [...card.querySelectorAll("[data-link]")];
-  const arrow = card.querySelector("[data-arrow]");
-
-  if (img) tl.fromTo(img, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, base - 0.1);
+  // B opens the screenshot, then pops the project number
+  const img = q("[data-pimg]");
+  const from = mirror ? "inset(0% 0% 0% 100%)" : "inset(0% 100% 0% 0%)";
+  const ti = dragBox(tl, ov[B], B, img, row, 0.1, {
+    tag: "figure.screenshot",
+    dur: 0.4,
+    pad: 0,
+  });
+  if (img) {
+    tl.fromTo(
+      img,
+      { clipPath: from },
+      {
+        clipPath: "inset(0% 0% 0% 0%)",
+        duration: 0.55,
+        ease: "power2.inOut",
+        onComplete() {
+          gsap.set(img, { clearProps: "clipPath" });
+        },
+      },
+      ti - 0.05
+    );
+  }
+  const num = q("[data-pnum]");
   if (num) {
+    const final = num.dataset.n;
+    const target = parseInt(final, 10);
+    const o = { v: 0 };
+    tl.add(swarm.moveTo(B, num, { duration: 0.3 }), ti + 0.5);
+    tl.add(() => swarm.click(B), ti + 0.8);
     tl.fromTo(
       num,
       { autoAlpha: 0, scale: 0.5 },
       { autoAlpha: 1, scale: 1, duration: 0.4, ease: "back.out(2)" },
-      base
+      ti + 0.8
     );
-  }
-  if (title) tl.add(typeReveal(title, { duration: 0.4 }), base + 0.1);
-  if (text) tl.add(typeReveal(text, { duration: 0.55, smooth: true }), base + 0.35);
-  if (chips.length) {
     tl.fromTo(
-      chips,
-      { autoAlpha: 0, scale: 0.4 },
+      o,
+      { v: 0 },
       {
-        autoAlpha: 1,
-        scale: 1,
-        duration: 0.35,
-        stagger: 0.07,
-        ease: "back.out(2.5)",
+        v: target,
+        duration: 0.5,
+        ease: "none",
+        onUpdate() {
+          num.textContent = String(Math.round(o.v)).padStart(2, "0");
+        },
+        onComplete() {
+          num.textContent = final;
+        },
       },
-      base + 0.8
+      ti + 0.8
     );
   }
-  if (links.length) {
-    tl.fromTo(
-      links,
-      { autoAlpha: 0, y: 6 },
-      {
-        autoAlpha: 1,
-        y: 0,
-        duration: 0.35,
-        stagger: 0.1,
-        ease: "power2.out",
-      },
-      base + 1.2
-    );
-  }
-  if (arrow) tl.to(arrow, { autoAlpha: 1, duration: 0.3 }, base + 1.3);
 
-  cursorOutro(tl, agents, { at: ">+=0.4" });
+  // C draws the title box and writes the title
+  const title = q("[data-title]");
+  let tc = dragBox(tl, ov[C], C, title, row, Math.max(0.3, base - 0.35), {
+    tag: "h3.title",
+    dur: 0.3,
+  });
+  tc = typeWords(tl, title, C, tc, 0.04);
+
+  // D draws the description box and writes it word by word
+  const desc = q("[data-desc]");
+  let td = dragBox(tl, ov[D], D, desc, row, Math.max(0.5, base - 0.2), {
+    tag: "p.description",
+    dur: 0.35,
+  });
+  td = typeWords(tl, desc, D, td, 0.022);
+
+  // E and F build the tech chips, two at a time
+  let chipsEnd = base;
+  qa("[data-chip]").forEach((chip, k) => {
+    const ag = k % 2 ? F : E;
+    const at = base + 0.3 + Math.floor(k / 2) * 0.6;
+    const te = dragBox(tl, ov[ag], ag, chip, row, at, {
+      tag: "span.chip",
+      dur: 0.18,
+      pad: 2,
+    });
+    tl.fromTo(
+      chip,
+      { autoAlpha: 1, clipPath: "inset(0 100% 0 0)" },
+      {
+        clipPath: "inset(0 0% 0 0)",
+        duration: 0.22,
+        ease: "power2.out",
+        onComplete() {
+          gsap.set(chip, { clearProps: "clipPath" });
+        },
+      },
+      te - 0.02
+    );
+    const logo = chip.querySelector("[data-logo]");
+    const name = chip.querySelector("[data-chip-name]");
+    if (logo) {
+      tl.fromTo(
+        logo,
+        { autoAlpha: 0, scale: 0 },
+        { autoAlpha: 1, scale: 1, duration: 0.25, ease: "back.out(3)" },
+        te + 0.05
+      );
+    }
+    if (name) tl.add(typeReveal(name, { duration: 0.22, agent: ag }), te + 0.15);
+    chipsEnd = Math.max(chipsEnd, te + 0.4);
+  });
+
+  // C draws the divider, builds each link, then the corner arrow
+  let tk = Math.max(tc, chipsEnd) + 0.1;
+  const rule = q("[data-rule]");
+  if (rule) {
+    tl.add(swarm.moveTo(C, rule, { duration: 0.3, offset: { x: 0, y: 0.5 } }), tk);
+    tl.add(() => swarm.click(C), tk + 0.3);
+    tl.to(rule, { scaleX: 1, duration: 0.45, ease: "power3.out" }, tk + 0.3);
+    tk += 0.55;
+  }
+  qa("[data-link]").forEach((link) => {
+    const text = link.querySelector("[data-link-text]");
+    const arrow = link.querySelector("[data-link-arrow]");
+    const te = dragBox(tl, ov[C], C, link, row, tk, {
+      tag: "a.link",
+      dur: 0.2,
+      pad: 2,
+    });
+    tl.fromTo(
+      link,
+      { autoAlpha: 1, clipPath: "inset(0 100% 0 0)" },
+      {
+        clipPath: "inset(0 0% 0 0)",
+        duration: 0.25,
+        ease: "power2.out",
+        onComplete() {
+          gsap.set(link, { clearProps: "clipPath" });
+        },
+      },
+      te - 0.02
+    );
+    if (text) tl.add(typeReveal(text, { duration: 0.25, agent: C }), te + 0.1);
+    if (arrow) {
+      tl.fromTo(
+        arrow,
+        { autoAlpha: 0, x: -8 },
+        { autoAlpha: 1, x: 0, duration: 0.25, ease: "power2.out" },
+        te + 0.3
+      );
+    }
+    tk = te + 0.45;
+  });
+  const corner = q("[data-arrow]");
+  if (corner) {
+    tl.add(swarm.moveTo(C, corner, { duration: 0.25 }), tk);
+    tl.add(() => swarm.click(C), tk + 0.25);
+    tl.to(corner, { autoAlpha: 1, duration: 0.25 }, tk + 0.25);
+    tk += 0.5;
+  }
+
+  cursorOutro(tl, agents, { at: Math.max(tk, td, chipsEnd) + 0.4 });
   return tl;
 }
 
-/* one project card */
-function Card({ project: p, n, featured }) {
+/* ---------- hover effects (mouse devices only) ---------- */
+
+function setupHover(root) {
+  if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    return () => {};
+  }
+  const offs = [];
+  const on = (el, type, fn) => {
+    el.addEventListener(type, fn);
+    offs.push(() => el.removeEventListener(type, fn));
+  };
+
+  const ctx = gsap.context(() => {
+    root.querySelectorAll("[data-row]").forEach((row) => {
+      // 3D tilt + red spotlight that follows the mouse
+      gsap.set(row, { transformPerspective: 900 });
+      const rx = gsap.quickTo(row, "rotationX", { duration: 0.5, ease: "power3.out" });
+      const ry = gsap.quickTo(row, "rotationY", { duration: 0.5, ease: "power3.out" });
+      let raf = 0;
+      on(row, "pointermove", (e) => {
+        const r = row.getBoundingClientRect();
+        const px = (e.clientX - r.left) / r.width;
+        const py = (e.clientY - r.top) / r.height;
+        ry((px - 0.5) * 7);
+        rx((0.5 - py) * 7);
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => {
+          row.style.setProperty("--mx", `${e.clientX - r.left}px`);
+          row.style.setProperty("--my", `${e.clientY - r.top}px`);
+        });
+      });
+      on(row, "pointerleave", () => {
+        ry(0);
+        rx(0);
+      });
+
+      // round OPEN bubble that follows the mouse over the screenshot
+      const media = row.querySelector("[data-pimg]");
+      const bubble = row.querySelector("[data-bubble]");
+      if (media && bubble) {
+        gsap.set(bubble, { xPercent: -50, yPercent: -50, scale: 0, autoAlpha: 0 });
+        const bx = gsap.quickTo(bubble, "x", { duration: 0.35, ease: "power3.out" });
+        const by = gsap.quickTo(bubble, "y", { duration: 0.35, ease: "power3.out" });
+        on(media, "pointerenter", () =>
+          gsap.to(bubble, { scale: 1, autoAlpha: 1, duration: 0.3, ease: "back.out(2)" })
+        );
+        on(media, "pointermove", (e) => {
+          const r = media.getBoundingClientRect();
+          bx(e.clientX - r.left);
+          by(e.clientY - r.top);
+        });
+        on(media, "pointerleave", () =>
+          gsap.to(bubble, { scale: 0, autoAlpha: 0, duration: 0.2 })
+        );
+      }
+
+      // magnetic pull on the link buttons
+      row.querySelectorAll("[data-link]").forEach((link) => {
+        const qx = gsap.quickTo(link, "x", { duration: 0.3, ease: "power3.out" });
+        const qy = gsap.quickTo(link, "y", { duration: 0.3, ease: "power3.out" });
+        const clamp = (v) => Math.max(-5, Math.min(5, v));
+        on(link, "pointermove", (e) => {
+          const r = link.getBoundingClientRect();
+          qx(clamp((e.clientX - (r.left + r.width / 2)) * 0.25));
+          qy(clamp((e.clientY - (r.top + r.height / 2)) * 0.25));
+        });
+        on(link, "pointerleave", () => {
+          qx(0);
+          qy(0);
+        });
+      });
+    });
+  }, root);
+
+  return () => {
+    offs.forEach((off) => off());
+    ctx.revert();
+  };
+}
+
+/* ---------- one project row ---------- */
+
+function Row({ project: p, n }) {
   const links = linksOf(p);
   const src = imageSrc(p.image);
   const num = String(n).padStart(2, "0");
+  const mirror = n % 2 === 0;
+  const primary = p.demo || p.github;
+  const Media = primary ? "a" : "div";
+  const mediaProps = primary
+    ? { href: primary, target: "_blank", rel: "noreferrer", "aria-label": `Open ${p.title}` }
+    : {};
 
   return (
     <li
-      className={`group/card flex rounded-[3px] transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_14px_40px_-14px_rgba(214,26,41,0.45)] ${
-        featured ? "lg:col-span-2" : ""
-      }`}
+      data-row
+      data-mirror={mirror ? "1" : "0"}
+      className="group/card relative rounded-[3px] transition-[translate,box-shadow,opacity] duration-300 hover:-translate-y-1 hover:shadow-[0_14px_40px_-14px_rgba(214,26,41,0.45)]"
     >
-      <Shell
-        data-card=""
-        data-featured={featured ? "" : undefined}
-        tag={`article.project-${num}`}
-        className={`w-full flex-1 ${featured ? "lg:min-h-[13rem]" : "lg:min-h-[10.5rem]"}`}
-      >
-        <div className="flex h-full flex-col lg:flex-row">
-          {/* screenshot (or placeholder) with the big project number */}
-          <div
+      <Shell data-card="" tag={`article.project-${num}`} mirror={mirror} className="w-full">
+        <div className="grid lg:min-h-[clamp(20rem,56svh,34rem)] lg:grid-cols-12">
+          {/* screenshot with the big project number */}
+          <Media
             data-pimg
-            className={`relative m-2 aspect-video shrink-0 overflow-hidden rounded-[2px] border border-white/10 bg-[#0b0b0b] lg:aspect-auto ${
-              featured ? "lg:w-[44%]" : "lg:w-[36%]"
+            {...mediaProps}
+            className={`relative m-2 block aspect-video overflow-hidden rounded-[2px] border border-white/10 bg-[#0b0b0b] lg:col-span-7 lg:aspect-auto ${
+              mirror ? "lg:order-2" : ""
             }`}
           >
             {src ? (
@@ -284,7 +480,7 @@ function Card({ project: p, n, featured }) {
                 alt={`${p.title} screenshot`}
                 loading="lazy"
                 draggable="false"
-                className="absolute inset-0 size-full object-cover object-top"
+                className="absolute inset-0 size-full object-cover object-top transition-transform duration-700 group-hover/card:scale-[1.07]"
               />
             ) : (
               <>
@@ -295,61 +491,82 @@ function Card({ project: p, n, featured }) {
               </>
             )}
             <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -translate-x-[150%] -skew-x-12 bg-gradient-to-r from-transparent via-white/15 to-transparent duration-0 group-hover/card:translate-x-[420%] group-hover/card:duration-1000"
+            />
+            <span
               data-pnum
-              className={`display absolute bottom-2 left-3 origin-bottom-left leading-none text-red [text-shadow:0_2px_12px_rgba(0,0,0,0.7)] ${
-                featured
-                  ? "text-[clamp(2.4rem,9vw,3.4rem)] lg:text-[min(4.6vw,9svh)]"
-                  : "text-[clamp(2.2rem,8vw,3rem)] lg:text-[min(3.4vw,6.5svh)]"
+              data-n={num}
+              className={`display absolute bottom-3 leading-none text-red transition-[color,translate] duration-300 [text-shadow:0_2px_12px_rgba(0,0,0,0.7)] group-hover/card:-translate-y-1.5 group-hover/card:text-transparent group-hover/card:[-webkit-text-stroke:1.5px_#d61a29] group-hover/card:[text-shadow:none] text-[clamp(2.6rem,10vw,4rem)] lg:text-[min(5.4vw,11svh)] ${
+                mirror ? "right-4 origin-bottom-right" : "left-4 origin-bottom-left"
               }`}
             >
               {num}
             </span>
-          </div>
+            {primary && (
+              <span
+                data-bubble
+                aria-hidden="true"
+                className="pointer-events-none absolute left-0 top-0 z-10 grid size-[72px] place-items-center rounded-full bg-red text-[0.62rem] font-bold tracking-widest text-white"
+              >
+                OPEN ↗
+              </span>
+            )}
+          </Media>
 
           {/* text side */}
-          <div className="relative flex min-w-0 flex-1 flex-col p-4 lg:p-[min(1.2rem,2.2svh)] lg:pl-[min(1rem,2svh)]">
+          <div className="relative flex min-w-0 flex-col p-5 lg:col-span-5 lg:p-[min(2rem,3.4svh)]">
             <span
               data-arrow
               aria-hidden="true"
-              className="absolute right-3 top-3 text-lg leading-none text-muted transition-colors group-hover/card:text-red lg:right-4 lg:top-4"
+              className="absolute right-4 top-4 text-lg leading-none text-muted transition-[color,translate,scale] duration-300 group-hover/card:-translate-y-[3px] group-hover/card:translate-x-[3px] group-hover/card:scale-[1.2] group-hover/card:text-red lg:right-6 lg:top-6"
             >
               ↗
             </span>
 
             <h3
               data-title
-              className={`display block w-fit pr-8 ${
-                featured
-                  ? "text-[clamp(1.7rem,7vw,2.2rem)] lg:text-[min(2.6vw,5svh)]"
-                  : "text-[clamp(1.5rem,6.5vw,2rem)] lg:text-[min(1.9vw,3.6svh)]"
-              }`}
+              className="display relative block w-fit pr-10 text-[clamp(1.8rem,7vw,2.4rem)] lg:text-[min(3.4vw,7svh)]"
             >
-              {p.title}
+              <Words text={p.title} />
+              <i
+                aria-hidden="true"
+                className="absolute -bottom-1.5 left-0 h-[3px] w-full origin-left scale-x-0 bg-red transition-transform duration-[400ms] group-hover/card:scale-x-100"
+              />
             </h3>
 
             <p
-              data-ltext
-              className="mt-[0.9svh] block max-w-[34rem] text-[min(0.88rem,1.9svh)] leading-snug text-ink/65"
+              data-desc
+              className="mt-[2svh] block max-w-[30rem] text-[min(1rem,2.1svh)] leading-relaxed text-ink/65 transition-colors duration-300 group-hover/card:text-ink/90"
             >
-              {p.desc}
+              <Words text={p.desc} />
             </p>
 
-            <ul className="mt-[1.4svh] flex flex-wrap gap-1.5">
+            <ul className="mt-[2.4svh] flex flex-wrap gap-2">
               {p.tech.map((t) => (
                 <li
                   key={t}
                   data-chip
-                  className="group/chip flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] py-1 pl-1.5 pr-2.5"
+                  className="group/chip flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] py-1 pl-1.5 pr-3 transition-[translate,border-color,background-color] duration-200 hover:-translate-y-0.5 hover:border-red/60 hover:bg-red/10"
                 >
-                  <Logo item={toolItem(t)} className="size-4" badgeClass="text-[0.5rem]" />
-                  <span className="text-[0.64rem] font-medium tracking-wide text-muted transition-colors group-hover/chip:text-ink">
+                  <span data-logo className="inline-flex">
+                    <Logo item={toolItem(t)} className="size-4" badgeClass="text-[0.5rem]" />
+                  </span>
+                  <span
+                    data-chip-name
+                    className="inline-block text-[0.68rem] font-medium tracking-wide text-muted transition-colors group-hover/chip:text-ink"
+                  >
                     {t}
                   </span>
                 </li>
               ))}
             </ul>
 
-            <div className="mt-auto flex flex-wrap gap-x-5 gap-y-2 border-t border-white/10 pt-[1.2svh] max-lg:mt-4 max-lg:pt-3">
+            <div className="relative mt-6 flex flex-wrap gap-2.5 pt-[2.2svh] lg:mt-auto">
+              <i
+                data-rule
+                className="absolute left-0 top-0 h-px w-full origin-left bg-white/10"
+              />
               {links.map((l) => (
                 <a
                   key={l.label}
@@ -357,16 +574,38 @@ function Card({ project: p, n, featured }) {
                   href={l.href}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-ink/80 transition-colors hover:text-red"
+                  className="group/link relative inline-flex items-center gap-1.5 overflow-hidden rounded-full border border-white/15 px-4 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-ink/80 transition-colors duration-300 hover:border-red hover:text-white"
                 >
-                  {l.label}
-                  <span aria-hidden="true">↗</span>
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 origin-left scale-x-0 bg-red transition-transform duration-300 group-hover/link:scale-x-100"
+                  />
+                  <span data-link-text className="relative inline-block">
+                    {l.label}
+                  </span>
+                  <span
+                    data-link-arrow
+                    aria-hidden="true"
+                    className="relative inline-block transition-transform duration-300 group-hover/link:-translate-y-[3px] group-hover/link:translate-x-[3px]"
+                  >
+                    ↗
+                  </span>
                 </a>
               ))}
             </div>
           </div>
         </div>
       </Shell>
+
+      {/* red spotlight that follows the mouse */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-[1] rounded-[3px] opacity-0 transition-opacity duration-300 group-hover/card:opacity-100"
+        style={{
+          background:
+            "radial-gradient(520px circle at var(--mx, 50%) var(--my, 50%), rgba(214,26,41,0.14), transparent 60%)",
+        }}
+      />
     </li>
   );
 }
@@ -374,10 +613,10 @@ function Card({ project: p, n, featured }) {
 export default function Projects() {
   const root = useRef(null);
   const enabled = useAgentsEnabled();
-  const { num, label, headline } = content.sections.find((s) => s.id === "projects");
+  const { headline } = content.sections.find((s) => s.id === "projects");
   const { projects } = content;
-
   const liveDemos = content.hero.stats[1] && content.hero.stats[1].value;
+  const sub = `${projects.length} projects, ${liveDemos} of them live. Open the demo or read the code behind each one.`;
 
   useLayoutEffect(() => {
     const el = root.current;
@@ -391,42 +630,43 @@ export default function Projects() {
 
     // hidden starting state, so nothing flashes before its group is reached
     const ctx = gsap.context(() => {
-      const revealEls = all(
-        "[data-label],[data-h1],[data-h2],[data-sub2],[data-pnum],[data-pimg],[data-title],[data-ltext],[data-chip],[data-link],[data-arrow],[data-sel],[data-tag]"
+      gsap.set(
+        all(
+          "[data-w],[data-pnum],[data-chip],[data-chip-name],[data-logo],[data-link],[data-link-text],[data-link-arrow],[data-arrow],[data-sel],[data-tag]"
+        ),
+        { autoAlpha: 0 }
       );
-      if (revealEls.length) gsap.set(revealEls, { autoAlpha: 0 });
-      const handles = all("[data-handle]");
-      if (handles.length) gsap.set(handles, { scale: 0 });
-      const bars = all("[data-bar]");
-      if (bars.length) gsap.set(bars, { scaleX: 0 });
-      const bgs = all("[data-bg]");
-      if (bgs.length) {
-        gsap.set(bgs, {
-          clipPath: "inset(0 100% 100% 0)",
-          backgroundColor: "rgba(255,255,255,0.05)",
-          borderColor: "rgba(255,255,255,0.12)",
+      all("[data-pimg]").forEach((n) => {
+        const m = n.closest("[data-row]").dataset.mirror === "1";
+        gsap.set(n, {
+          autoAlpha: 1,
+          clipPath: m ? "inset(0% 0% 0% 100%)" : "inset(0% 100% 0% 0%)",
         });
-      }
-      const sels = all("[data-sel]");
-      if (sels.length) gsap.set(sels, { width: "0%", height: "0%" });
+      });
+      gsap.set(all("[data-handle]"), { scale: 0 });
+      gsap.set(all("[data-bar]"), { scaleX: 0 });
+      gsap.set(all("[data-rule]"), { scaleX: 0 });
+      gsap.set(all("[data-bg]"), {
+        clipPath: "inset(0 100% 100% 0)",
+        backgroundColor: "rgba(255,255,255,0.05)",
+        borderColor: "rgba(255,255,255,0.12)",
+      });
+      gsap.set(all("[data-sel]"), { width: "0%", height: "0%" });
     }, root);
 
     const headingEl = el.querySelector("header");
-    const cardEls = all("[data-card]");
-
     const groups = [
       headingEl && {
         element: headingEl,
-        agents: [AG.head],
+        agents: AG.head,
         build: () => buildHeading(el),
       },
-      ...cardEls.map((card, k) => {
-        const featured = card.hasAttribute("data-featured");
-        const agents = featured ? [AG.feat] : [AG.cards[(k - 1) % AG.cards.length]];
+      ...all("[data-card]").map((card, i) => {
+        const agents = AG.rows[i % 2];
         return {
           element: card,
           agents,
-          build: (node) => buildCard(node, agents),
+          build: (node) => buildRow(node, agents),
         };
       }),
     ].filter(Boolean);
@@ -441,9 +681,12 @@ export default function Projects() {
       back: 2.2,
       groups,
     });
+    const stopHover = setupHover(el);
 
     return () => {
+      stopHover();
       stop();
+      clearOverlays(el);
       ctx.revert();
     };
   }, [enabled]);
@@ -452,34 +695,28 @@ export default function Projects() {
     <section
       id="projects"
       ref={root}
-      className="relative flex min-h-svh flex-col gap-[2.4svh] border-t border-line px-gutter py-[4.5svh]"
+      className="relative flex min-h-svh flex-col gap-[3svh] border-t border-line px-gutter py-[5svh]"
     >
-      {/* ── heading ── */}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
-        <div className="min-w-0">
-          <p className="label">
-            <span data-label className="inline-block">
-              <span className="text-red">{num}</span> / {label}
-            </span>
-          </p>
-          <h2 className="display mt-[1.2svh] flex flex-wrap gap-x-[0.28em] text-[min(5.2vw,9.5svh)] max-lg:text-[clamp(2.4rem,11vw,3.6rem)]">
-            <span data-h1 className="block w-fit">{headline[0]}</span>
-            <span data-h2 className="block w-fit text-red">{headline[1]}</span>
-          </h2>
-        </div>
+        <h2 className="display flex min-w-0 flex-wrap gap-x-[0.28em] text-[min(5.2vw,9.5svh)] max-lg:text-[clamp(2.4rem,11vw,3.6rem)]">
+          <span data-h1 className="block w-fit">
+            <Words text={headline[0]} />
+          </span>
+          <span data-h2 className="block w-fit text-red">
+            <Words text={headline[1]} />
+          </span>
+        </h2>
         <p
-          data-sub2
+          data-sub
           className="block max-w-[26rem] text-[min(0.95rem,2.1svh)] leading-relaxed text-ink/65"
         >
-          {projects.length} projects, {liveDemos} of them live. Open the demo or read the code
-          behind each one.
+          <Words text={sub} />
         </p>
       </header>
 
-      {/* ── cards: one featured on top, then two per row ── */}
-      <ul className="grid flex-1 gap-3 lg:grid-cols-2 lg:grid-rows-[1.25fr_1fr_1fr] lg:gap-[1.1vw]">
+      <ul className="flex flex-1 flex-col gap-4 lg:gap-[2.4svh] [&:has(li:hover)>li:not(:hover)]:opacity-50">
         {projects.map((p, i) => (
-          <Card key={p.title} project={p} n={i + 1} featured={Boolean(p.featured)} />
+          <Row key={p.title} project={p} n={i + 1} />
         ))}
       </ul>
     </section>

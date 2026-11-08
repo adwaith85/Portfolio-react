@@ -6,6 +6,7 @@ import { swarm } from "../cursors/swarmApi";
 import { typeReveal, dragSelect } from "../../engine/buildKit";
 import { createPhotoDissolve } from "../../engine/photoDissolve";
 import { handoff } from "../../engine/handoff";
+import { makeOverlay, clearOverlays, dragBox } from "../../engine/swarmBuild";
 import useAgentsEnabled from "../../engine/useAgentsEnabled";
 
 const RED = "#d61a29";
@@ -28,6 +29,9 @@ const AG = {
   status: 10,
   tag: 11,
 };
+
+// spare cursors that drag a selection box over each element before it appears
+const BX = [12, 13, 14, 15, 16, 17, 18, 19];
 
 /*
   Photo glow: red on the right edge, blue on the left (follows your body when the
@@ -239,7 +243,7 @@ function Photo({ kind }) {
 }
 
 /* dashed selection box with corner handles and a tag, like a design tool */
-function SelBox({ tag }) {
+function SelBox({ tag, className = "" }) {
   const corners = [
     "-left-1 -top-1",
     "-right-1 -top-1",
@@ -249,7 +253,7 @@ function SelBox({ tag }) {
   return (
     <span
       data-sel
-      className="pointer-events-none absolute -left-3 -top-3 z-[3] border border-dashed border-[#4c8dff]"
+      className={`pointer-events-none absolute -left-3 -top-3 z-[3] border border-dashed border-[#4c8dff] ${className}`}
     >
       {corners.map((c) => (
         <i
@@ -329,6 +333,28 @@ function buildIntro(root) {
   const tl = gsap.timeline();
   tl.timeScale(SPEED);
   handoff.claim(tl); // this build owns the cursors until the next section takes over
+
+  /* spare cursors draw a dashed selection box over every element as it is built */
+  const ov = {};
+  BX.forEach((i) => {
+    ov[i] = makeOverlay(root);
+  });
+  const box = (i, el, t, tag, { dur = 0.25, pad = 3 } = {}) =>
+    dragBox(tl, ov[i], i, el, root, at(t), { tag, dur, pad });
+  box(BX[7], ghost, 0.0, "h1.ghost", { dur: 0.5, pad: 4 });
+  box(BX[0], role, 0.0, "p.role");
+  box(BX[1], statusText, 0.1, "p.status");
+  box(BX[2], hello, 0.1, "span.hello");
+  box(BX[4], stack, 0.2, "figure.photo", { dur: 0.5, pad: 0 });
+  box(BX[6], logo, 0.35, "svg.react", { pad: 4 });
+  box(BX[5], tagText, 0.5, "p.tagline");
+  box(BX[3], title, 1.05, "h2.title");
+  box(BX[4], sub, 1.3, "p.about");
+  statRows.forEach((li, i) => {
+    box([BX[7], BX[0], BX[1]][i % 3], li, 1.5 + i * 0.35, "li.stat", { pad: 2 });
+  });
+  box(BX[2], dl, 2.2, "a.cv", { pad: 2 });
+  box(BX[3], loc, 2.7, "p.location", { pad: 2 });
 
   /* a cursor drags a divider line out, then the number counts up and the label types */
   const drawRow = (el, ag, t) => {
@@ -660,6 +686,7 @@ export default function Intro() {
     return () => {
       off();
       clearTimeout(timer);
+      clearOverlays(el);
       ctx.revert();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -806,26 +833,26 @@ export default function Intro() {
           <p className="mb-[0.6svh] pl-[0.4vw] leading-none">
             <span
               data-hello
-              className="inline-block origin-bottom-left -rotate-[8deg] font-script text-[min(4vw,6svh)] max-sm:text-[2rem]"
+              className="inline-block origin-bottom-left -rotate-[8deg] font-script text-[min(4vw,6svh)] transition-[rotate] duration-300 hover:-rotate-[2deg] max-sm:text-[2rem]"
             >
               Hello, I'm
             </span>
           </p>
 
           <h1 className="display mt-[0.5svh] text-[min(11vw,15svh)] max-sm:text-[clamp(3.4rem,19vw,5.4rem)]">
-            <span data-name className="relative inline-block">
+            <span data-name className="group/name relative inline-block">
               <span data-line className="block w-fit">
                 {firstName}
                 <span data-period className="text-red">
                   .
                 </span>
               </span>
-              <SelBox tag="h1.name" />
+              <SelBox tag="h1.name" className="group-hover/name:visible! group-hover/name:opacity-100!" />
             </span>
           </h1>
 
           <h2 className="mt-[1.8svh] font-body text-[min(2.4vw,4.2svh)] font-extrabold uppercase leading-[1.1] tracking-tight text-red max-sm:text-[1.3rem]">
-            <span data-title className="inline-block">
+            <span data-title className="inline-block transition-colors duration-200 hover:text-ink!">
               {hero.titleLines[0]}
               <br />
               {hero.titleLines[1]}
@@ -835,7 +862,7 @@ export default function Intro() {
           {/* paragraph hides on very short screens so everything still fits */}
           <p
             data-sub
-            className="mt-[1.6svh] max-w-[24rem] text-[min(1.05rem,2.3svh)] leading-relaxed text-ink/70 [@media(max-height:640px)]:hidden"
+            className="mt-[1.6svh] max-w-[24rem] text-[min(1.05rem,2.3svh)] leading-relaxed text-ink/70 transition-colors duration-300 hover:text-ink [@media(max-height:640px)]:hidden"
           >
             <Typed text={hero.tagline} />
           </p>
@@ -863,16 +890,16 @@ export default function Intro() {
                 </span>
               </span>
             </span>
-            <SelBox tag="a.btn" />
+            <SelBox tag="a.btn" className="group-hover:visible! group-hover:opacity-100!" />
           </a>
 
           <p
             data-loc
-            className="label mt-[2.4svh] flex items-center gap-2.5 [@media(max-height:560px)]:hidden"
+            className="label group/loc mt-[2.4svh] flex items-center gap-2.5 transition-colors duration-200 hover:text-ink [@media(max-height:560px)]:hidden"
           >
             <svg
               viewBox="0 0 24 24"
-              className="size-4 shrink-0 fill-none stroke-red"
+              className="size-4 shrink-0 fill-none stroke-red transition-transform duration-300 group-hover/loc:-translate-y-1"
               strokeWidth="1.8"
             >
               <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
@@ -885,7 +912,7 @@ export default function Intro() {
         {/* RIGHT: a narrow column pinned to the far right edge, numbers right beside their words */}
         <aside className="mt-[2.5svh] lg:absolute lg:bottom-0 lg:right-0 lg:mt-0 lg:w-[min(19rem,23vw)]">
           <div className="mb-[2.2svh] hidden items-center gap-3.5 lg:flex [@media(max-height:620px)]:hidden">
-            <span className="grid size-[3.2rem] shrink-0 place-items-center rounded-full border border-red/30">
+            <span className="grid size-[3.2rem] shrink-0 place-items-center rounded-full border border-red/30 transition-colors duration-300 hover:border-red [&:hover_.atom-spin]:[animation-duration:2.5s]">
               <ReactLogo data-logo className="size-7 text-red" />
             </span>
             <p
@@ -903,12 +930,12 @@ export default function Intro() {
             className="grid grid-cols-3 gap-2 lg:grid-cols-1 lg:gap-0"
           >
             {stats.map((s) => (
-              <li key={s.label} data-stat className="relative">
+              <li key={s.label} data-stat className="group/stat relative">
                 <div
                   data-row-inner
-                  className="flex flex-col gap-1 py-3 lg:flex-row lg:items-center lg:gap-4 lg:py-[1.4svh]"
+                  className="flex flex-col gap-1 py-3 transition-[translate] duration-300 group-hover/stat:translate-x-2 lg:flex-row lg:items-center lg:gap-4 lg:py-[1.4svh]"
                 >
-                  <span className="display flex min-w-[0.85em] items-end text-[2.2rem] leading-none text-red lg:text-[min(4vw,7.4svh)]">
+                  <span className="display flex min-w-[0.85em] items-end text-[2.2rem] leading-none text-red transition-[text-shadow] duration-300 group-hover/stat:[text-shadow:0_0_26px_rgba(214,26,41,0.65)] lg:text-[min(4vw,7.4svh)]">
                     <span data-stat-num data-to={s.value} className="tabular-nums">
                       {s.value}
                     </span>
@@ -921,7 +948,7 @@ export default function Intro() {
                       </span>
                     )}
                   </span>
-                  <span data-stat-label className="label inline-block">
+                  <span data-stat-label className="label inline-block transition-colors duration-300 group-hover/stat:text-ink">
                     {s.label}
                   </span>
                 </div>
@@ -929,7 +956,7 @@ export default function Intro() {
                 {/* the divider a cursor draws, with its blue drag handle */}
                 <i
                   data-rule
-                  className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-white/15"
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-white/15 transition-colors duration-300 group-hover/stat:bg-red"
                 />
                 <i
                   data-rule-handle
@@ -943,12 +970,12 @@ export default function Intro() {
             data-dl
             href="/Adwaith_A_Kumar_Resume.pdf"
             download
-            className="label mt-[1.6svh] inline-flex items-center gap-3 text-ink transition-colors hover:text-red"
+            className="label group/dl mt-[1.6svh] inline-flex items-center gap-3 text-ink transition-colors hover:text-red"
           >
             <svg
               data-dl-icon
               viewBox="0 0 24 24"
-              className="size-4 fill-none stroke-red"
+              className="size-4 fill-none stroke-red transition-transform duration-300 group-hover/dl:translate-y-[3px]"
               strokeWidth="1.8"
               strokeLinecap="round"
               strokeLinejoin="round"

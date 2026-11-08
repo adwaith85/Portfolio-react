@@ -1,33 +1,29 @@
-import { swarm } from "../components/cursors/swarmApi";
-
 /*
   Cursor ownership.
 
-  The original engine had one active build. A new section finishing the old
-  build is still the right behaviour across sections, but a section now has
-  several viewport groups that can enter together. Those groups are allowed to
-  animate in parallel because each one leases a DIFFERENT set of cursor agents.
+  Sections can now overlap in time: a group that has started is allowed to
+  finish its animation even after the next section enters the viewport. That
+  is why a section starting no longer force-finishes the previous section.
 
   - handoff.claim(tl)        legacy single-owner API (Intro / playOnEnter)
-  - handoff.begin(id, tl)    a viewport group starts; previous sections finish
-  - handoff.end(id, tl)      a group left / reversed and gives its lease back
+  - handoff.begin(id, tl)    a viewport group starts
+  - handoff.end(id, tl)      a group finished and gives its lease back
   - handoff.release(tl)      forget a timeline completely
-  - handoff.isActive(id)     is this section currently driving the cursors?
+  - handoff.isActive(id)     does this section still have running groups?
 
-  The ID is a section key (for example "what-i-do"). Groups inside the same
-  section never interrupt each other. When a different section starts, every
-  older timeline is jumped to its finished state and the swarm is taken over,
-  exactly like the original section-to-section handoff.
+  Groups inside one section use disjoint agent indices. Different sections
+  reuse those indices, so if two sections overlap the cursors are shared; both
+  content animations still play to completion instead of being cut short.
 */
 
 let legacy = null; // one whole-section timeline (Intro / playOnEnter)
-let sectionId = null; // current section driving the swarm
-const active = new Set(); // viewport-group timelines of that section
+let sectionId = null; // most recently started section
+const active = new Map(); // section id -> Set of running group timelines
 
 const finish = (tl) => {
   if (!tl) return;
   try {
-    if (tl.progress() < 1) tl.progress(1); // events suppressed: end state only
+    if (tl.progress() < 1) tl.progress(1); // used only by the legacy claim
   } catch {
     /* a killed timeline can no longer be measured */
   }
@@ -35,12 +31,8 @@ const finish = (tl) => {
 
 export const handoff = {
   claim(tl) {
-    // Legacy single-owner claim. A section-based group takes priority.
-    if (sectionId) {
-      active.forEach(finish);
-      active.clear();
-      sectionId = null;
-    }
+    // Legacy single-owner claim. It no longer stops section groups: whichever
+    // build is already running is allowed to finish.
     if (legacy && legacy !== tl && !legacy.reversed() && legacy.progress() < 1) {
       finish(legacy);
     }
@@ -48,45 +40,47 @@ export const handoff = {
   },
 
   begin(id, tl) {
-    let changed = false;
-
-    if (legacy) {
+    // A viewport section cancels the legacy whole-page build (the Intro). That
+    // build is offscreen by the time section 2 starts, and letting its final
+    // fadeOut run late would hide the cursors the new section just showed.
+    // Only the legacy timeline is finished here; started section groups are
+    // never snapped.
+    if (legacy && legacy !== tl && !legacy.reversed() && legacy.progress() < 1) {
       finish(legacy);
       legacy = null;
-      changed = true;
     }
 
-    if (sectionId !== id) {
-      if (sectionId) {
-        active.forEach(finish);
-      }
-      active.clear();
-      sectionId = id;
-      changed = true;
+    const changed = sectionId !== id;
+    sectionId = id;
+
+    let set = active.get(id);
+    if (!set) {
+      set = new Set();
+      active.set(id, set);
     }
-
-    if (tl) active.add(tl);
-
-    // A different section now owns the swarm: stop every cursor.
-    // The new group immediately shows only the agents in its own lease.
-    if (changed) swarm.takeOver();
+    if (tl) set.add(tl);
 
     return changed;
   },
 
   end(id, tl) {
-    if (tl) active.delete(tl);
-    if (sectionId === id && active.size === 0) sectionId = null;
+    const set = active.get(id);
+    if (set && tl) set.delete(tl);
+    if (set && set.size === 0) active.delete(id);
+    if (sectionId === id && !active.has(id)) sectionId = null;
   },
 
   release(tl) {
-    active.delete(tl);
+    active.forEach((set, id) => {
+      set.delete(tl);
+      if (set.size === 0) active.delete(id);
+    });
     if (legacy === tl) legacy = null;
-    if (active.size === 0) sectionId = null;
+    if (sectionId && !active.has(sectionId)) sectionId = null;
   },
 
   isActive(id) {
-    return sectionId === id && !legacy;
+    return active.has(id);
   },
 
   getSection() {

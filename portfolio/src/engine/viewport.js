@@ -1,6 +1,7 @@
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { swarm } from "../components/cursors/swarmApi";
+import { typeReveal } from "./buildKit";
 import { handoff } from "./handoff";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -14,8 +15,9 @@ gsap.registerPlugin(ScrollTrigger);
   the viewport. Offscreen groups stay in their initial state.
 
   The callbacks also handle fast scrolling:
-  - groups that are crossed while already above the viewport are put straight
-    into their finished state instead of playing offscreen
+  - a group that has started keeps playing to completion, even if the user
+    scrolls past it or the next section enters. Nothing is snapped to its end
+    state while its animation is still running.
   - groups below the viewport are not touched until they enter
   - scrolling back up reverses a group naturally; when another section owns the
     cursors the group is reset instantly so it can never steal cursor agents
@@ -70,6 +72,82 @@ export function cursorOutro(tl, agents, { at = ">", duration = 0.45 } = {}) {
   if (!els.length) return tl;
   tl.to(els, { opacity: 0, duration, ease: "power2.out" }, at);
   return tl;
+}
+
+/*
+  Small cursor actions used by the group builders.
+
+  They return the time at which the action ends, so a builder can chain one
+  element after another while other agents do their own actions in parallel.
+*/
+
+/* Fly an agent to an element. */
+export function cursorMove(
+  tl,
+  i,
+  target,
+  { at = 0, duration = 0.4, offset, dx, dy, ease } = {}
+) {
+  if (target) {
+    tl.add(swarm.moveTo(i, target, { duration, offset, dx, dy, ease }), at);
+  }
+  return at + duration;
+}
+
+/* Make an agent click where it is. */
+export function cursorClick(tl, i, at = 0) {
+  tl.add(() => swarm.click(i), at);
+  return at;
+}
+
+/*
+  Cursor flies to the start of a line, clicks, then types it. The same agent
+  follows the writing edge through typeReveal.
+*/
+export function cursorType(
+  tl,
+  el,
+  i,
+  {
+    at = 0,
+    duration = 0.4,
+    smooth = false,
+    click = true,
+    travel = 0.35,
+    offset = { x: 0, y: 0.55 },
+  } = {}
+) {
+  if (!el) return at;
+  tl.add(swarm.moveTo(i, el, { duration: travel, offset }), at);
+  if (click) tl.add(() => swarm.click(i), at + travel);
+  tl.add(typeReveal(el, { duration, smooth, agent: i }), at + travel + 0.05);
+  return at + travel + duration + 0.05;
+}
+
+/*
+  Cursor clicks an image / box and opens it with a clip-path wipe.
+  The caller sets the initial clipped state.
+*/
+export function cursorOpen(
+  tl,
+  i,
+  el,
+  { at = 0, duration = 0.5, travel = 0.35, from = "inset(0% 0% 100% 0%)" } = {}
+) {
+  if (!el) return at;
+  tl.add(swarm.moveTo(i, el, { duration: travel, offset: { x: 0.5, y: 0.15 } }), at);
+  tl.add(() => swarm.click(i), at + travel);
+  tl.fromTo(
+    el,
+    { clipPath: from, autoAlpha: 1 },
+    {
+      clipPath: "inset(0% 0% 0% 0%)",
+      duration,
+      ease: "power2.inOut",
+    },
+    at + travel
+  );
+  return at + travel + duration;
 }
 
 /*
@@ -131,29 +209,13 @@ export function createViewportReveal({
       return tl;
     };
 
-    const finishInstantly = () => {
-      const t = ensure();
-      mode = "forward";
-      t.pause();
-      t.progress(1);
-    };
-
     const play = () => {
       if (!alive || spec.once && mode === "forward") return;
       if (mode === "forward") return;
 
-      const rect = el.getBoundingClientRect();
-
-      // Crossed during a fast jump but already above the viewport: show the
-      // finished state instead of animating many offscreen groups.
-      if (rect.bottom <= 0) {
-        finishInstantly();
-        return;
-      }
-
-      // Not actually visible yet (ScrollTrigger refresh edge case).
-      if (!isInViewport(el, 80)) return;
-
+      // A fast scroll can cross this group after it has already passed above
+      // the viewport. Start it anyway so it animates to completion instead of
+      // jumping to its end state.
       const t = ensure();
 
       if (enabled && agents.length) {
@@ -198,15 +260,15 @@ export function createViewportReveal({
       start: spec.start || start,
       onEnter: play,
       onEnterBack: () => {
-        // Re-entering from the top: a finished group stays finished.
-        if (mode === "idle") play();
+        // Re-entering from the top: resume or restart, but a group that is
+        // already playing is never interrupted.
+        if (mode !== "forward") play();
       },
       onLeaveBack: reverse,
       onRefresh: () => {
-        if (mode === "idle") {
-          const r = el.getBoundingClientRect();
-          if (r.bottom <= 0 && el.offsetParent !== null) finishInstantly();
-        }
+        // A refresh can land while the page is resting on an unplayed group.
+        // Play it normally instead of snapping to the end state.
+        if (mode === "idle" && isInViewport(el, 80)) play();
       },
     });
 

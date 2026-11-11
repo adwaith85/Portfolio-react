@@ -83,33 +83,33 @@ export const ENVS = {
   experience: {
     name: "Carbon",
     bg: "#232726",
-    main: "#98aa9d",
-    gold: "#c4a068",
-    deep: "#2d3536",
+    main: "#d61a29",
+    gold: "#b08d4d",
+    deep: "#21402d",
     ink: "#efe8da",
     tint: "rgba(45,53,54,0.55)",
     tintHot: "rgba(196,160,104,0.16)",
   },
   contact: {
-    name: "Moss Black",
-    bg: "#1a201d",
+    name: "Jet Black",
+    bg: "#0a0a0c",
     main: "#d61a29",
-    gold: "#b08d4d",
-    deep: "#21402d",
+    gold: "#f2efeb",
+    deep: "#8c0a14",
     ink: "#f2efeb",
     tint: "rgba(92,18,32,0.34)",
-    tintHot: "rgba(176,141,77,0.16)",
+    tintHot: "rgba(214,26,41,0.16)",
   },
-  // Cloud Grey: the one light surface, so text turns dark here
+  // Jet Black, closing the loop with the hero. Red, black and white only.
   footer: {
-    name: "Cloud Grey",
-    bg: "#8b8c90",
-    main: "#8c1422",
-    gold: "#6b5224",
-    deep: "#3a3b3f",
-    ink: "#151517",
-    tint: "rgba(255,255,255,0.3)",
-    tintHot: "rgba(255,255,255,0.4)",
+    name: "Jet Black",
+    bg: "#0a0a0c",
+    main: "#d61a29",
+    gold: "#f2efeb",
+    deep: "#8c0a14",
+    ink: "#f2efeb",
+    tint: "rgba(92,18,32,0.34)",
+    tintHot: "rgba(214,26,41,0.16)",
   },
 };
 
@@ -119,33 +119,40 @@ const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 const rgb = (c) => c.join(" ");
 const rgba = (c, a) => `rgba(${c.join(",")},${a})`;
 
+/* One section's CSS variables. Experience renders this locally with envCss()
+   so it gets its Carbon palette without mounting the global Wall. */
+const envRule = (id, e) => {
+  const main = hex(e.main);
+  const gold = hex(e.gold);
+  const deep = hex(e.deep);
+  const ink = hex(e.ink);
+  const muted = mix(ink, hex(e.bg), 0.42);
+  return (
+    `[data-env="${id}"]{` +
+    `--env-rgb:${rgb(main)};` +
+    `--env-gold-rgb:${rgb(gold)};` +
+    `--env-deep-rgb:${rgb(deep)};` +
+    `--color-red:${e.main};` +
+    `--color-gold:${e.gold};` +
+    `--color-deep:${e.deep};` +
+    `--color-ink:${e.ink};` +
+    `--color-muted:rgb(${rgb(muted)});` +
+    `--color-line:${rgba(gold, 0.24)};` +
+    `--env-tint:${e.tint};` +
+    `--env-tint-hot:${e.tintHot};` +
+    `--env-edge:${rgba(gold, 0.3)};` +
+    `--env-edge-hot:${rgba(main, 0.55)};` +
+    `color:${e.ink};` +
+    `}`
+  );
+};
+
 /* CSS variables per section. Tailwind classes such as text-red, text-gold, bg-deep,
    text-ink and border-line read these, so each section recolours itself without
    changing its markup. */
 export const ENV_CSS = Object.entries(ENVS)
-  .map(([id, e]) => {
-    const main = hex(e.main);
-    const gold = hex(e.gold);
-    const deep = hex(e.deep);
-    const ink = hex(e.ink);
-    const muted = mix(ink, hex(e.bg), 0.42);
-    return (
-      `[data-env="${id}"]{` +
-      `--env-rgb:${rgb(main)};` +
-      `--env-gold-rgb:${rgb(gold)};` +
-      `--env-deep-rgb:${rgb(deep)};` +
-      `--color-red:${e.main};` +
-      `--color-gold:${e.gold};` +
-      `--color-deep:${e.deep};` +
-      `--color-ink:${e.ink};` +
-      `--color-muted:rgb(${rgb(muted)});` +
-      `--color-line:${rgba(gold, 0.24)};` +
-      `--env-tint:${e.tint};` +
-      `--env-tint-hot:${e.tintHot};` +
-      `--env-edge:${rgba(gold, 0.3)};` +
-      `--env-edge-hot:${rgba(main, 0.55)};` +
-      `color:${e.ink};` +
-      `}`
-    );
-  })
+  .map(([id, e]) => envRule(id, e))
   .join("\n");
+
+/* Scoped version for a single section. */
+export const envCss = (id) => (ENVS[id] ? envRule(id, ENVS[id]) : "");

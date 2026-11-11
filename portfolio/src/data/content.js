@@ -4,6 +4,27 @@ export const content = {
   social: {
     github: "https://github.com/adwaith85",
     linkedin: "https://linkedin.com/in/adwaith-a-kumar",
+    twitter: "https://x.com/Adwaith710",
+    facebook:
+      "https://www.facebook.com/adwaith.adhu.31521?rdid=RH5W7mf2YdvW0PUl&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2F17zqpHjQSh%2F#",
+    instagram: "https://www.instagram.com/7_ad_wait_h_8/",
+  },
+
+  footer: {
+    phone: "7558883100",
+    name: "Adwaith A Kumar",
+    headline: ["THANKS FOR SCROLLING.", "NOW LET’S BUILD."],
+    script: "Built line by line, from idea to live deploy.",
+    cta: "Start a conversation",
+    facts: [
+      "Based in Kannur, Kerala, India",
+      "Open to junior MERN roles",
+      "Replies within 24 hours",
+      "Available for remote and on-site",
+      "Currently learning: TypeScript",
+    ],
+    credit: "Designed and built by me with React, GSAP and Tailwind.",
+    rights: "All rights reserved.",
   },
 
   nav: [
@@ -23,8 +44,8 @@ export const content = {
     tagline:
       "Entry-level web developer who turns ideas into responsive, full-stack apps, from the first div to the live deploy.",
     stats: [
-      { value: "5", label: "Projects built" },
-      { value: "4", label: "Live demos" },
+      { value: "6", label: "Projects built" },
+      { value: "5", label: "Live demos" },
       { value: "6", label: "Months MERN training" },
       { value: "8", label: "Months internship" },
     ],
@@ -34,8 +55,8 @@ export const content = {
     { id: "what-i-do", headline: ["FROM IDEA.", "TO LIVE."] },
     { id: "projects", headline: ["THE WORK.", "THE PROOF."] },
     { id: "about", num: "04", label: "ABOUT ME", headline: ["THE PERSON.", "BEHIND THE CODE."], note: "Build comes in Step 6" },
-    { id: "education", num: "05", label: "EDUCATION", headline: ["THE ROUTE.", "SO FAR."], note: "Build comes in Step 7" },
-    { id: "experience", num: "06", label: "EXPERIENCE", headline: ["KEEP BUILDING.", "KEEP GROWING."], note: "Build comes in Step 8" },
+    { id: "education", num: "05", label: "EDUCATION", headline: ["EDUCATION", "THE ROUTE SO FAR"], note: "Build comes in Step 7" },
+    { id: "experience", num: "06", label: "EXPERIENCE", headline: ["EXPERIENCE", "& INTERNSHIP"] },
     { id: "contact", num: "07", label: "YOUR NEXT STORY", headline: ["LET'S WORK", "TOGETHER."], note: "Build comes in Step 9" },
   ],
 
@@ -66,45 +87,52 @@ export const content = {
   */
   projects: [
     {
-      title: "E-Commerce Web Application",
-      desc: "Full MERN shopping platform with product listing, cart and checkout flow.",
-      tech: ["React", "Node.js", "Express.js", "MongoDB", "AWS"],
+      title: "E-Commerce Web App",
+      desc: "Full MERN shopping store with login, categories, cart, checkout and Cashfree payments. Admin panel manages users, products, categories and payment history.",
+      tech: ["React", "CSS", "Tailwind CSS", "Node.js", "Express.js", "MongoDB", "Cashfree"],
       demo: "https://shop-cart.adwaid.online",
       github: "https://github.com/adwaith85/project-Ecommerce-",
-      image: "",
+      image: "e-commerce.png",
     },
     {
-      title: "To-Do Application",
-      desc: "Task manager with create, update and delete, backed by a REST API.",
+      title: "Gonnado: To-Do App",
+      desc: "Task manager to create, edit, archive and delete tasks with secure login. Set reminders and get them by email.",
       tech: ["React", "Node.js", "Express.js", "MongoDB", "AWS"],
       demo: "https://todo.adwaid.online",
       github: "https://github.com/adwaith85/To-Do-App",
-      image: "",
+      image: "todo.png",
     },
     {
-      title: "Uber-Like Cab Booking",
-      desc: "Real-time ride booking with separate rider and driver apps using sockets.",
-      tech: ["React", "Node.js", "Socket.IO", "Express.js", "MongoDB", "AWS"],
+      title: "Uber Clone: Rider App",
+      desc: "Cab booking app for riders. Pick a destination, choose an available driver within 5 km, share the OTP and track the ride live on the map.",
+      tech: ["React", "Node.js", "Express.js", "MongoDB", "Socket.IO", "Leaflet"],
       demo: "https://oober.adwaid.online",
-      demo2: "https://oober-driver.adwaid.online",
       github: "https://github.com/adwaith85/Project-Uber",
-      image: "",
+      image: "uber.png",
     },
     {
-      title: "Genmise: Online Store (Group Project)",
-      desc: "Team-built online store platform with a typed React frontend.",
+      title: "Uber Clone: Driver App",
+      desc: "Driver app with live location. Accept or reject ride requests, start with the rider's OTP, follow the route and see earnings per km.",
+      tech: ["React", "Node.js", "Express.js", "MongoDB", "Socket.IO", "Leaflet"],
+      demo: "https://oober-driver.adwaid.online",
+      github: "https://github.com/adwaith85/Project-Uber",
+      image: "uber-driver.png",
+    },
+    {
+      title: "Talkies: Chat App",
+      desc: "Android chat app to talk with random people. Email OTP login, built with React Native, Node, Express and MySQL on Docker.",
+      tech: ["React Native", "Node.js", "Express.js", "MySQL", "Docker"],
+      demo: "",
+      github: "https://github.com/adwaith85/Chat-App",
+      image: "chat-app.jpg",
+    },
+    {
+      title: "Genmise: Online Store Builder",
+      desc: "Store builder with admin, merchant and customer panels. Admins create templates, merchants launch shops with products and offers.",
       tech: ["React", "TypeScript", "Node.js", "MongoDB", "AWS"],
       demo: "https://genmise.adwaid.online",
       github: "https://github.com/4bjith/GroupProject-OnlineStore",
-      image: "",
-    },
-    {
-      title: "Talkies: Chat Application",
-      desc: "Mobile chat app built with React Native and a MySQL-backed API.",
-      tech: ["React Native", "Node.js", "Express.js", "MySQL"],
-      demo: "",
-      github: "https://github.com/adwaith85/Chat-App",
-      image: "",
+      image: "genmise.png",
     },
   ],
 
@@ -114,6 +142,79 @@ export const content = {
     Backend: ["Node.js", "Express.js", "REST APIs", "Authentication", "Socket.IO"],
     Databases: ["MongoDB", "MySQL"],
     Tools: ["Git", "GitHub", "VS Code", "Postman", "AWS", "Docker", "Android Studio"],
+  },
+
+  /*
+    The request path from the first click to the live URL.
+    Each node carries the tools that actually sit at that stop.
+  */
+  skillsGained: {
+    num: "06",
+    label: "SKILLS",
+    headline: ["SKILLS", "& TOOLS USED"],
+    intro:
+      "One request, six stops. The tools and architecture that move code from a click to a live URL.",
+    flowLabel: "REQUEST PATH",
+    returnLabel: "LIVE URL",
+    flow: [
+      {
+        key: "user",
+        title: "USER",
+        caption: "Opens the app",
+        icons: [],
+      },
+      {
+        key: "client",
+        title: "CLIENT",
+        caption: "Screens people use",
+        icons: [
+          "React",
+          "React Native",
+          "Flutter",
+          "Next.js",
+          "JavaScript",
+          "TypeScript",
+          "HTML5",
+          "CSS3",
+          "Tailwind CSS",
+          "Bootstrap",
+        ],
+      },
+      {
+        key: "api",
+        title: "API",
+        caption: "Requests and responses",
+        icons: ["REST APIs", "JWT", "Axios", "Socket.IO", "Postman"],
+      },
+      {
+        key: "server",
+        title: "SERVER",
+        caption: "Logic and auth",
+        icons: ["Node.js", "Express.js", "Authentication"],
+      },
+      {
+        key: "data",
+        title: "DATA",
+        caption: "Stored and queried",
+        icons: ["MongoDB", "Mongoose", "MySQL", "SQL"],
+      },
+      {
+        key: "cloud",
+        title: "CLOUD",
+        caption: "Live on the internet",
+        icons: [
+          "AWS",
+          "Docker",
+          "Nginx",
+          "PM2",
+          "GitHub Actions",
+          "Vercel",
+          "Netlify",
+          "Git",
+          "GitHub",
+        ],
+      },
+    ],
   },
 
   education: [
@@ -218,16 +319,33 @@ export const content = {
   experience: [
     {
       role: "Web Developer Intern",
-      place: "GTEC, Kannur",
-      period: "Jul 2025 – Feb 2026",
+      company: "GTEC, KANNUR",
+      period: "JUL 2025 – FEB 2026",
+      summary: "Web developer intern building and shipping full-stack MERN applications.",
       points: [
-        "Contributed to backend API development and database management for web applications.",
-        "Built responsive frontend interfaces with React.js, HTML, CSS and JavaScript.",
+        "Contributed to backend API development and database management.",
+        "Built responsive frontend interfaces using React.js and JavaScript.",
         "Integrated frontend components with backend REST APIs.",
-        "Helped debug and improve application functionality and usability.",
+        "Assisted with debugging and improving application functionality.",
         "Used Git and GitHub for source control and collaboration.",
       ],
-      certificate: "",
+      techLabel: "TECH USED",
+      tech: [
+        "React",
+        "JavaScript",
+        "Node.js",
+        "Express.js",
+        "MongoDB",
+        "REST APIs",
+        "Git",
+        "GitHub",
+      ],
+      counters: [
+        { value: 5, label: "Projects built" },
+        { value: 4, label: "Live demos" },
+        { value: 8, label: "Months internship" },
+        { value: 6, label: "Months MERN training" },
+      ],
     },
   ],
 };

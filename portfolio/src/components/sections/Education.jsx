@@ -936,6 +936,21 @@ export default function Education() {
       <h2 className="sr-only">Education</h2>
       <style>{MAP_STYLE}</style>
 
+      {/* Section Heading */}
+      <header className="relative z-10 mb-6 max-w-[1500px] w-full">
+        <p className="label mb-2 block w-fit">
+          <span className="inline-block">
+            <span className="text-red">05</span> / EDUCATION
+          </span>
+        </p>
+        <h3 className="display flex flex-wrap items-baseline gap-x-4 text-[min(5.4vw,10svh)] max-lg:text-[clamp(2.4rem,10vw,3.8rem)]">
+          <span className="block w-fit text-ink">EDUCATION</span>
+          <span className="block w-fit text-[0.42em] font-sans font-medium uppercase tracking-[0.2em] text-red">
+            THE ROUTE SO FAR
+          </span>
+        </h3>
+      </header>
+
       <div data-route className="relative flex-1">
         {/* perspective grid floor + faint route glows */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">

@@ -7,10 +7,10 @@ import { lockScroll, unlockScroll } from "../../hooks/useSmoothScroll";
 gsap.registerPlugin(ScrollTrigger);
 
 const STOP_POSITIONS = [
-  "top-[8%] sm:top-[12%]",
-  "top-[30%] sm:top-[33%]",
-  "top-[57%] sm:top-[60%]",
-  "top-[82%] sm:top-[84%]",
+  "top-[8%] sm:top-[12%] lg:top-[10%]",
+  "top-[30%] sm:top-[33%] lg:top-[27%]",
+  "top-[57%] sm:top-[60%] lg:top-[51%]",
+  "top-[82%] sm:top-[84%] lg:top-[80%]",
 ];
 
 const EDU_STYLE = `
@@ -86,6 +86,39 @@ const EDU_STYLE = `
   }
   .edu-fan-item:first-child { margin-left: 0; }
 }
+
+/* Mobile education timeline: normal document flow so taller cards never overlap. */
+@media (max-width: 1023px) {
+  #education {
+    height: auto;
+    min-height: 100svh;
+    overflow: visible;
+  }
+  #education > header {
+    position: relative;
+    inset: auto;
+    margin-inline: auto;
+  }
+  #education [data-edu-route] {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    max-width: none;
+    margin: 0 auto;
+    padding: 1.75rem 0 3.5rem;
+  }
+  #education [data-edu-stop] {
+    position: relative;
+    inset: auto;
+    top: auto;
+    translate: none;
+    transform: none;
+    margin: 0 0 2.75rem;
+  }
+  #education [data-edu-stop]:last-child {
+    margin-bottom: 0;
+  }
+}
 @media (max-height: 520px) {
   .edu-head-sub { display: none; }
   .edu-card { padding: 0.45rem 0.55rem; }
@@ -99,7 +132,6 @@ const EDU_STYLE = `
     overflow: hidden;
   }
   .edu-card-level, .edu-card-status, .edu-card-meta { display: none; }
-  .edu-side-year { font-size: 2.2rem; }
 }
 @keyframes eduModalIn {
   from { opacity: 0; transform: translateY(10px) scale(0.985); }
@@ -109,6 +141,10 @@ const EDU_STYLE = `
 @media (prefers-reduced-motion: reduce) {
   .edu-fan-item { transition: none; }
   .edu-modal-panel { animation: none; }
+}
+@media (min-width: 1024px) {
+  [data-edu-svg] [data-edu-path-base] { stroke-width: 1.8; }
+  [data-edu-svg] [data-edu-path-progress] { stroke-width: 3; }
 }
 `;
 
@@ -161,7 +197,7 @@ function AnchorDot({ side }) {
       data-edu-anchor
       data-edu-dot
       aria-hidden="true"
-      className={`size-2 shrink-0 rounded-full bg-red shadow-[0_0_0_4px_rgba(214,26,41,0.1),0_0_12px_3px_rgba(214,26,41,0.35)] ${
+      className={`size-2 shrink-0 rounded-full bg-red shadow-[0_0_0_4px_rgba(214,26,41,0.1),0_0_12px_3px_rgba(214,26,41,0.35)] lg:size-2.5 ${
         side === "right" ? "-mr-px" : "-ml-px"
       }`}
     />
@@ -314,7 +350,9 @@ export default function Education() {
     const stops = [...el.querySelectorAll("[data-edu-stop]")];
     const anchors = stops.map((stop) => stop.querySelector("[data-edu-anchor]"));
     const cards = stops.map((stop) => stop.querySelector("[data-edu-card]"));
-    const years = stops.map((stop) => stop.querySelector("[data-edu-year]"));
+    const years = stops.map((stop) => [
+      ...stop.querySelectorAll("[data-edu-year]"),
+    ]);
     const dots = stops.map((stop) => stop.querySelector("[data-edu-dot]"));
 
     if (
@@ -330,13 +368,13 @@ export default function Education() {
       "(prefers-reduced-motion: reduce)"
     ).matches;
     const visibleCards = cards.filter(Boolean);
-    const visibleYears = years.filter(Boolean);
+    const visibleYears = years.flat();
     const visibleDots = dots.filter(Boolean);
     let total = 0;
     let fractions = [];
     let alive = true;
     let ctx = null;
-    let trigger = null;
+    let mm = null;
     let refreshTimer = 0;
     let resizeTimer = 0;
     let raf = 0;
@@ -398,61 +436,53 @@ export default function Education() {
 
     const refresh = () => {
       if (!alive) return;
+      buildPath();
       ScrollTrigger.sort();
       ScrollTrigger.refresh();
+      requestAnimationFrame(() => buildPath());
     };
 
-    if (reduced) {
-      ctx = gsap.context(() => {
-        buildPath();
-        gsap.set(progressPath, { strokeDashoffset: 0 });
-        gsap.set(tip, { opacity: 0 });
-        gsap.set([...visibleCards, ...visibleYears, ...visibleDots], {
-          opacity: 1,
-          y: 0,
-        });
-        gsap.set(start, { opacity: 1, y: 0 });
-      }, el);
-      raf = requestAnimationFrame(refresh);
-
-      return () => {
-        alive = false;
-        cancelAnimationFrame(raf);
-        ctx?.revert();
-      };
-    }
-
-    ctx = gsap.context(() => {
+    const buildTimeline = ({ pin }) => {
       buildPath();
 
       gsap.set(progressPath, { strokeDashoffset: 1 });
       gsap.set(tip, { opacity: 0 });
-      gsap.set(start, { opacity: 0.55, y: 6 });
+      // The start node carries the first route anchor, so keep it still and
+      // fade it only; moving it would detach the path from its dot.
+      gsap.set(start, { opacity: 0.55 });
       gsap.set([...visibleCards, ...visibleYears], { opacity: 0, y: 18 });
       gsap.set(visibleDots, { opacity: 0 });
 
       const draw = { p: 0 };
       const tl = gsap.timeline({
         defaults: { ease: "none" },
-        scrollTrigger: {
-          trigger: el,
-          start: "top top",
-          end: "+=120%",
-          pin: true,
-          pinSpacing: true,
-          scrub: 0.6,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-          onRefresh: () => buildPath(),
-        },
+        scrollTrigger: pin
+          ? {
+              trigger: el,
+              start: "top top",
+              end: "+=120%",
+              pin: true,
+              pinSpacing: true,
+              scrub: 0.6,
+              anticipatePin: 1,
+              invalidateOnRefresh: true,
+              onRefresh: () => buildPath(),
+            }
+          : {
+              trigger: el,
+              start: "top 78%",
+              end: "bottom 55%",
+              scrub: 0.6,
+              invalidateOnRefresh: true,
+              onRefresh: () => buildPath(),
+            },
       });
 
       tl.fromTo(
         start,
-        { opacity: 0.55, y: 6 },
+        { opacity: 0.55 },
         {
           opacity: 1,
-          y: 0,
           duration: 0.06,
           ease: "power2.out",
           immediateRender: false,
@@ -479,12 +509,14 @@ export default function Education() {
       stops.slice(1).forEach((_, index) => {
         const stopIndex = index + 1;
         const card = cards[stopIndex];
-        const year = years[stopIndex];
+        const stopYears = years[stopIndex] ?? [];
         const dot = dots[stopIndex];
-        const at = Math.min(
-          0.96,
-          Math.max(0.07, 0.06 + (fractions[stopIndex] ?? 1) * 0.94 - 0.035)
-        );
+        const at = pin
+          ? Math.min(
+              0.96,
+              Math.max(0.07, 0.06 + (fractions[stopIndex] ?? 1) * 0.94 - 0.035)
+            )
+          : Math.min(0.68, 0.1 + index * 0.14);
 
         if (card) {
           tl.fromTo(
@@ -500,9 +532,9 @@ export default function Education() {
             at
           );
         }
-        if (year) {
+        if (stopYears.length) {
           tl.fromTo(
-            year,
+            stopYears,
             { opacity: 0, y: 18 },
             {
               opacity: 1,
@@ -527,9 +559,24 @@ export default function Education() {
           );
         }
       });
+    };
 
-      trigger = tl.scrollTrigger;
-    }, el);
+    if (reduced) {
+      ctx = gsap.context(() => {
+        buildPath();
+        gsap.set(progressPath, { strokeDashoffset: 0 });
+        gsap.set(tip, { opacity: 0 });
+        gsap.set([...visibleCards, ...visibleYears, ...visibleDots], {
+          opacity: 1,
+          y: 0,
+        });
+        gsap.set(start, { opacity: 1, y: 0 });
+      }, el);
+    } else {
+      mm = gsap.matchMedia();
+      mm.add("(min-width: 1024px)", () => buildTimeline({ pin: true }));
+      mm.add("(max-width: 1023px)", () => buildTimeline({ pin: false }));
+    }
 
     raf = requestAnimationFrame(() => {
       if (!alive) return;
@@ -562,8 +609,8 @@ export default function Education() {
       window.removeEventListener("load", onLoad);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("orientationchange", onResize);
-      if (trigger) trigger.kill();
       ctx?.revert();
+      mm?.revert();
     };
   }, []);
 
@@ -583,7 +630,7 @@ export default function Education() {
         <h2 className="sr-only">Education</h2>
         <style>{EDU_STYLE}</style>
 
-        <header className="pointer-events-none absolute inset-x-0 top-0 z-[4] px-gutter pt-[4svh] lg:pt-[5svh]">
+        <header className="pointer-events-none absolute inset-x-0 top-0 z-[4] px-gutter pt-[4svh] lg:mx-auto lg:max-w-[72rem] lg:pt-[5svh]">
           <h3 className="display flex flex-wrap items-baseline gap-x-4 text-[clamp(2rem,7svh,5.5rem)] leading-none">
             <span className="block w-fit text-ink">EDUCATION</span>
             <span className="edu-head-sub block w-fit text-[0.34em] font-sans font-medium uppercase tracking-[0.2em] text-red">
@@ -594,7 +641,7 @@ export default function Education() {
 
         <div
           data-edu-route
-          className="absolute inset-x-0 bottom-[3svh] top-[16svh]"
+          className="absolute inset-x-0 bottom-[3svh] top-[16svh] lg:mx-auto lg:max-w-[72rem]"
         >
           <div
             aria-hidden="true"
@@ -646,7 +693,7 @@ export default function Education() {
           <span
             data-edu-tip
             aria-hidden="true"
-            className="pointer-events-none absolute left-0 top-0 z-[2] size-2 rounded-full bg-red opacity-0 shadow-[0_0_0_4px_rgba(214,26,41,0.14),0_0_14px_4px_rgba(214,26,41,0.45)]"
+            className="pointer-events-none absolute left-0 top-0 z-[2] size-2 rounded-full bg-red opacity-0 shadow-[0_0_0_4px_rgba(214,26,41,0.14),0_0_14px_4px_rgba(214,26,41,0.45)] lg:size-2.5"
           />
 
           {education.map((entry, index) => {
@@ -664,37 +711,48 @@ export default function Education() {
                 }`}
               >
                 {index > 0 && (
-                  <span
-                    data-edu-year
+                  <div
                     aria-hidden="true"
-                    className={`edu-side-year display pointer-events-none absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[clamp(1.6rem,5.5svh,3rem)] leading-none text-ink/[0.06] sm:text-[clamp(2.6rem,9svh,5rem)] lg:text-[min(10vw,15svh)] ${
+                    className={`mb-2 flex lg:hidden ${
                       side === "right"
-                        ? "left-[3vw] sm:left-[4vw] lg:left-[5vw]"
-                        : "right-[3vw] sm:right-[4vw] lg:right-[5vw]"
+                        ? "justify-end pr-[4vw] sm:pr-[5vw]"
+                        : "justify-start pl-[4vw] sm:pl-[5vw]"
                     }`}
                   >
-                    {entry.year}
-                  </span>
+                    <div
+                      data-edu-year
+                      className="flex w-[min(70vw,22rem)] flex-wrap items-baseline gap-x-2 gap-y-1 sm:w-[min(36vw,22rem)]"
+                    >
+                      <span className="display block text-[clamp(1rem,4.4vw,1.35rem)] leading-none text-ink/75">
+                        {entry.yearLabel ?? entry.year}
+                      </span>
+                      {entry.yearTag && (
+                        <span className="label rounded-[2px] border border-red/35 bg-red/[0.06] px-1.5 py-0.5 font-sans text-[0.48rem] tracking-[0.12em] text-red">
+                          {entry.yearTag}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 )}
 
                 {index === 0 ? (
                   <div
                     data-edu-start
-                    className="flex justify-start pl-[5vw] sm:pl-[6vw] lg:pl-[8vw]"
+                    className="flex justify-start pl-[5vw] sm:pl-[6vw] lg:pl-[clamp(2rem,3.5vw,4rem)]"
                   >
                     <div className="relative flex flex-col items-start">
                       <div className="mb-2 flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-                        <span className="display text-[clamp(1rem,2.6svh,1.5rem)] leading-none text-ink">
+                        <span className="display text-[clamp(1rem,2.6svh,1.5rem)] leading-none text-ink lg:text-[clamp(1.15rem,2.9svh,1.72rem)]">
                           {entry.title}
                         </span>
-                        <span className="label text-[0.58rem] text-red">
+                        <span className="label text-[0.58rem] text-red lg:text-[0.66rem]">
                           {entry.year}
                         </span>
                       </div>
                       <span
                         data-edu-anchor
                         aria-hidden="true"
-                        className="size-2.5 rounded-full bg-red shadow-[0_0_0_5px_rgba(214,26,41,0.12),0_0_16px_4px_rgba(214,26,41,0.4)]"
+                        className="size-2.5 rounded-full bg-red shadow-[0_0_0_5px_rgba(214,26,41,0.12),0_0_16px_4px_rgba(214,26,41,0.4)] lg:size-3"
                       />
                     </div>
                   </div>
@@ -702,42 +760,83 @@ export default function Education() {
                   <div
                     className={`flex items-center ${
                       side === "right"
-                        ? "justify-end pr-[4vw] sm:pr-[5vw] lg:pr-[6vw]"
-                        : "justify-start pl-[4vw] sm:pl-[5vw] lg:pl-[6vw]"
+                        ? "justify-end pr-[4vw] sm:pr-[5vw] lg:pr-[clamp(2rem,3.5vw,4rem)]"
+                        : "justify-start pl-[4vw] sm:pl-[5vw] lg:pl-[clamp(2rem,3.5vw,4rem)]"
                     }`}
                   >
                     {side === "right" && <AnchorDot side={side} />}
-                    <div
-                      data-edu-card
-                      className="edu-card relative w-[min(70vw,22rem)] rounded-[4px] border border-white/10 bg-[#121212]/95 p-[clamp(0.55rem,1.4svh,0.9rem)] shadow-[0_24px_50px_-24px_rgba(0,0,0,0.85)] transition-colors duration-300 hover:border-red/30 sm:w-[min(36vw,22rem)] lg:w-[min(30vw,26rem)]"
-                    >
-                      <i
+                    <div className="relative">
+                      <span
+                        data-edu-year
                         aria-hidden="true"
-                        className="absolute inset-x-0 top-0 h-[2px] bg-red"
-                      />
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="edu-card-level label block w-fit text-[0.55rem] text-gold">
-                          LEVEL {entry.stage}
-                        </p>
-                        <span
-                          className={`edu-card-status label inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[0.5rem] tracking-[0.08em] ${
-                            index === 3
-                              ? "border-red bg-red text-white"
-                              : "border-red/50 text-red"
-                          }`}
-                        >
-                          {entry.status}
+                        className="edu-card-year pointer-events-none absolute bottom-full left-0 mb-2.5 hidden items-center gap-2.5 whitespace-nowrap lg:flex"
+                      >
+                        <span className="display block text-[clamp(1.5rem,3.2svh,2.4rem)] leading-none text-ink/10 [-webkit-text-stroke:0.5px_rgba(242,239,235,0.16)]">
+                          {entry.yearLabel ?? entry.year}
                         </span>
+                        {entry.yearTag && (
+                          <span className="label rounded-[2px] border border-red/40 bg-red/[0.06] px-1.5 py-0.5 font-sans text-[0.51rem] tracking-[0.14em] text-red">
+                            {entry.yearTag}
+                          </span>
+                        )}
+                      </span>
+                      <div
+                        data-edu-card
+                        className="edu-card relative w-[min(70vw,22rem)] rounded-[4px] border border-white/10 bg-[#121212]/95 p-[clamp(0.55rem,1.4svh,0.9rem)] shadow-[0_24px_50px_-24px_rgba(0,0,0,0.85)] transition-colors duration-300 hover:border-red/30 sm:w-[min(36vw,22rem)] lg:w-[min(38vw,29rem)] lg:p-[clamp(0.72rem,1.65svh,1.1rem)]"
+                      >
+                        <i
+                          aria-hidden="true"
+                          className="absolute inset-x-0 top-0 h-[2px] bg-red"
+                        />
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="edu-card-level label block w-fit text-[0.55rem] text-gold lg:text-[0.64rem]">
+                            LEVEL {entry.stage}
+                          </p>
+                          <span
+                            className={`edu-card-status label inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[0.5rem] tracking-[0.08em] lg:px-2 lg:py-1 lg:text-[0.58rem] ${
+                              index === 3
+                                ? "border-red bg-red text-white"
+                                : "border-red/50 text-red"
+                            }`}
+                          >
+                            {entry.status}
+                          </span>
+                        </div>
+                        <h4 className="edu-card-title display mt-1 block text-[clamp(0.92rem,2.4svh,1.45rem)] leading-tight text-ink lg:text-[clamp(1.06rem,2.75svh,1.68rem)]">
+                          {entry.title}
+                        </h4>
+                        <p className="edu-card-place mt-1 block text-[clamp(0.62rem,1.45svh,0.82rem)] leading-snug text-ink/65 lg:text-[clamp(0.71rem,1.6svh,0.94rem)]">
+                          {entry.place}
+                        </p>
+                        <p className="edu-card-meta label mt-1.5 block text-[0.54rem] text-ink/35 lg:text-[0.63rem]">
+                          {when}
+                        </p>
+
+                        {entry.roles?.length > 0 && (
+                          <div className="edu-card-extra mt-2 border-t border-white/10 pt-1.5 lg:mt-2 lg:pt-2">
+                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                              <p className="label shrink-0 text-[0.46rem] leading-none text-red/75 lg:text-[0.54rem]">
+                                READY FOR ROLES
+                              </p>
+                              {entry.note && (
+                                <p className="text-[0.55rem] leading-tight text-ink/55 lg:text-[0.7rem] lg:leading-snug">
+                                  {entry.note}
+                                </p>
+                              )}
+                            </div>
+                            <div className="mt-1.5 flex flex-wrap gap-1 lg:mt-1.5 lg:gap-1">
+                              {entry.roles.map((role) => (
+                                <span
+                                  key={role}
+                                  className="rounded-full border border-red/25 bg-red/[0.06] px-1.5 py-[0.12rem] text-[0.45rem] leading-none text-ink/70 lg:px-1.5 lg:py-[0.12rem] lg:text-[0.55rem]"
+                                >
+                                  {role}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <h4 className="edu-card-title display mt-1 block text-[clamp(0.92rem,2.4svh,1.45rem)] leading-tight text-ink">
-                        {entry.title}
-                      </h4>
-                      <p className="edu-card-place mt-1 block text-[clamp(0.62rem,1.45svh,0.82rem)] leading-snug text-ink/65">
-                        {entry.place}
-                      </p>
-                      <p className="edu-card-meta label mt-1.5 block text-[0.54rem] text-ink/35">
-                        {when}
-                      </p>
                     </div>
                     {side === "left" && <AnchorDot side={side} />}
                   </div>

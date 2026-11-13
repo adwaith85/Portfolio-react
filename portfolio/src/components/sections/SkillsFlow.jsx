@@ -1,15 +1,22 @@
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import gsap from "gsap";
 import { stack } from "../../data/stack";
 import { toolGroups } from "../../data/tools";
 import { swarm } from "../cursors/swarmApi";
 import { typeReveal } from "../../engine/buildKit";
-import { cursorIntro, cursorOutro } from "../../engine/viewport";
+import { cursorIntro } from "../../engine/viewport";
 import {
-  BLUE,
-  Words,
   makeOverlay,
   dragBox,
+  clearOverlays,
 } from "../../engine/swarmBuild";
+import useAgentsEnabled from "../../engine/useAgentsEnabled";
 import Logo from "../ui/Logo";
 
 const byName = Object.fromEntries(
@@ -22,373 +29,84 @@ const byName = Object.fromEntries(
 /* Names without a devicon entry still use the same Logo letter badge. */
 const extraAbbr = {
   "REST APIs": "API",
-  Authentication: "AUTH",
+  Authentication: "AU",
   SQL: "SQL",
   "Tailwind CSS": "TW",
   "Express.js": "EX",
 };
 
+/* Extra skill names that are not in the shared stack/tools lists. */
+const extraItems = {
+  Chrome: { name: "Chrome", slug: "chrome" },
+  Android: { name: "Android", slug: "android" },
+  iOS: { name: "iOS", slug: "apple" },
+  "Responsive devices": { name: "Responsive devices", abbr: "RS" },
+  "Redux Toolkit": { name: "Redux Toolkit", slug: "redux" },
+  "Context API": { name: "Context API", abbr: "CX" },
+  Zustand: { name: "Zustand", abbr: "ZU" },
+  "Framer Motion": { name: "Framer Motion", abbr: "FM" },
+  "Material UI": { name: "Material UI", abbr: "MI" },
+  "shadcn/ui": { name: "shadcn/ui", abbr: "SC" },
+  SASS: { name: "SASS", slug: "sass" },
+  Dio: { name: "Dio", abbr: "DI" },
+  Provider: { name: "Provider", abbr: "PV" },
+  Riverpod: { name: "Riverpod", abbr: "RP" },
+  Bloc: { name: "Bloc", abbr: "BL" },
+  GraphQL: { name: "GraphQL", slug: "graphql" },
+  "Fetch API": { name: "Fetch API", abbr: "FE" },
+  CORS: { name: "CORS", abbr: "CO" },
+  OAuth: { name: "OAuth", abbr: "OA" },
+  Swagger: { name: "Swagger", slug: "swagger" },
+  WebSockets: { name: "WebSockets", abbr: "WS" },
+  "React Query": { name: "React Query", abbr: "RQ" },
+  Dotenv: { name: "Dotenv", abbr: "EN" },
+  Multer: { name: "Multer", abbr: "MU" },
+  bcrypt: { name: "bcrypt", abbr: "BC" },
+  "Cookie Parser": { name: "Cookie Parser", abbr: "CP" },
+  Helmet: { name: "Helmet", abbr: "HL" },
+  "Joi / Zod": { name: "Joi / Zod", abbr: "JZ" },
+  Nodemailer: { name: "Nodemailer", abbr: "NM" },
+  Passport: { name: "Passport", abbr: "PP" },
+  Redis: { name: "Redis", slug: "redis" },
+  Supabase: { name: "Supabase", slug: "supabase" },
+  "MongoDB Atlas": { name: "MongoDB Atlas", slug: "mongodb" },
+  Prisma: { name: "Prisma", slug: "prisma" },
+  SQLite: { name: "SQLite", slug: "sqlite" },
+  Hive: { name: "Hive", abbr: "HV" },
+  SharedPreferences: { name: "SharedPreferences", abbr: "SP" },
+  Render: { name: "Render", abbr: "RN" },
+  Heroku: { name: "Heroku", slug: "heroku" },
+  Cloudinary: { name: "Cloudinary", slug: "cloudinary" },
+  "Firebase Hosting": { name: "Firebase Hosting", slug: "firebase" },
+  "Play Store": { name: "Play Store", abbr: "PL" },
+  "App Store": { name: "App Store", abbr: "AP" },
+  Linux: { name: "Linux", slug: "linux" },
+  "CI/CD": { name: "CI/CD", abbr: "CI" },
+};
+
 export const techItem = (name) =>
-  byName[name] || { name, abbr: extraAbbr[name] || name.slice(0, 2) };
+  byName[name] ||
+  extraItems[name] || { name, abbr: extraAbbr[name] || name.slice(0, 2) };
 
-const NORMAL = { fill: "#121212", edge: "rgba(255,255,255,0.12)" };
-const HOT = { fill: "#2a0a0f", edge: "rgba(214,26,41,0.5)" };
-
-const FLOW_STYLE = `
-@keyframes expDashFlow {
-  to { stroke-dashoffset: -1; }
-}
-@keyframes expDashPulse {
-  from { stroke-dashoffset: 1; }
-  to { stroke-dashoffset: 0; }
-}
-@keyframes expNodeGlow {
-  0%, 100% { opacity: .3; }
-  50% { opacity: .8; }
-}
-@keyframes expSpokeShimmer {
-  0%, 100% { opacity: .28; }
-  50% { opacity: .85; }
-}
-
-.exp-flow-list { position: relative; }
-.exp-flow-node { position: relative; min-width: 0; }
-.exp-node-card {
-  box-shadow: 0 18px 36px -20px rgba(0,0,0,.9);
-  transition: box-shadow 300ms cubic-bezier(0.22,1,0.36,1), border-color 300ms ease;
-}
-.exp-node-glow {
-  position: absolute;
-  inset: -10px;
-  pointer-events: none;
-  border-radius: 8px;
-  opacity: .3;
-  background: radial-gradient(circle, rgb(var(--env-rgb) / .32), transparent 70%);
-}
-.exp-fan-item { pointer-events: auto; }
-.exp-fan-arc {
-  fill: none;
-  stroke: rgb(var(--env-gold-rgb) / .25);
-  stroke-width: 1;
-}
-.exp-spoke {
-  background: rgb(var(--env-gold-rgb) / .32);
-  transition: background-color 220ms ease, opacity 220ms ease;
-}
-.exp-spoke-dot {
-  background: var(--color-red);
-  box-shadow: 0 0 7px rgb(var(--env-rgb) / .9);
-}
-.exp-fan-icon {
-  transition: transform 240ms cubic-bezier(0.22,1,0.36,1), opacity 240ms ease, border-color 200ms ease;
-}
-.exp-fan-name {
-  font-size: .52rem;
-  line-height: 1;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--color-ink);
-  opacity: .88;
-  pointer-events: none;
-  font-weight: 600;
-  transition: color 200ms ease, opacity 200ms ease;
-}
-.exp-fan-item:hover .exp-spoke {
-  background: var(--color-red);
-  opacity: 1 !important;
-  box-shadow: 0 0 8px rgb(var(--env-rgb));
-}
-.exp-fan-item:hover .exp-fan-name { color: #ffffff; opacity: 1; text-shadow: 0 0 8px rgba(255,255,255,0.4); }
-.exp-seg-base,
-.exp-return {
-  fill: none;
-  stroke: rgb(var(--env-gold-rgb) / .4);
-  stroke-width: 1.2;
-  stroke-linecap: round;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-}
-.exp-seg-flow,
-.exp-return-flow {
-  fill: none;
-  stroke: rgb(var(--env-rgb) / .65);
-  stroke-width: 1.2;
-  stroke-linecap: round;
-  stroke-dasharray: .018 .03;
-  animation: expDashFlow 3.5s linear infinite;
-}
-.exp-seg-pulse,
-.exp-return-pulse {
-  fill: none;
-  stroke: var(--color-red);
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-dasharray: .05 .95;
-  animation: expDashPulse 2.9s linear infinite;
-  animation-delay: calc(var(--seg, 0) * .3s);
-}
-.exp-return-flow,
-.exp-return-pulse {
-  stroke: rgb(var(--env-gold-rgb) / .55);
-  animation-name: expDashFlow;
-}
-.exp-return-pulse {
-  stroke: var(--color-red);
-  opacity: .5;
-  animation-name: expDashPulse;
-}
-.exp-arrow-head { fill: rgb(var(--env-rgb)); }
-.exp-junction {
-  fill: var(--color-red);
-  filter: drop-shadow(0 0 5px rgb(var(--env-rgb)));
-}
-.exp-return-label {
-  fill: var(--color-gold);
-  font-family: var(--font-body);
-  font-size: 8.5px;
-  font-weight: 600;
-  letter-spacing: .2em;
-  text-anchor: middle;
-}
-.exp-flow-node[data-built] .exp-node-glow {
-  animation: expNodeGlow 4.4s ease-in-out infinite;
-}
-.exp-flow-node[data-built] .exp-spoke {
-  animation: expSpokeShimmer 3.6s ease-in-out infinite;
-}
-
-@media (max-width: 767px) {
-  .exp-flow-node { padding-left: 2.2rem; }
-  .exp-flow-list::before {
-    content: "";
-    position: absolute;
-    left: .68rem;
-    top: 1.4rem;
-    bottom: 1.4rem;
-    border-left: 1px dashed var(--color-line);
-  }
-  .exp-flow-node::after {
-    content: "";
-    position: absolute;
-    left: .48rem;
-    top: 1.35rem;
-    width: .44rem;
-    height: .44rem;
-    border-radius: 999px;
-    background: var(--color-red);
-    box-shadow: 0 0 0 4px rgb(var(--env-rgb) / .14), 0 0 14px rgb(var(--env-rgb) / .55);
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .exp-flow:has(.exp-flow-node:hover) .exp-flow-node { opacity: .4; }
-  .exp-flow:has(.exp-flow-node:hover) .exp-flow-node:hover { opacity: 1; }
-  .exp-flow:has(.exp-flow-node:hover) .exp-seg-base,
-  .exp-flow:has(.exp-flow-node:hover) .exp-seg-flow,
-  .exp-flow:has(.exp-flow-node:hover) .exp-seg-pulse,
-  .exp-flow:has(.exp-flow-node:hover) .exp-return,
-  .exp-flow:has(.exp-flow-node:hover) .exp-return-flow,
-  .exp-flow:has(.exp-flow-node:hover) .exp-return-pulse { opacity: .15; }
-  .exp-flow-node:hover .exp-node-card {
-    box-shadow: 0 24px 50px -22px rgba(0,0,0,.95),
-      0 0 36px -6px rgb(var(--env-rgb) / .55);
-  }
-  .exp-flow-node:hover .exp-spoke { opacity: 1; }
-  .exp-flow-node:hover .exp-node-glow { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .exp-seg-flow,
-  .exp-seg-pulse,
-  .exp-return-flow,
-  .exp-return-pulse,
-  .exp-flow-node[data-built] .exp-node-glow,
-  .exp-flow-node[data-built] .exp-spoke { animation: none !important; }
-  .exp-node-card,
-  .exp-spoke,
-  .exp-fan-icon { transition: none; }
-}
-`;
-
-/* Tiny corner points (small white squares with blue border like StackStrip) */
-function CornerPoints() {
-  const corners = [
-    "-left-1 -top-1",
-    "-right-1 -top-1",
-    "-bottom-1 -left-1",
-    "-bottom-1 -right-1",
-  ];
-  return (
-    <>
-      {corners.map((c) => (
-        <i
-          key={c}
-          className={`pointer-events-none absolute size-1.5 border bg-white ${c} z-[4]`}
-          style={{ borderColor: BLUE }}
-          aria-hidden="true"
-        />
-      ))}
-    </>
-  );
-}
-
-/* design-tool selection box that a cursor drags out over a frame */
-function SelBox({ tag }) {
-  const corners = [
-    "-left-1 -top-1",
-    "-right-1 -top-1",
-    "-bottom-1 -left-1",
-    "-bottom-1 -right-1",
-  ];
-  return (
-    <span
-      data-sel
-      className="pointer-events-none absolute left-0 top-0 z-[3] border border-dashed"
-      style={{ borderColor: BLUE }}
-    >
-      {corners.map((c) => (
-        <i
-          key={c}
-          data-handle
-          className={`absolute size-2 border bg-white ${c}`}
-          style={{ borderColor: BLUE }}
-        />
-      ))}
-      <b
-        data-tag
-        className="absolute -top-6 left-0 whitespace-nowrap rounded-sm px-1.5 py-[3px] text-[10px] font-semibold leading-none text-white"
-        style={{ background: BLUE }}
-      >
-        {tag}
-      </b>
-    </span>
-  );
-}
-
-function NodeShell({ tag, hot, className = "", children, ...rest }) {
-  const colors = hot ? HOT : NORMAL;
-  return (
-    <div
-      data-frame
-      {...rest}
-      className={`exp-node-card relative rounded-[3px] ${className}`}
-    >
-      <span
-        data-bg
-        data-fill={colors.fill}
-        data-edge={colors.edge}
-        className="absolute inset-0 rounded-[3px] border transition-colors duration-300 group-hover/node:border-red/60!"
-        style={{ backgroundColor: colors.fill, borderColor: colors.edge }}
-      />
-      <i
-        data-bar
-        className="absolute left-0 top-0 z-[3] h-[2px] w-full origin-left bg-red"
-      />
-      <CornerPoints />
-      <SelBox tag={tag} />
-      <span data-node-glow className="exp-node-glow" aria-hidden="true" />
-      <div className="relative z-[2]">{children}</div>
-    </div>
-  );
-}
-
-/* a cursor drags a frame out corner to corner, recolours it and sweeps its top bar */
-export function drawFrameFast(tl, frame, ag, t0 = 0) {
-  if (!frame) return t0;
-  const sel = frame.querySelector("[data-sel]");
-  const handles = sel ? sel.querySelectorAll("[data-handle]") : [];
-  const tag = sel ? sel.querySelector("[data-tag]") : null;
-  const bg = frame.querySelector("[data-bg]");
-  const bar = frame.querySelector("[data-bar]");
-  const p = { v: 0 };
-
-  tl.add(
-    swarm.moveTo(ag, frame, { duration: 0.18, offset: { x: 0, y: 0 } }),
-    t0
-  );
-  if (sel) tl.set(sel, { autoAlpha: 1 }, t0 + 0.18);
-  tl.add(() => swarm.click(ag), t0 + 0.18);
-
-  tl.to(
-    p,
-    {
-      v: 1,
-      duration: 0.24,
-      ease: "power2.out",
-      onUpdate: () => {
-        const r = (1 - p.v) * 100;
-        if (sel) {
-          sel.style.width = `${p.v * 100}%`;
-          sel.style.height = `${p.v * 100}%`;
-        }
-        if (bg) bg.style.clipPath = `inset(0 ${r}% ${r}% 0)`;
-        swarm.placeAt(ag, frame, p.v, p.v);
-      },
-    },
-    t0 + 0.18
-  );
-  if (handles.length) {
-    tl.fromTo(
-      handles,
-      { scale: 0 },
-      { scale: 1, duration: 0.12, stagger: 0.015, ease: "back.out(3)" },
-      t0 + 0.42
-    );
-  }
-  if (tag) {
-    tl.fromTo(
-      tag,
-      { autoAlpha: 0, y: 3 },
-      { autoAlpha: 1, y: 0, duration: 0.1 },
-      t0 + 0.42
-    );
-  }
-  tl.add(
-    swarm.moveTo(ag, frame, { duration: 0.15, offset: { x: 0.5, y: 0.5 } }),
-    t0 + 0.46
-  );
-  tl.add(() => swarm.click(ag), t0 + 0.61);
-  if (bg) {
-    tl.to(
-      bg,
-      {
-        backgroundColor: bg.dataset.fill,
-        borderColor: bg.dataset.edge,
-        duration: 0.16,
-      },
-      t0 + 0.61
-    );
-  }
-  tl.fromTo(
-    frame,
-    { scale: 1 },
-    { scale: 1.015, duration: 0.07, yoyo: true, repeat: 1, ease: "power2.inOut" },
-    t0 + 0.63
-  );
-  if (bar) tl.to(bar, { scaleX: 1, duration: 0.2, ease: "power3.out" }, t0 + 0.69);
-  if (sel) tl.to(sel, { autoAlpha: 0, duration: 0.1 }, t0 + 0.74);
-  return t0 + 0.74;
-}
-
-/* cursor writes the words of an element, with a fast 0.16s travel */
-export function typeFast(tl, el, ag, at, perLetter = 0.016) {
+/* cursor writes the words of an element, with a fast 0.12s travel */
+export function typeFast(tl, el, ag, at, perLetter = 0.009) {
   if (!el) return at;
   const words = [...el.querySelectorAll("[data-w]")];
   if (!words.length) {
     tl.set(el, { autoAlpha: 1 }, at);
-    return at + 0.05;
+    return at + 0.04;
   }
 
   tl.add(
     swarm.moveTo(ag, words[0], {
-      duration: 0.16,
+      duration: 0.12,
       offset: { x: 0, y: 0.55 },
     }),
     at
   );
-  tl.add(() => swarm.click(ag), at + 0.16);
+  tl.add(() => swarm.click(ag), at + 0.12);
 
-  let t = at + 0.18;
+  let t = at + 0.14;
   words.forEach((w) => {
     const len = Math.max(2, (w.textContent || "").length);
     const d = len * perLetter;
@@ -399,128 +117,552 @@ export function typeFast(tl, el, ag, at, perLetter = 0.016) {
   return t;
 }
 
-/* Expanded fan geometry so skill icons and labels are clearly visible and legible */
-function fanGeometry(count, above) {
-  const start = above ? 202 : 22;
-  const end = above ? 338 : 158;
-  const rings =
-    count > 5
-      ? [
-          {
-            radius: 104,
-            items: Array.from({ length: count })
-              .map((_, i) => i)
-              .filter((i) => i % 2 === 0),
-          },
-          {
-            radius: 154,
-            items: Array.from({ length: count })
-              .map((_, i) => i)
-              .filter((i) => i % 2 === 1),
-          },
-        ]
-      : [{ radius: 118, items: Array.from({ length: count }).map((_, i) => i) }];
+/* one cursor writes a whole element (used by the skills stop timeline) */
+function typeEl(tl, el, ag, at, perLetter = 0.009) {
+  if (!el) return at;
+  const len = Math.max(4, (el.textContent || "").length);
+  const duration = Math.min(0.55, Math.max(0.12, len * perLetter));
 
-  const points = [];
-  rings.forEach((ring) => {
-    const n = ring.items.length;
-    ring.items.forEach((index, k) => {
-      const span = end - start;
-      const deg = start + (n <= 1 ? span / 2 : (k * span) / (n - 1));
-      const rad = (deg * Math.PI) / 180;
-      points.push({
-        index,
-        radius: ring.radius,
-        deg,
-        x: Math.cos(rad) * ring.radius,
-        y: Math.sin(rad) * ring.radius,
-      });
-    });
-  });
-  return { points, rings };
+  tl.add(
+    swarm.moveTo(ag, el, { duration: 0.12, offset: { x: 0, y: 0.55 } }),
+    at
+  );
+  tl.add(() => swarm.click(ag), at + 0.12);
+  tl.add(typeReveal(el, { duration, agent: ag }), at + 0.14);
+  tl.set(el, { autoAlpha: 1, clearProps: "clipPath" }, at + 0.14 + duration);
+  return at + 0.14 + duration;
 }
 
-function arcPath(radius, above) {
-  const start = above ? 202 : 22;
-  const end = above ? 338 : 158;
-  const a = (start * Math.PI) / 180;
-  const b = (end * Math.PI) / 180;
-  const x0 = (Math.cos(a) * radius).toFixed(2);
-  const y0 = (Math.sin(a) * radius).toFixed(2);
-  const x1 = (Math.cos(b) * radius).toFixed(2);
-  const y1 = (Math.sin(b) * radius).toFixed(2);
-  return `M ${x0} ${y0} A ${radius} ${radius} 0 0 1 ${x1} ${y1}`;
+/* Skills stop lease: disjoint from the heading lease [17, 18] in Experience. */
+const SKILL_STOP_AGENTS = [19];
+const SKILL_SPEED = 3.3;
+
+const MEANING = {
+  user: {
+    h1: "Opens the app",
+    desc: "A person lands on the URL and the request begins.",
+    why: "Every product starts with a person trying to do something.",
+    where: "A browser or a phone.",
+    when: "The moment someone opens the app or clicks.",
+  },
+  client: {
+    h1: "Frontend",
+    desc: "The screens people see and use.",
+    why: "Turns data into screens people can actually use.",
+    where: "In the browser or on the mobile device.",
+    when: "On every page load, tap and interaction.",
+  },
+  api: {
+    h1: "API Layer",
+    desc: "Requests travel out and responses travel back.",
+    why: "Lets frontend and backend talk safely in a shared format.",
+    where: "Between client and server over HTTP or sockets.",
+    when: "Every time the client asks for or sends data.",
+  },
+  server: {
+    h1: "Backend",
+    desc: "Logic, validation and authentication live here.",
+    why: "Holds business logic, validation and authentication.",
+    where: "A Node.js server running Express.",
+    when: "After a request arrives, before data is read or written.",
+  },
+  data: {
+    h1: "Database",
+    desc: "Everything the app remembers, stored and queried.",
+    why: "Stores information permanently so it survives restarts.",
+    where: "MongoDB or MySQL, queried by the server.",
+    when: "Whenever the server needs to save or fetch records.",
+  },
+  cloud: {
+    h1: "Deployment",
+    desc: "Built, shipped and served from the cloud.",
+    why: "Puts the app online so real users can reach it.",
+    where: "Hosting platforms and containers.",
+    when: "After the code is built, tested and shipped.",
+  },
+  live: {
+    h1: "Live URL",
+    desc: "The code is live and reachable by anyone with the link.",
+    why: "The finish line, where work becomes a real product.",
+    where: "A public URL anyone can open.",
+    when: "After deployment, and the loop restarts with the next user.",
+  },
+};
+
+const SKILLS_STYLE = `
+.sk-wrap {
+  position: relative;
+  width: 100%;
+  height: calc(100vh + var(--sk-stops, 7) * 112vh);
+  height: calc(100svh + var(--sk-stops, 7) * 120svh);
 }
 
-function FlowFan({ icons, above }) {
-  if (!icons.length) return null;
-  const geometry = fanGeometry(icons.length, above);
+.sk-stage {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+}
 
-  return (
-    <div className="pointer-events-none absolute inset-0 hidden md:block">
-      <svg
-        className="absolute left-1/2 top-1/2 h-0 w-0 overflow-visible"
-        viewBox="-170 -170 340 340"
-        aria-hidden="true"
-      >
-        {geometry.rings.map((ring) => (
-          <path
-            key={ring.radius}
-            data-fan-arc
-            d={arcPath(ring.radius, above)}
-            className="exp-fan-arc"
-          />
-        ))}
-      </svg>
+.sk-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(8px, 1.5svh, 18px);
+  width: 100%;
+  max-width: 1100px;
+  height: 100%;
+  min-height: 0;
+  margin: 0 auto;
+  padding: clamp(12px, 2svh, 26px) clamp(14px, 3vw, 32px);
+}
 
-      {geometry.points.map((point) => {
-        const item = techItem(icons[point.index]);
-        const flip = point.deg > 90 && point.deg < 270;
-        const labelRotate = flip ? 180 : 0;
-        return (
-          <span
-            key={`${point.index}-${item.name}`}
-            className="exp-fan-item group/chip absolute left-1/2 top-1/2 block h-0 origin-left"
-            style={{ width: `${point.radius}px`, transform: `rotate(${point.deg}deg)` }}
-          >
-            <span
-              data-spoke
-              className="exp-spoke absolute left-0 top-0 block h-px w-full origin-left"
-            />
-            {/* small glowing dot where the spoke meets the node */}
-            <span
-              className="exp-spoke-dot absolute left-0 top-0 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
-              aria-hidden="true"
-            />
-            <span
-              data-fan-icon
-              className="exp-fan-icon absolute left-full top-0 block rounded-full border border-white/20 bg-[#161618] p-1.5 shadow-md transition-all duration-200 hover:-translate-y-1 hover:scale-120 hover:border-red hover:shadow-[0_0_12px_rgba(214,26,41,0.5)] hover:outline hover:outline-1 hover:outline-dashed hover:outline-[#4c8dff]/80"
-              style={{
-                transform: `translate(-50%, -50%) rotate(${-point.deg}deg)`,
-                "--icon-rot": `${-point.deg}deg`,
-              }}
-            >
-              <Logo
-                item={item}
-                className="size-[22px] md:size-[24px]"
-                badgeClass="text-[0.48rem]"
-              />
-            </span>
-            <span
-              data-fan-name
-              className="exp-fan-name absolute left-full top-0 block whitespace-nowrap"
-              style={{
-                transform: `translate(14px, -50%) rotate(${labelRotate}deg)`,
-              }}
-            >
-              {item.name}
-            </span>
-          </span>
-        );
-      })}
-    </div>
+.sk-head-slot {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.sk-head-slot > header { margin: 0; }
+
+.sk-card {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  max-height: min(70vh, 700px);
+  max-height: min(70svh, 700px);
+  margin: 0 auto;
+  padding: clamp(16px, 2vw, 28px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: clamp(12px, 1.2vw, 18px);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(214, 26, 41, 0.09), transparent 55%),
+    linear-gradient(155deg, rgba(19, 18, 20, 0.97), rgba(9, 9, 10, 0.99));
+  box-shadow:
+    0 40px 90px -50px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  transform-origin: 50% 58%;
+  will-change: transform, opacity;
+}
+
+.sk-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sk-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: clamp(0.52rem, 0.72vw, 0.62rem);
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.sk-eyebrow::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--color-red);
+  box-shadow: 0 0 8px rgba(214, 26, 41, 0.9);
+}
+
+.sk-counter {
+  font-family: var(--font-display);
+  font-size: clamp(0.66rem, 0.9vw, 0.8rem);
+  letter-spacing: 0.14em;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+.sk-counter span { color: var(--color-muted); }
+
+.sk-progress {
+  position: relative;
+  height: 1px;
+  margin-top: clamp(6px, 1svh, 10px);
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.sk-progress-fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--color-red-dark), var(--color-red));
+  transform-origin: 0% 50%;
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 0 10px rgba(214, 26, 41, 0.7);
+}
+
+.sk-viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: clamp(8px, 1.6svh, 14px);
+}
+
+.sk-slide {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: clamp(16px, 2.6vw, 38px);
+  visibility: hidden;
+  opacity: 0;
+}
+.sk-slide:first-child {
+  visibility: visible;
+  opacity: 1;
+}
+
+.sk-left {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.sk-mask {
+  display: block;
+  overflow: hidden;
+  padding-top: 0.04em;
+  padding-bottom: 0.06em;
+}
+.sk-line {
+  display: block;
+  will-change: transform, opacity;
+}
+.sk-type { display: block; }
+[data-sk-item] {
+  will-change: transform, opacity;
+}
+
+.sk-stop-row { margin-bottom: clamp(4px, 0.8svh, 8px); }
+.sk-stop-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: clamp(0.54rem, 0.8vw, 0.66rem);
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--color-red);
+}
+.sk-stop-label i {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--color-red);
+  box-shadow: 0 0 10px rgba(214, 26, 41, 0.8);
+}
+
+.sk-h1 {
+  font-size: clamp(1.9rem, 3.3vw, 3.2rem);
+  line-height: 0.98;
+  letter-spacing: -0.015em;
+  color: var(--color-ink);
+}
+
+.sk-desc-row { margin-top: clamp(6px, 1.1svh, 12px); }
+.sk-desc {
+  max-width: 38ch;
+  font-size: clamp(0.74rem, 0.9vw, 0.9rem);
+  line-height: 1.55;
+  color: var(--color-muted);
+}
+
+.sk-facts {
+  display: grid;
+  gap: clamp(3px, 0.65svh, 7px);
+  margin-top: clamp(8px, 1.4svh, 14px);
+}
+.sk-fact {
+  display: grid;
+  grid-template-columns: 3.1rem minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: baseline;
+}
+.sk-fact dt {
+  font-size: clamp(0.48rem, 0.6vw, 0.56rem);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-red);
+}
+.sk-fact dd {
+  font-size: clamp(0.64rem, 0.76vw, 0.74rem);
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.sk-right {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  max-height: 100%;
+}
+
+.sk-skills {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(4px, 0.6svh, 7px) clamp(5px, 0.55vw, 8px);
+  width: 100%;
+  align-content: center;
+}
+
+.sk-item {
+  display: flex;
+  align-items: center;
+  gap: clamp(5px, 0.55vw, 8px);
+  min-width: 0;
+  padding: clamp(5px, 0.75svh, 8px) clamp(6px, 0.6vw, 9px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.025);
+  transition:
+    border-color 0.24s ease,
+    background-color 0.24s ease,
+    box-shadow 0.24s ease;
+}
+.sk-item:hover {
+  border-color: rgba(214, 26, 41, 0.55);
+  background: rgba(214, 26, 41, 0.08);
+  box-shadow: 0 0 22px -8px rgba(214, 26, 41, 0.65);
+}
+.sk-logo {
+  width: clamp(13px, 1.05vw, 17px);
+  height: clamp(13px, 1.05vw, 17px);
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sk-item:hover .sk-logo { transform: translateY(-2px); }
+.sk-item-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(0.49rem, 0.64vw, 0.59rem);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  transition: color 0.24s ease;
+}
+.sk-item:hover .sk-item-name { color: var(--color-ink); }
+
+.sk-user {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.4svh, 14px);
+  width: 100%;
+}
+.sk-user-glyph {
+  display: grid;
+  place-items: center;
+  width: clamp(58px, 7vw, 92px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(214, 26, 41, 0.35);
+  background: radial-gradient(circle, rgba(214, 26, 41, 0.16), transparent 70%);
+  color: var(--color-red);
+  box-shadow: 0 0 50px -18px rgba(214, 26, 41, 0.65);
+}
+.sk-user-glyph svg {
+  width: 46%;
+  height: 46%;
+}
+.sk-user-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(7px, 1.1svh, 11px);
+  width: 100%;
+  min-width: 0;
+}
+.sk-user-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(4px, 0.7vw, 8px);
+  justify-content: center;
+}
+.sk-user-tag {
+  padding: 0.3rem 0.62rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  font-size: clamp(0.48rem, 0.68vw, 0.57rem);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.sk-skills--user {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+}
+
+.sk-live {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(8px, 1.4svh, 14px);
+  width: 100%;
+  padding: clamp(16px, 3vw, 32px);
+  border: 1px solid rgba(214, 26, 41, 0.35);
+  border-radius: clamp(12px, 1.2vw, 18px);
+  background: radial-gradient(
+    120% 100% at 50% 0%,
+    rgba(214, 26, 41, 0.16),
+    rgba(9, 9, 10, 0) 70%
   );
 }
+.sk-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: clamp(0.54rem, 0.78vw, 0.64rem);
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-red);
+}
+.sk-live-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-red);
+  box-shadow:
+    0 0 0 4px rgba(214, 26, 41, 0.16),
+    0 0 16px rgba(214, 26, 41, 0.8);
+  animation: skLivePulse 2.4s ease-in-out infinite;
+}
+@keyframes skLivePulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.sk-live-note {
+  max-width: 32ch;
+  font-size: clamp(0.8rem, 1vw, 0.96rem);
+  line-height: 1.55;
+  color: var(--color-ink);
+}
+.sk-live-note span { color: var(--color-red); }
+
+@media (max-width: 1023px) {
+  .sk-card {
+    max-height: none;
+    padding: clamp(14px, 3vw, 22px);
+    border-radius: 14px;
+  }
+  .sk-viewport { margin-top: clamp(7px, 1.4svh, 12px); }
+  .sk-slide {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: start;
+    gap: clamp(8px, 1.6svh, 14px);
+  }
+  .sk-left { padding-top: 0; }
+  .sk-h1 { font-size: clamp(1.5rem, 5.2vw, 2.2rem); }
+  .sk-desc-row { margin-top: clamp(4px, 0.9svh, 8px); }
+  .sk-desc {
+    max-width: none;
+    font-size: clamp(0.7rem, 2vw, 0.86rem);
+    line-height: 1.45;
+  }
+  .sk-facts {
+    gap: 4px;
+    margin-top: 7px;
+  }
+  .sk-fact {
+    grid-template-columns: 2.8rem minmax(0, 1fr);
+    gap: 0.45rem;
+  }
+  .sk-fact dt { font-size: clamp(0.46rem, 1.4vw, 0.54rem); }
+  .sk-fact dd {
+    font-size: clamp(0.6rem, 1.9vw, 0.72rem);
+    line-height: 1.38;
+  }
+  .sk-right {
+    align-items: flex-start;
+    align-self: stretch;
+    max-height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .sk-right::-webkit-scrollbar { display: none; }
+  .sk-skills {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+  }
+  .sk-item { padding: 5px 6px; }
+  .sk-logo { width: 14px; height: 14px; }
+  .sk-item-name { font-size: clamp(0.48rem, 1.5vw, 0.58rem); }
+  .sk-user {
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 7px;
+  }
+  .sk-user-glyph {
+    width: clamp(48px, 9vw, 64px);
+    flex-shrink: 0;
+  }
+  .sk-user-body { align-items: center; }
+  .sk-user-tags { justify-content: center; }
+  .sk-live { padding: clamp(14px, 4vw, 26px); }
+}
+
+@media (min-width: 560px) and (max-width: 1023px) {
+  .sk-skills { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sk-skills--user { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1023px) and (max-height: 560px) {
+  .sk-stop-row { margin-bottom: 3px; }
+  .sk-h1 { font-size: clamp(1.2rem, 4vw, 1.6rem); }
+  .sk-desc-row { margin-top: 3px; }
+  .sk-desc { font-size: 0.64rem; line-height: 1.35; }
+  .sk-facts { gap: 2px; margin-top: 4px; }
+  .sk-fact {
+    grid-template-columns: 2.4rem minmax(0, 1fr);
+    gap: 0.35rem;
+  }
+  .sk-fact dt { font-size: 0.42rem; }
+  .sk-fact dd { font-size: 0.54rem; line-height: 1.3; }
+  .sk-slide { gap: 6px; }
+  .sk-item { padding: 4px 5px; }
+  .sk-logo { width: 12px; height: 12px; }
+  .sk-item-name { font-size: 0.44rem; }
+}
+
+@media (max-height: 700px) and (min-width: 1024px) {
+  .sk-inner { gap: 8px; padding: 12px clamp(14px, 3vw, 32px); }
+  .sk-h1 { font-size: clamp(1.5rem, 2.8vw, 2.2rem); }
+  .sk-desc { font-size: clamp(0.68rem, 0.82vw, 0.8rem); }
+  .sk-fact dd { font-size: clamp(0.6rem, 0.7vw, 0.68rem); line-height: 1.35; }
+  .sk-facts { gap: 3px; margin-top: 6px; }
+  .sk-item { padding: 4px 6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-item,
+  .sk-logo,
+  .sk-progress-fill { transition: none; }
+  .sk-live-pulse { animation: none; }
+}
+`;
 
 function UserGlyph({ className = "size-6" }) {
   return (
@@ -541,381 +683,613 @@ function UserGlyph({ className = "size-6" }) {
   );
 }
 
-/* measure every rail, arrow return and node junction from the live DOM */
-export function drawFlow(root) {
-  if (typeof window === "undefined" || !root) return;
-  if (!window.matchMedia("(min-width: 768px)").matches) return;
-
-  const flow = root.querySelector("[data-flow]");
-  if (!flow) return;
-  const svg = flow.querySelector("[data-flow-svg]");
-  const cards = [...flow.querySelectorAll("[data-node-card]")];
-  if (!svg || cards.length < 2) return;
-
-  const fb = flow.getBoundingClientRect();
-  if (!fb.width || !fb.height) return;
-  svg.setAttribute("viewBox", `0 0 ${fb.width} ${fb.height}`);
-
-  const boxes = cards.map((card) => {
-    const r = card.getBoundingClientRect();
-    return {
-      left: r.left - fb.left,
-      right: r.right - fb.left,
-      cx: r.left + r.width / 2 - fb.left,
-      top: r.top - fb.top,
-      bottom: r.bottom - fb.top,
-      cy: r.top + r.height / 2 - fb.top,
-    };
-  });
-
-  for (let i = 0; i < boxes.length - 1; i++) {
-    const a = boxes[i];
-    const b = boxes[i + 1];
-    const y = (a.cy + b.cy) / 2;
-    const mid = (a.right + b.left) / 2;
-    const d = `M ${a.right.toFixed(2)} ${a.cy.toFixed(2)} C ${(
-      a.right +
-      (mid - a.right) * 0.55
-    ).toFixed(2)} ${a.cy.toFixed(2)}, ${(
-      b.left -
-      (b.left - mid) * 0.55
-    ).toFixed(2)} ${b.cy.toFixed(2)}, ${b.left.toFixed(2)} ${b.cy.toFixed(2)}`;
-
-    const base = flow.querySelector(`[data-seg="${i}"]`);
-    const dash = flow.querySelector(`[data-seg-flow="${i}"]`);
-    const pulse = flow.querySelector(`[data-seg-pulse="${i}"]`);
-    [base, dash, pulse].forEach((p) => p && p.setAttribute("d", d));
-    if (base && base.dataset.drawn !== "1") base.style.strokeDashoffset = "1";
-
-    const j0 = flow.querySelector(`[data-junction="${i}-a"]`);
-    const j1 = flow.querySelector(`[data-junction="${i}-b"]`);
-    if (j0) {
-      j0.setAttribute("cx", (a.right + 2).toFixed(2));
-      j0.setAttribute("cy", y.toFixed(2));
-    }
-    if (j1) {
-      j1.setAttribute("cx", (b.left - 2).toFixed(2));
-      j1.setAttribute("cy", y.toFixed(2));
-    }
-  }
-
-  const first = boxes[0];
-  const last = boxes[boxes.length - 1];
-  const railY = fb.height - 24;
-  const returnD =
-    `M ${last.cx.toFixed(2)} ${(last.bottom + 6).toFixed(2)} ` +
-    `C ${last.cx.toFixed(2)} ${railY.toFixed(2)}, ${first.cx.toFixed(2)} ${railY.toFixed(
-      2
-    )}, ${first.cx.toFixed(2)} ${(first.bottom + 6).toFixed(2)}`;
-
-  ["[data-return]", "[data-return-flow]", "[data-return-pulse]"].forEach((sel) => {
-    const p = flow.querySelector(sel);
-    if (p) p.setAttribute("d", returnD);
-  });
-  const ret = flow.querySelector("[data-return]");
-  if (ret && ret.dataset.drawn !== "1") ret.style.strokeDashoffset = "1";
-
-  const label = flow.querySelector("[data-return-label]");
-  if (label) {
-    label.setAttribute("x", ((first.cx + last.cx) / 2).toFixed(2));
-    label.setAttribute("y", (fb.height - 6).toFixed(2));
-  }
-}
-
-/* one node = one cursor lease of three agents [A, B, C] */
-export function buildFlowNode(nodeEl, index, host, agents) {
-  const [A, B, C] = agents;
-  const flow = nodeEl.closest("[data-flow]");
-  const card = nodeEl.querySelector("[data-node-card]");
-  const kicker = nodeEl.querySelector("[data-node-kicker]");
-  const title = nodeEl.querySelector("[data-node-title]");
-  const caption = nodeEl.querySelector("[data-node-caption]");
-  const ovA = makeOverlay(host);
-  const ovB = makeOverlay(host);
-  const ovC = makeOverlay(host);
-  const tl = gsap.timeline();
-
-  cursorIntro(tl, agents, 0);
-  const base = drawFrameFast(tl, card, A, 0.02);
-
-  // Agent B selects and types the kicker index concurrently
-  const tk = dragBox(tl, ovB, B, kicker, host, 0.06, {
-    tag: "p.label",
-    dur: 0.14,
-    pad: 2,
-  });
-  const tkEnd = typeFast(tl, kicker, B, tk, 0.018);
-
-  // Agent A finishes card drag, then selects and types the Anton title
-  const tt = dragBox(tl, ovA, A, title, host, Math.max(base + 0.02, 0.78), {
-    tag: `h4.${nodeEl.dataset.flowNode || "node"}`,
-    dur: 0.16,
-    pad: 2,
-  });
-  const ttEnd = typeFast(tl, title, A, tt + 0.02, 0.018);
-
-  // Agent C selects and types the caption in parallel
-  const tc = dragBox(tl, ovC, C, caption, host, Math.max(tkEnd + 0.02, 0.45), {
-    tag: "p.caption",
-    dur: 0.15,
-    pad: 2,
-  });
-  const tcEnd = typeFast(tl, caption, C, tc + 0.02, 0.015);
-
-  // icons, names, spokes and arcs pop in - NOT touched by cursors
-  const icons = [...nodeEl.querySelectorAll("[data-fan-icon]")];
-  const names = [...nodeEl.querySelectorAll("[data-fan-name]")];
-  const spokes = [...nodeEl.querySelectorAll("[data-spoke]")];
-  const arcs = [...nodeEl.querySelectorAll("[data-fan-arc]")];
-  icons.forEach((icon, k) => {
-    tl.fromTo(
-      icon,
-      { autoAlpha: 0, scale: 0.35 },
-      { autoAlpha: 1, scale: 1, duration: 0.22, ease: "back.out(3)" },
-      0.16 + k * 0.04
-    );
-  });
-  names.forEach((name, k) => {
-    tl.fromTo(
-      name,
-      { autoAlpha: 0, x: -3 },
-      { autoAlpha: 1, x: 0, duration: 0.16 },
-      0.22 + k * 0.04
-    );
-  });
-  spokes.forEach((spoke, k) => {
-    tl.fromTo(
-      spoke,
-      { scaleX: 0, autoAlpha: 0 },
-      { scaleX: 1, autoAlpha: 1, duration: 0.24, ease: "power2.out" },
-      0.08 + k * 0.035
-    );
-  });
-  arcs.forEach((arc, k) => {
-    tl.fromTo(
-      arc,
-      { autoAlpha: 0 },
-      { autoAlpha: 1, duration: 0.22 },
-      0.1 + k * 0.05
-    );
-  });
-
-  const mobiles = [...nodeEl.querySelectorAll("[data-mob-icon]")];
-  mobiles.forEach((icon, k) => {
-    tl.fromTo(
-      icon,
-      { autoAlpha: 0, scale: 0.55 },
-      { autoAlpha: 1, scale: 1, duration: 0.18, ease: "back.out(2)" },
-      0.16 + k * 0.035
-    );
-  });
-
-  // the segment that arrives at this node draws in with stroke-dashoffset
-  if (index > 0) {
-    const seg = flow && flow.querySelector(`[data-seg="${index - 1}"]`);
-    const segFlow = flow && flow.querySelector(`[data-seg-flow="${index - 1}"]`);
-    const pulse = flow && flow.querySelector(`[data-seg-pulse="${index - 1}"]`);
-    const junctions = flow
-      ? [...flow.querySelectorAll(`[data-junction^="${index - 1}-"]`)]
-      : [];
-    if (seg) {
-      tl.to(seg, { autoAlpha: 1, strokeDashoffset: 0, duration: 0.45, ease: "power2.out" }, 0.08);
-      tl.add(() => {
-        seg.dataset.drawn = "1";
-      }, 0.55);
-    }
-    if (segFlow) tl.to(segFlow, { autoAlpha: 1, duration: 0.26 }, 0.4);
-    if (pulse) tl.to(pulse, { autoAlpha: 1, duration: 0.26 }, 0.55);
-    junctions.forEach((dot, k) => {
-      tl.fromTo(
-        dot,
-        { autoAlpha: 0, scale: 0.2 },
-        { autoAlpha: 1, scale: 1, duration: 0.22, ease: "back.out(3)" },
-        0.4 + k * 0.05
-      );
-    });
-  }
-
-  // CLOUD closes the loop with the faint LIVE URL return line
-  const total = flow ? flow.querySelectorAll("[data-node-card]").length : 0;
-  if (index === total - 1) {
-    const ret = flow.querySelector("[data-return]");
-    const retFlow = flow.querySelector("[data-return-flow]");
-    const retPulse = flow.querySelector("[data-return-pulse]");
-    const retLabel = flow.querySelector("[data-return-label]");
-    if (ret) {
-      tl.to(ret, { autoAlpha: 1, strokeDashoffset: 0, duration: 0.65, ease: "power2.inOut" }, 0.35);
-      tl.add(() => {
-        ret.dataset.drawn = "1";
-      }, 1.0);
-    }
-    if (retFlow) tl.to(retFlow, { autoAlpha: 0.7, duration: 0.35 }, 0.85);
-    if (retPulse) tl.to(retPulse, { autoAlpha: 0.45, duration: 0.35 }, 0.98);
-    if (retLabel) tl.to(retLabel, { autoAlpha: 1, duration: 0.25 }, 1.05);
-  }
-
-  const end = Math.max(
-    base,
-    tkEnd,
-    ttEnd,
-    tcEnd,
-    0.22 + icons.length * 0.04 + 0.25
-  );
-  const finalEnd = index === total - 1 ? Math.max(end, 1.4) : end;
-
-  tl.add(() => {
-    nodeEl.dataset.built = "1";
-  }, Math.max(0.5, finalEnd - 0.2));
-
-  const out = finalEnd + 0.3;
-  cursorOutro(tl, agents, { at: out, duration: 0.22 });
-  tl.add(() => agents.forEach((i) => swarm.hide(i)), out + 0.24);
-  return tl;
-}
-
-export default function SkillsFlow({ flow, returnLabel }) {
+function MaskLine({
+  as: Tag = "span",
+  className = "",
+  wrapClassName = "",
+  children,
+}) {
   return (
-    <div data-flow className="exp-flow relative mt-[4svh]">
-      <style>{FLOW_STYLE}</style>
+    <div className={`sk-mask ${wrapClassName}`}>
+      <Tag className={`sk-line ${className}`}>{children}</Tag>
+    </div>
+  );
+}
 
-      <svg
-        data-flow-svg
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0 hidden h-full w-full overflow-visible md:block"
-      >
-        <defs>
-          <marker
-            id="exp-arrow"
-            viewBox="0 0 8 8"
-            refX="6.5"
-            refY="4"
-            markerWidth="7"
-            markerHeight="7"
-            orient="auto-start-reverse"
+function SkillGrid({ names }) {
+  return (
+    <ul className="sk-skills">
+      {names.map((name) => {
+        const item = techItem(name);
+        return (
+          <li key={name} data-sk-item className="sk-item group/chip">
+            <Logo
+              item={item}
+              className="sk-logo"
+              badgeClass="text-[0.38rem]"
+            />
+            <span className="sk-item-name">{name}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function StopSlide({ stop, index, active, slideRef }) {
+  const facts = [
+    ["Why", stop.why],
+    ["Where", stop.where],
+    ["When", stop.when],
+  ];
+
+  return (
+    <div
+      ref={slideRef}
+      className="sk-slide"
+      aria-hidden={active !== index}
+    >
+      <div className="sk-left">
+        <MaskLine wrapClassName="sk-stop-row">
+          <span className="sk-stop-label">
+            <i aria-hidden="true" />
+            {stop.title}
+          </span>
+        </MaskLine>
+        <MaskLine as="h2" className="sk-h1 display">
+          <span data-sk-type className="sk-type">
+            {stop.h1}
+          </span>
+        </MaskLine>
+        <MaskLine as="p" className="sk-desc" wrapClassName="sk-desc-row">
+          <span data-sk-type className="sk-type">
+            {stop.desc}
+          </span>
+        </MaskLine>
+
+        <dl className="sk-facts">
+          {facts.map(([label, text]) => (
+            <div key={label} data-sk-item className="sk-fact">
+              <dt>{label}</dt>
+              <dd>{text}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+
+      <div className="sk-right">
+        {stop.kind === "user" && (
+          <div className="sk-user">
+            <span className="sk-user-glyph" data-sk-item>
+              <UserGlyph />
+            </span>
+            <div className="sk-user-body">
+              <ul className="sk-user-tags">
+                {["Browser", "Device", "Person"].map((tag) => (
+                  <li key={tag} data-sk-item className="sk-user-tag">
+                    {tag}
+                  </li>
+                ))}
+              </ul>
+              {stop.icons.length > 0 && (
+                <ul className="sk-skills sk-skills--user">
+                  {stop.icons.map((name) => {
+                    const item = techItem(name);
+                    return (
+                      <li key={name} data-sk-item className="sk-item group/chip">
+                        <Logo
+                          item={item}
+                          className="sk-logo"
+                          badgeClass="text-[0.38rem]"
+                        />
+                        <span className="sk-item-name">{name}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+
+        {stop.kind === "live" && (
+          <div className="sk-live" data-sk-item>
+            <p className="sk-live-badge">
+              <span className="sk-live-pulse" aria-hidden="true" />
+              {stop.label}
+            </p>
+            <p className="sk-live-note">
+              The build is <span>live</span> and serving traffic right now.
+            </p>
+          </div>
+        )}
+
+        {stop.kind === "skills" && <SkillGrid names={stop.icons} />}
+      </div>
+    </div>
+  );
+}
+
+export default function SkillsFlow({
+  flow = [],
+  returnLabel = "LIVE URL",
+  children,
+}) {
+  const stops = [
+    ...flow.map((node) => ({
+      key: node.key,
+      kind: node.key === "user" ? "user" : "skills",
+      title: node.title,
+      icons: node.icons || [],
+      h1: MEANING[node.key]?.h1 || node.caption || node.title,
+      desc: MEANING[node.key]?.desc || node.caption || "",
+      why: MEANING[node.key]?.why || "",
+      where: MEANING[node.key]?.where || "",
+      when: MEANING[node.key]?.when || "",
+    })),
+    {
+      key: "live",
+      kind: "live",
+      title: "LIVE",
+      icons: [],
+      label: returnLabel,
+      h1: MEANING.live.h1,
+      desc: MEANING.live.desc,
+      why: MEANING.live.why,
+      where: MEANING.live.where,
+      when: MEANING.live.when,
+    },
+  ];
+  const total = stops.length;
+
+  const wrapRef = useRef(null);
+  const cardRef = useRef(null);
+  const slidesRef = useRef([]);
+  const activeRef = useRef(0);
+  const animatingRef = useRef(false);
+  const pendingRef = useRef(null);
+  const [active, setActive] = useState(0);
+
+  const agentsEnabled = useAgentsEnabled();
+  const enabledRef = useRef(agentsEnabled);
+  const actRef = useRef(null);
+  const initialActRef = useRef(false);
+  const inViewRef = useRef(false);
+
+  useEffect(() => {
+    enabledRef.current = agentsEnabled;
+  }, [agentsEnabled]);
+
+  /* stop the current stop timeline, finalize shown text, hide its cursors */
+  const killSkillAct = useCallback((unmount = false) => {
+    const tl = actRef.current;
+    actRef.current = null;
+    if (tl) tl.kill();
+
+    const card = cardRef.current;
+    if (card) clearOverlays(card);
+
+    slidesRef.current.forEach((slide, i) => {
+      if (!slide) return;
+      const spans = slide.querySelectorAll("[data-sk-type]");
+      if (!spans.length) return;
+      if (!enabledRef.current || (!unmount && i === activeRef.current)) {
+        gsap.set(spans, { autoAlpha: 1, clearProps: "clipPath" });
+      } else {
+        gsap.set(spans, {
+          autoAlpha: 0,
+          clipPath: "inset(-20% 100% -20% -5%)",
+        });
+      }
+    });
+
+    const els = swarm.els(SKILL_STOP_AGENTS);
+    if (els.length) {
+      gsap.killTweensOf(els);
+      gsap.set(els, { opacity: 0, visibility: "hidden" });
+    }
+  }, []);
+
+  /* if the cursor swarm turns off, reveal everything and hide the cursor */
+  useEffect(() => {
+    if (!agentsEnabled) killSkillAct(true);
+  }, [agentsEnabled, killSkillAct]);
+
+  /* one fast cursor act per active stop; it always ends hidden */
+  const playSkillAct = useCallback((index) => {
+    if (!enabledRef.current) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const card = cardRef.current;
+    const slide = slidesRef.current[index];
+    if (!card || !slide) return;
+
+    const previous = actRef.current;
+    actRef.current = null;
+    if (previous) previous.kill();
+    clearOverlays(card);
+
+    const overlays = [];
+    const mk = () => {
+      const overlay = makeOverlay(card);
+      overlays.push(overlay);
+      return overlay;
+    };
+    const agents = SKILL_STOP_AGENTS;
+    const A = agents[0];
+    const label = slide.querySelector(".sk-stop-label");
+    const h1 = slide.querySelector(".sk-h1 [data-sk-type]");
+    const desc = slide.querySelector(".sk-desc [data-sk-type]");
+    const items = [...slide.querySelectorAll("[data-sk-item]")].slice(0, 3);
+
+    const tl = gsap.timeline();
+    actRef.current = tl;
+    tl.timeScale(SKILL_SPEED);
+
+    cursorIntro(tl, agents, 0);
+
+    const spans = [h1, desc].filter(Boolean);
+    if (spans.length) {
+      tl.set(spans, { autoAlpha: 0, clipPath: "inset(-20% 100% -20% -5%)" }, 0);
+    }
+
+    const t = dragBox(tl, mk(), A, label, card, 0.02, {
+      tag: "span.label",
+      dur: 0.1,
+      pad: 2,
+    });
+
+    let th = dragBox(tl, mk(), A, h1, card, t + 0.01, {
+      tag: "h2.headline",
+      dur: 0.11,
+      pad: 3,
+    });
+    th = typeEl(tl, h1, A, th + 0.01, 0.009);
+
+    let td = dragBox(tl, mk(), A, desc, card, th + 0.01, {
+      tag: "p.desc",
+      dur: 0.1,
+      pad: 2,
+    });
+    td = typeEl(tl, desc, A, td + 0.01, 0.009);
+
+    let end = Math.max(th, td);
+    const itemAt = Math.max(0.2, td - 0.08);
+    items.forEach((item, k) => {
+      const at = itemAt + k * 0.03;
+      tl.add(
+        swarm.moveTo(A, item, {
+          duration: 0.12,
+          offset: { x: 0.5, y: 0.5 },
+        }),
+        at
+      );
+      tl.add(() => swarm.click(A), at + 0.12);
+      end = Math.max(end, at + 0.13);
+    });
+
+    if (spans.length) {
+      tl.set(spans, { autoAlpha: 1, clearProps: "clipPath" }, end + 0.01);
+    }
+
+    const els = swarm.els(agents);
+    if (els.length) {
+      tl.to(els, { opacity: 0, duration: 0.16, ease: "power2.out" }, end + 0.06);
+      tl.add(() => {
+        agents.forEach((i) => swarm.hide(i));
+        overlays.forEach(({ o }) => o.remove());
+        if (actRef.current === tl) actRef.current = null;
+      }, end + 0.23);
+    } else {
+      tl.add(() => {
+        overlays.forEach(({ o }) => o.remove());
+        if (actRef.current === tl) actRef.current = null;
+      }, end + 0.06);
+    }
+    return tl;
+  }, []);
+
+  const goTo = useCallback(function transition(target) {
+    const slides = slidesRef.current;
+    if (
+      !slides.length ||
+      target < 0 ||
+      target >= slides.length ||
+      target === activeRef.current
+    ) {
+      return;
+    }
+    if (animatingRef.current) {
+      pendingRef.current = target;
+      return;
+    }
+
+    /* kill the previous stop's cursor act before the next one starts */
+    killSkillAct();
+    initialActRef.current = true;
+
+    const from = slides[activeRef.current];
+    const to = slides[target];
+    if (!from || !to) return;
+
+    const dir = target > activeRef.current ? 1 : -1;
+    const reduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const outLines = from.querySelectorAll(".sk-line");
+    const outItems = from.querySelectorAll("[data-sk-item]");
+    const inLines = to.querySelectorAll(".sk-line");
+    const inItems = to.querySelectorAll("[data-sk-item]");
+
+    gsap.killTweensOf([
+      ...outLines,
+      ...outItems,
+      ...inLines,
+      ...inItems,
+      from,
+      to,
+    ]);
+    gsap.set(from, { zIndex: 2 });
+    gsap.set(to, { zIndex: 3, autoAlpha: 1 });
+
+    animatingRef.current = true;
+    activeRef.current = target;
+    setActive(target);
+
+    const finish = () => {
+      gsap.set(from, { autoAlpha: 0, zIndex: 1 });
+      animatingRef.current = false;
+      const pending = pendingRef.current;
+      pendingRef.current = null;
+      if (pending != null && pending !== activeRef.current) {
+        transition(pending);
+      }
+    };
+
+    if (reduced) {
+      gsap.set(to.querySelectorAll("[data-sk-type]"), {
+        autoAlpha: 1,
+        clearProps: "clipPath",
+      });
+      gsap.set(inLines, { yPercent: 0, autoAlpha: 1 });
+      gsap.set(inItems, { y: 0, autoAlpha: 1 });
+      gsap
+        .timeline({ onComplete: finish })
+        .to(from, { autoAlpha: 0, duration: 0.22, ease: "power1.out" }, 0)
+        .fromTo(
+          to,
+          { autoAlpha: 0 },
+          { autoAlpha: 1, duration: 0.26, ease: "power1.out" },
+          0.16
+        );
+      return;
+    }
+
+    const outY = dir > 0 ? -110 : 110;
+    const inY = dir > 0 ? 110 : -110;
+    const outItemY = dir > 0 ? -16 : 16;
+    const inItemY = dir > 0 ? 20 : -20;
+
+    if (enabledRef.current) {
+      gsap.set(to.querySelectorAll("[data-sk-type]"), {
+        autoAlpha: 0,
+        clipPath: "inset(-20% 100% -20% -5%)",
+      });
+    }
+
+    gsap.set(inLines, { yPercent: inY, autoAlpha: 0 });
+    gsap.set(inItems, { y: inItemY, autoAlpha: 0 });
+
+    gsap
+      .timeline({
+        defaults: { ease: "power3.out" },
+        onComplete: finish,
+      })
+      .to(
+        outLines,
+        { yPercent: outY, autoAlpha: 0, duration: 0.38, stagger: 0.035 },
+        0
+      )
+      .to(
+        outItems,
+        { y: outItemY, autoAlpha: 0, duration: 0.3, stagger: 0.012 },
+        0.02
+      )
+      .to(
+        inLines,
+        { yPercent: 0, autoAlpha: 1, duration: 0.55, stagger: 0.05 },
+        0.18
+      )
+      .to(
+        inItems,
+        { y: 0, autoAlpha: 1, duration: 0.4, stagger: 0.01 },
+        0.24
+      )
+      .set(from, { autoAlpha: 0 }, 0.9);
+
+    /* the stop's cursor act is driven by the active stop change */
+    if (inViewRef.current) playSkillAct(target);
+  }, [killSkillAct, playSkillAct]);
+
+  /* initial stacked state: only the first stop is visible */
+  useLayoutEffect(() => {
+    const slides = slidesRef.current.filter(Boolean);
+    slides.forEach((slide, i) => {
+      gsap.set(slide.querySelectorAll(".sk-line"), {
+        yPercent: 0,
+        autoAlpha: 1,
+      });
+      gsap.set(slide.querySelectorAll("[data-sk-item]"), {
+        y: 0,
+        autoAlpha: 1,
+      });
+      gsap.set(slide, { autoAlpha: i === 0 ? 1 : 0, zIndex: i === 0 ? 2 : 1 });
+    });
+
+    const reduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    if (enabledRef.current && !reduced) {
+      slides.forEach((slide) => {
+        gsap.set(slide.querySelectorAll("[data-sk-type]"), {
+          autoAlpha: 0,
+          clipPath: "inset(-20% 100% -20% -5%)",
+        });
+      });
+    }
+  }, []);
+
+  /* unmount: kill the stop timeline, clear overlays, hide its cursor */
+  useEffect(
+    () => () => {
+      const tl = actRef.current;
+      actRef.current = null;
+      if (tl) tl.kill();
+      const card = cardRef.current;
+      if (card) clearOverlays(card);
+      const els = swarm.els(SKILL_STOP_AGENTS);
+      if (els.length) {
+        gsap.killTweensOf(els);
+        gsap.set(els, { opacity: 0, visibility: "hidden" });
+      }
+    },
+    []
+  );
+
+  /*
+    The global body sets overflow-x: hidden, which makes body a scroll
+    container and can stop this sticky stage from pinning. clip keeps the
+    same horizontal clipping without creating a scroll container.
+  */
+  useEffect(() => {
+    const body = document.body;
+    const previous = body.style.overflowX;
+    if (window.getComputedStyle(body).overflowX === "hidden") {
+      body.style.overflowX = "clip";
+    }
+    return () => {
+      body.style.overflowX = previous;
+    };
+  }, []);
+
+  /*
+    Keep one continuously interpolated progress value for the whole stage.
+    The raw scroll position is the target; the loop eases toward it, so the
+    card growth and stop changes stay smooth instead of jumping per event.
+  */
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    const card = cardRef.current;
+    if (!wrap || !card) return undefined;
+
+    const reduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const clamp = (value) => Math.min(1, Math.max(0, value));
+    let raf = 0;
+    let progress = 0;
+    let open = 0;
+
+    const loop = () => {
+      const vh = window.innerHeight || 1;
+      const rect = wrap.getBoundingClientRect();
+      const travel = Math.max(1, wrap.offsetHeight - vh);
+      const targetProgress = clamp(-rect.top / travel);
+      const targetOpen = reduced ? 1 : clamp((vh - rect.top) / (vh * 0.56));
+
+      progress += (targetProgress - progress) * 0.08;
+      open += (targetOpen - open) * 0.12;
+      if (Math.abs(targetProgress - progress) < 0.0004) {
+        progress = targetProgress;
+      }
+      if (Math.abs(targetOpen - open) < 0.0004) open = targetOpen;
+
+      /* the pinned stage drives the cursor act: play on entry, hide on exit */
+      const inView = rect.bottom > 0 && rect.top < vh;
+      if (!inView) {
+        if (inViewRef.current) {
+          inViewRef.current = false;
+          initialActRef.current = false;
+          killSkillAct();
+        }
+      } else {
+        if (!inViewRef.current) {
+          inViewRef.current = true;
+          initialActRef.current = false;
+        }
+        if (open > 0.5 && !initialActRef.current && !actRef.current) {
+          initialActRef.current = true;
+          playSkillAct(activeRef.current);
+        }
+      }
+
+      const next = Math.min(
+        total - 1,
+        Math.floor(progress * total + 0.0001)
+      );
+      if (next === activeRef.current) pendingRef.current = null;
+      else goTo(next);
+
+      const eased = open * open * (3 - 2 * open);
+      card.style.opacity = String(eased);
+      card.style.transform = `scale(${(0.9 + eased * 0.1).toFixed(4)})`;
+
+      raf = requestAnimationFrame(loop);
+    };
+
+    raf = requestAnimationFrame(loop);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [goTo, killSkillAct, playSkillAct, total]);
+
+  return (
+    <div
+      ref={wrapRef}
+      className="sk-wrap"
+      style={{ "--sk-stops": total }}
+    >
+      <style>{SKILLS_STYLE}</style>
+
+      <div className="sk-stage">
+        <div className="sk-inner">
+          {children && <div className="sk-head-slot">{children}</div>}
+
+          <article
+            ref={cardRef}
+            className="sk-card"
+            aria-label="Skills path"
+            style={{ opacity: 0, transform: "scale(0.9)" }}
           >
-            <path d="M0 0 L8 4 L0 8 Z" className="exp-arrow-head" />
-          </marker>
-        </defs>
-
-        {flow.slice(0, -1).map((node, i) => (
-          <g key={node.key}>
-            <path
-              data-seg={i}
-              className="exp-seg-base"
-              pathLength="1"
-              strokeDasharray="1"
-              strokeDashoffset="1"
-              markerEnd="url(#exp-arrow)"
-            />
-            <path
-              data-seg-flow={i}
-              className="exp-seg-flow"
-              pathLength="1"
-              style={{ "--seg": i }}
-            />
-            <path
-              data-seg-pulse={i}
-              className="exp-seg-pulse"
-              pathLength="1"
-              style={{ "--seg": i }}
-            />
-            <circle data-junction={`${i}-a`} className="exp-junction" r="2.4" />
-            <circle data-junction={`${i}-b`} className="exp-junction" r="2.4" />
-          </g>
-        ))}
-
-        <path
-          data-return
-          className="exp-return"
-          pathLength="1"
-          strokeDasharray="1"
-          strokeDashoffset="1"
-          markerEnd="url(#exp-arrow)"
-        />
-        <path data-return-flow className="exp-return-flow" pathLength="1" />
-        <path data-return-pulse className="exp-return-pulse" pathLength="1" />
-        <text data-return-label className="exp-return-label">
-          {returnLabel}
-        </text>
-      </svg>
-
-      <ol
-        data-flow-list
-        className="exp-flow-list relative z-10 flex flex-col gap-4 md:grid md:h-[400px] lg:h-[430px] md:grid-cols-6 md:gap-0"
-      >
-        {flow.map((node, i) => (
-          <li
-            key={node.key}
-            data-flow-node={node.key}
-            className="exp-flow-node group/node"
-          >
-            <FlowFan icons={node.icons} above={i % 2 === 1} />
-
-            <div className="md:absolute md:inset-0 md:flex md:items-center md:justify-center">
-              <NodeShell
-                data-node-card
-                tag={`div.${node.key}`}
-                hot={i === 2 || i === 3}
-                className="w-full md:w-[8.8rem] lg:w-[9.8rem]"
-              >
-                <div className="flex flex-col items-center px-3 py-3.5 text-center">
-                  <div className="flex items-center gap-1.5">
-                    <i
-                      className="size-1.5 rounded-full bg-red shadow-[0_0_8px_#d61a29]"
-                      aria-hidden="true"
-                    />
-                    <p
-                      data-node-kicker
-                      className="label block w-fit text-[0.58rem] tracking-[0.2em] text-gold"
-                    >
-                      <Words text={`0${i + 1}`} />
-                    </p>
-                  </div>
-                  {node.key === "user" && (
-                    <UserGlyph className="my-1.5 size-6 text-red" />
-                  )}
-                  <h4
-                    data-node-title
-                    className="display mt-1 block w-fit text-[1.15rem] lg:text-[1.3rem] leading-none text-ink"
-                  >
-                    <Words text={node.title} />
-                  </h4>
-                  <p
-                    data-node-caption
-                    className="label mt-1.5 block text-[0.62rem] lg:text-[0.68rem] leading-tight tracking-[0.08em] text-muted"
-                  >
-                    <Words text={node.caption} />
-                  </p>
-                </div>
-              </NodeShell>
+            <div className="sk-top">
+              <p className="sk-eyebrow">Request path</p>
+              <p className="sk-counter" aria-live="polite">
+                {String(active + 1).padStart(2, "0")}{" "}
+                <span>/ {String(total).padStart(2, "0")}</span>
+              </p>
             </div>
 
-            <div className="mt-2.5 flex flex-wrap gap-2 md:hidden">
-              {node.icons.map((name) => (
-                <span
-                  key={name}
-                  data-mob-icon
-                  className="group/chip inline-flex items-center gap-1.5 rounded-full border border-line bg-deep/20 px-2 py-1 outline-offset-[4px] transition-[translate,scale] duration-200 hover:-translate-y-1 hover:scale-110 hover:outline hover:outline-1 hover:outline-dashed hover:outline-[#4c8dff]/70"
-                >
-                  <Logo
-                    item={techItem(name)}
-                    className="size-4"
-                    badgeClass="text-[0.45rem]"
-                  />
-                  <span className="text-[0.62rem] uppercase tracking-[0.08em] text-ink/80 group-hover/chip:text-ink">
-                    {name}
-                  </span>
-                </span>
+            <div className="sk-progress" aria-hidden="true">
+              <span
+                className="sk-progress-fill"
+                style={{ transform: `scaleX(${(active + 1) / total})` }}
+              />
+            </div>
+
+            <div className="sk-viewport">
+              {stops.map((stop, i) => (
+                <StopSlide
+                  key={stop.key}
+                  stop={stop}
+                  index={i}
+                  active={active}
+                  slideRef={(node) => {
+                    slidesRef.current[i] = node;
+                  }}
+                />
               ))}
             </div>
-          </li>
-        ))}
-      </ol>
-
-      <div className="mt-4 flex items-center justify-end gap-2 md:hidden">
-        <span className="label text-[0.6rem] tracking-[0.16em]">
-          ← {returnLabel}
-        </span>
+          </article>
+        </div>
       </div>
     </div>
   );

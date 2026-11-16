@@ -87,19 +87,17 @@ const EXP_STYLE = `
 .exp-mark {
   transition: transform 220ms ease;
 }
-[data-int-point]:hover .exp-mark,
-[data-proj-row]:hover .exp-mark {
-  transform: translateX(4px);
-}
 [data-int-point] [data-int-point-text],
 [data-proj-row] [data-proj-title],
 [data-proj-row] [data-proj-desc] {
   transition: color 220ms ease;
 }
-[data-int-point]:hover [data-int-point-text],
-[data-proj-row]:hover [data-proj-title],
-[data-proj-row]:hover [data-proj-desc] {
-  color: var(--color-ink);
+@media (hover: hover) {
+  [data-int-point]:hover .exp-mark,
+  [data-proj-row]:hover .exp-mark { transform: translateX(4px); }
+  [data-int-point]:hover [data-int-point-text],
+  [data-proj-row]:hover [data-proj-title],
+  [data-proj-row]:hover [data-proj-desc] { color: var(--color-ink); }
 }
 @media (prefers-reduced-motion: reduce) {
   .exp-mark,

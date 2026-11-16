@@ -53,7 +53,7 @@
 @layer base {
   html {
     color-scheme: dark;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
     -webkit-text-size-adjust: 100%;
   }
   body {
@@ -68,6 +68,12 @@
   button {
     cursor: pointer;
   }
+  /* Cursor build overlays are absolutely positioned from a previous layout.
+     Clip horizontally at the section edge so a stale box can never widen the
+     document (vertical overflow stays visible for glows and reveals). */
+  main section {
+    overflow-x: clip;
+  }
 }
 
 /* Lenis smooth scroll */
@@ -80,6 +86,67 @@ html.lenis body {
 }
 .lenis.lenis-stopped {
   overflow: hidden;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+/* Shared interaction feedback across navigation, links, buttons and cards. */
+:where(a, button, [role="button"]) {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity, translate, scale;
+  transition-timing-function: cubic-bezier(.2,.7,.2,1);
+  transition-duration: 250ms;
+}
+:where(a, button, [role="button"]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-red) 78%, white);
+  outline-offset: 3px;
+  color: var(--color-ink);
+}
+:where(button, [role="button"]):focus-visible { translate: 0 -2px; }
+@media (hover: hover) {
+  :where(button, [role="button"]):hover { translate: 0 -2px; }
+  :where(a:not(.footer-link):not(.footer-top)):hover { color: var(--color-ink); }
+  :where(.footer-social, [data-project-card]):hover { translate: 0 -4px; }
+  .marquee-view a:hover, .marquee-view button:hover { translate: 0 -3px; }
+  .fixed.inset-x-0.top-0 ul a:hover::after,
+  .fixed.inset-x-0.top-0 ul a:focus-visible::after { transform: scaleX(1); }
+}
+.fixed.inset-x-0.top-0 ul a::after {
+  position: absolute;
+  right: 0;
+  bottom: -0.4em;
+  left: 0;
+  height: 1px;
+  background: var(--color-red);
+  content: "";
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 250ms cubic-bezier(.2,.7,.2,1);
+}
+.fixed.inset-x-0.top-0 ul a:focus-visible::after { transform: scaleX(1); }
+[data-project-card] { transition: translate 250ms cubic-bezier(.2,.7,.2,1); }
+[data-project-card] [class~="border-line"] {
+  transition: border-color 250ms cubic-bezier(.2,.7,.2,1), box-shadow 250ms cubic-bezier(.2,.7,.2,1);
+}
+[data-project-card] img { transition: transform 300ms cubic-bezier(.2,.7,.2,1); }
+@media (hover: hover) {
+  [data-project-card]:hover { translate: 0 -4px; }
+  [data-project-card]:hover [class~="border-line"] {
+    border-color: color-mix(in srgb, var(--color-red) 78%, transparent);
+    box-shadow: 0 12px 28px -18px rgba(214,26,41,.85);
+  }
+  [data-project-card]:hover img { transform: scale(1.04); }
+}
+[data-project-card]:focus-visible { translate: 0 -4px; }
+[data-project-card]:focus-visible [class~="border-line"] {
+  border-color: color-mix(in srgb, var(--color-red) 78%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(a, button, [role="button"]) { transition-duration: 0.01ms; }
+  :where(a, button, [role="button"]):hover { translate: none; }
+  :where(button, [role="button"]):focus-visible { translate: none; }
+  .fixed.inset-x-0.top-0 ul a::after { transition: none; }
+  [data-project-card], [data-project-card] img { transition: none; }
 }
 
 /* subtle film grain over the whole page */
@@ -122,8 +189,8 @@ body::after {
   animation: marquee var(--marquee-speed) linear infinite;
   will-change: transform;
 }
-.marquee-view:hover .marquee-track {
-  animation-play-state: paused;
+@media (hover: hover) {
+  .marquee-view:hover .marquee-track { animation-play-state: paused; }
 }
 @media (prefers-reduced-motion: reduce) {
   .marquee-track {

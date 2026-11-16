@@ -7,9 +7,14 @@ import useAgentsEnabled from "../../engine/useAgentsEnabled";
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
-function Agent({ name, color, label }) {
+function Agent({ name, color, label, hoverOnly = false, innerRef }) {
   return (
-    <div data-agent className="fixed left-0 top-0 opacity-0 will-change-transform">
+    <div
+      ref={innerRef}
+      data-agent
+      data-hover-cursor={hoverOnly ? "" : undefined}
+      className="fixed left-0 top-0 opacity-0 will-change-transform"
+    >
       <span
         data-ripple
         className="absolute -left-4 -top-4 size-8 rounded-full border-2 opacity-0"
@@ -45,9 +50,12 @@ function Agent({ name, color, label }) {
 
 function Swarm() {
   const root = useRef(null);
+  const hoverCursor = useRef(null);
 
   useEffect(() => {
-    const nodes = [...root.current.querySelectorAll("[data-agent]")];
+    const nodes = [
+      ...root.current.querySelectorAll("[data-agent]:not([data-hover-cursor])"),
+    ];
     const list = nodes.map((wrap) => ({
       wrap,
       ripple: wrap.querySelector("[data-ripple]"),
@@ -55,6 +63,20 @@ function Swarm() {
       tween: null,
       claimed: false,
     }));
+
+    // A dedicated cursor for pointer hover. It is not part of the 20 build
+    // agents, so a running scroll reveal can never steal or hide it.
+    const hoverNode = hoverCursor.current;
+    const hoverEntry = hoverNode
+      ? {
+          wrap: hoverNode,
+          ripple: hoverNode.querySelector("[data-ripple]"),
+          arrow: hoverNode.querySelector("[data-arrow]"),
+          tween: null,
+          claimed: true,
+          hoverOnly: true,
+        }
+      : null;
 
     const ctx = gsap.context(() => {
       list.forEach(({ wrap }, i) => {
@@ -71,12 +93,69 @@ function Swarm() {
     }, root);
 
     // registering last: this is what lets a waiting build start
-    swarm.register(list);
+    swarm.register(hoverEntry ? [...list, hoverEntry] : list);
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        swarm.pauseIdle();
+        swarm.hoverEnd();
+        swarm.setVisible(false);
+      } else {
+        swarm.setVisible(true);
+        swarm.resumeIdle();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    if (document.hidden) onVisibility();
 
     return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      swarm.hoverEnd();
       swarm.stopAll();
       swarm.register([]);
       ctx.revert();
+    };
+  }, []);
+
+  /* pointer hover: when the pointer is over [data-cursor-hover], a free agent
+     chases it quickly and grows, so the swarm reacts to headings, text, chips,
+     photo cards and every other marked element. */
+  useEffect(() => {
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    const el = root.current;
+    if (!el) return;
+
+    let active = null;
+    const onMove = (e) => {
+      const hit =
+        e.target instanceof Element
+          ? e.target.closest(
+              '[data-cursor-hover], a[href], button:not(:disabled), [role="button"], input, select, textarea, summary'
+            )
+          : null;
+      if (hit !== active) {
+        active = hit;
+        el.classList.toggle("swarm-hover", Boolean(hit));
+      }
+      if (hit) swarm.hoverAt(e.clientX, e.clientY);
+      else swarm.hoverEnd();
+    };
+
+    const onLeave = () => {
+      active = null;
+      el.classList.remove("swarm-hover");
+      swarm.hoverEnd();
+    };
+
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("blur", onLeave);
+    document.addEventListener("mouseleave", onLeave);
+
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("blur", onLeave);
+      document.removeEventListener("mouseleave", onLeave);
+      swarm.hoverEnd();
     };
   }, []);
 
@@ -89,6 +168,8 @@ function Swarm() {
       {AGENTS.map((a) => (
         <Agent key={a.name} {...a} />
       ))}
+      {/* pointer-follow cursor: hidden until the pointer is over a marked element */}
+      <Agent name="Pointer" color="#ffffff" hoverOnly innerRef={hoverCursor} />
     </div>
   );
 }
@@ -96,6 +177,8 @@ function Swarm() {
 export default function CursorSwarm() {
   const enabled = useAgentsEnabled();
   const { ui } = useAgents();
-  if (!enabled || ui === "closed") return null;
+  const touchDevice =
+    typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
+  if (!enabled || ui === "closed" || touchDevice) return null;
   return <Swarm />;
 }

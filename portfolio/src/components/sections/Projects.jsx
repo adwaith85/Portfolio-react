@@ -13,18 +13,27 @@ import {
 import useAgentsEnabled from "../../engine/useAgentsEnabled";
 import { Words, typeWords } from "../../engine/swarmBuild";
 import { envCss, ENVS, rgbOf } from "../../theme/palette";
-import { lockScroll, unlockScroll } from "../../hooks/useSmoothScroll";
+import {
+  lockScroll,
+  scrollToId,
+  unlockScroll,
+} from "../../hooks/useSmoothScroll";
 import Logo from "../ui/Logo";
 
 gsap.registerPlugin(ScrollTrigger);
 
-/* Cursor leases: two agents type the heading, one teaches the click in the hold. */
-const AG = { head: [0, 1], auto: 2 };
+/* Cursor leases: two agents type the heading, one teaches the click in the hold,
+   two more write the closing block. */
+const AG = { head: [0, 1], auto: 2, close: [3, 4] };
 
 /* Progress at which the flight ends and the finished table takes over. */
 const HOLD_AT = 0.85;
 const PERSPECTIVE = 1000;
-const TABLE_GAP = 0.2;
+const TABLE_GAP = 0.22;
+/* Desktop final grid: 22.5% larger than the card's laid-out size. */
+const CARD_BOOST = 1.225;
+/* The big background words dim to this while the cards fly, never to zero. */
+const BOARD_DIM = 0.3;
 
 const byName = Object.fromEntries(stack.map((s) => [s.name, s]));
 const toolItem = (n) => byName[n] || { name: n, abbr: n.slice(0, 2) };
@@ -150,13 +159,14 @@ function FlightCard({ project, n, interactive, onOpen, cardRef }) {
   return (
     <article
       ref={cardRef}
+      data-project-card
       data-card
       role="button"
       tabIndex={interactive ? 0 : -1}
       aria-label={`Open ${project.title}`}
       onClick={onOpen}
       onKeyDown={onKeyDown}
-      className="group/card invisible absolute left-1/2 top-1/2 aspect-[16/10] w-[min(36vw,32svh)] cursor-pointer opacity-0 outline-none focus-visible:ring-2 focus-visible:ring-gold sm:w-[clamp(170px,15vw,250px)]"
+      className="group/card invisible absolute left-1/2 top-1/2 aspect-[16/10] w-[min(39.6vw,35.2svh)] cursor-pointer opacity-0 outline-none focus-visible:ring-2 focus-visible:ring-gold sm:w-[clamp(187px,16.5vw,275px)]"
     >
       <div
         data-lift
@@ -179,6 +189,7 @@ function GridCard({ project, n, onOpen, cardRef }) {
   return (
     <article
       ref={cardRef}
+      data-project-card
       data-mcard
       role="button"
       tabIndex={0}
@@ -376,17 +387,60 @@ function ProjectPopup({
   );
 }
 
+/* Fade the leased cursors out, then park them for good: no tween, no roam,
+   no cursor left on screen after this section's text has been written. The
+   cursor nodes themselves are shared with other sections, so they are hidden
+   instead of being removed from the global swarm. */
+function parkCursors(tl, rootEl, agents, at) {
+  tl.add(() => {
+    rootEl?.querySelectorAll("[data-ov]").forEach((n) => n.remove());
+    agents.forEach((i) => {
+      swarm.claim(i);
+      const els = swarm.els([i]);
+      gsap.killTweensOf(els);
+      els.forEach((el) => {
+        gsap.killTweensOf([...el.querySelectorAll("*")]);
+        el.style.opacity = "0";
+        el.style.visibility = "hidden";
+        el.style.pointerEvents = "none";
+      });
+    });
+  }, at);
+}
+
 function buildHeading(rootEl) {
   const $ = (s) => rootEl.querySelector(s);
   const [a, b] = AG.head;
+  const [c, d] = AG.close;
+  const e = AG.auto;
+  const agents = [...AG.head, AG.auto, ...AG.close];
   const tl = gsap.timeline();
-  cursorIntro(tl, AG.head, 0);
+  cursorIntro(tl, agents, 0);
 
-  let t = typeWords(tl, $("[data-h1]"), a, 0.05, 0.05);
-  t = typeWords(tl, $("[data-h2]"), a, t, 0.05);
-  const t2 = typeWords(tl, $("[data-sub]"), b, 0.2, 0.02);
+  /* The new section heading and the faded display type. */
+  let th = typeWords(tl, $("[data-ph1]"), c, 0.04, 0.024);
+  th = typeWords(tl, $("[data-ph2]"), c, th, 0.024);
+  let t = typeWords(tl, $("[data-h1]"), a, 0.05, 0.04);
+  t = typeWords(tl, $("[data-h2]"), a, t, 0.04);
+  const t2 = typeWords(tl, $("[data-sub]"), b, 0.12, 0.016);
+  const t3 = typeWords(tl, $("[data-hint]"), b, t2 + 0.015, 0.016);
 
-  cursorOutro(tl, AG.head, { at: Math.max(t, t2) + 0.4 });
+  /* The closing block: label, line, then the line with both links. */
+  const tc = typeWords(tl, $("[data-clabel]"), c, th + 0.015, 0.016);
+  let td = typeWords(tl, $("[data-ctext]"), d, 0.05, 0.0064);
+  td = typeWords(tl, $("[data-csub]"), e, td + 0.015, 0.0048);
+
+  const end = Math.max(t, t2, t3, th, tc, td) + 0.1;
+  cursorOutro(tl, agents, { at: end, duration: 0.18 });
+  parkCursors(tl, rootEl, agents, end + 0.19);
+
+  /* If anything interrupts the sequence, the text still ends fully visible. */
+  const revealAll = () => {
+    const words = rootEl.querySelectorAll("[data-w]");
+    gsap.set(words, { autoAlpha: 1 });
+    gsap.set(words, { clearProps: "clipPath" });
+  };
+  tl.eventCallback("onComplete", revealAll);
   return tl;
 }
 
@@ -445,15 +499,18 @@ export default function Projects() {
     if (!el) return;
 
     const ctx = gsap.context(() => {
-      gsap.set(
-        el.querySelectorAll("[data-heading] [data-w], [data-sub] [data-w]"),
-        { autoAlpha: 0 }
-      );
+      gsap.set(el.querySelectorAll("[data-w]"), { autoAlpha: 0 });
     }, el);
 
     const headingEl = el.querySelector("[data-heading]");
     const groups = headingEl
-      ? [{ element: headingEl, agents: AG.head, build: () => buildHeading(el) }]
+      ? [
+          {
+            element: headingEl,
+            agents: [...AG.head, AG.auto, ...AG.close],
+            build: () => buildHeading(el),
+          },
+        ]
       : [];
 
     const stop = createViewportReveal({
@@ -462,7 +519,7 @@ export default function Projects() {
       enabled,
       reduced: false,
       start: "top 95%",
-      speed: 1.2,
+      speed: 2.0,
       back: 2.2,
       groups,
     });
@@ -494,19 +551,43 @@ export default function Projects() {
       if (!cards.length) return;
 
       const headingWrap = el.querySelector("[data-heading]");
-      const hint = el.querySelector("[data-hint]");
+      const headEl = el.querySelector("[data-projhead]");
+      const closeEl = el.querySelector("[data-close]");
 
       const buildPaths = () => {
         const vw = window.innerWidth;
         const vh = window.innerHeight;
-        const phone = vw < 640;
-        const W =
+        const baseW =
           cards[0].offsetWidth ||
-          (phone ? Math.min(vw * 0.36, vh * 0.32) : clamp(vw * 0.15, 170, 250));
+          (vw < 640
+            ? Math.min(vw * 0.396, vh * 0.352)
+            : clamp(vw * 0.165, 187, 275));
+        /* Desktop keeps the 3x2 table; tablet and phone use two columns. */
+        const cols = vw < 1024 ? 2 : 3;
+        const rows = Math.ceil(cards.length / cols);
+        const desktop = vw >= 1024;
+        /* Only the finished desktop table grows; tablet and phone keep size. */
+        const wantW = baseW * (desktop ? CARD_BOOST : 1);
+        /* On short screens shrink the finished table so it clears the heading
+           and the closing block instead of overlapping them. */
+        const headTop = headEl
+          ? parseFloat(getComputedStyle(headEl).top) || 0
+          : 0;
+        const closeBottom = closeEl
+          ? parseFloat(getComputedStyle(closeEl).bottom) || 0
+          : 0;
+        const chrome = Math.max(
+          (headEl?.offsetHeight || 0) + headTop,
+          (closeEl?.offsetHeight || 0) + closeBottom
+        );
+        const gridRoom = Math.max(vh * 0.2, vh - chrome * 2 - 16);
+        const W = Math.min(
+          wantW,
+          gridRoom / (rows * (10 / 16) + (rows - 1) * TABLE_GAP)
+        );
         const H = W * (10 / 16);
         const gap = W * TABLE_GAP;
-        const cols = phone ? 2 : 3;
-        const rows = phone ? 3 : 2;
+        const fit = W / baseW;
 
         return cards.map((_, i) => {
           const col = i % cols;
@@ -520,7 +601,7 @@ export default function Projects() {
             [0, 0.02 * vh, 0.9, 0],
             [0.3 * vw, -0.26 * vh, 0.35, -30],
             [0.08 * vw, -0.1 * vh, 0.55, -10],
-            [slotX, slotY, 1, 0],
+            [slotX, slotY, fit, 0],
           ];
 
           const converted = waypoints.map(([sx, sy, sc, ry]) => ({
@@ -558,6 +639,7 @@ export default function Projects() {
         cursorOutro(tl, [AG.auto], { at: 0.8, duration: 0.4 });
         /* Once the section's cursor act is over, clear every cursor. */
         tl.add(swarm.fadeOut(0.5), 1.2);
+        parkCursors(tl, el, [AG.auto], 1.75);
         autoTlRef.current = tl;
       };
 
@@ -607,12 +689,7 @@ export default function Projects() {
         });
 
         if (headingWrap) {
-          headingWrap.style.opacity =
-            pf <= 0.7 ? "1" : String(1 - 0.88 * ((pf - 0.7) / 0.3));
-        }
-        if (hint) {
-          hint.style.opacity =
-            pf >= 0.92 ? String(clamp((pf - 0.92) / 0.08, 0, 1)) : "0";
+          headingWrap.style.opacity = pf > 0.001 ? String(BOARD_DIM) : "1";
         }
 
         const done = pf >= 1;
@@ -989,8 +1066,36 @@ export default function Projects() {
       {mode !== "reduced" ? (
         <>
           <div
+            data-projhead
+            className="pointer-events-none absolute left-gutter right-gutter top-[clamp(0.5rem,1.6svh,1.75rem)] z-20 flex flex-col items-start gap-2 lg:flex-row lg:items-start lg:justify-between lg:gap-8"
+          >
+            <div className="min-w-0">
+              <h2 className="display flex flex-wrap gap-x-[0.28em] text-[clamp(1.6rem,4.2vw,4rem)] leading-[0.9] max-sm:text-[clamp(1.7rem,8vw,2.5rem)]">
+                <span data-ph1 className="block w-fit text-ink">
+                  <Words text="PROJECTS" />
+                </span>
+                <span data-ph2 className="block w-fit text-red">
+                  <Words text="IN LIVE" />
+                </span>
+              </h2>
+              <p
+                data-sub
+                className="mt-[clamp(0.35rem,1.1svh,0.9rem)] max-w-[30rem] text-[min(0.9rem,2.1svh)] leading-relaxed text-ink"
+              >
+                <Words text={sub} />
+              </p>
+            </div>
+            <p
+              data-hint
+              className="label shrink-0 whitespace-nowrap text-muted lg:mt-1 lg:text-right"
+            >
+              <Words text="TAP A PROJECT" />
+            </p>
+          </div>
+
+          <div
             data-heading
-            className="pointer-events-none absolute inset-0 z-0 flex flex-col items-center justify-center px-gutter"
+            className="pointer-events-none absolute inset-0 z-0 flex flex-col items-center justify-center px-gutter transition-opacity duration-[350ms] ease-out"
           >
             <h2 className="display text-center text-[clamp(4rem,12vw,13rem)] leading-[0.8] tracking-[-0.035em] max-sm:text-[clamp(2.4rem,11vw,3.4rem)]">
               <span data-h1 className="block whitespace-nowrap text-ink">
@@ -1001,13 +1106,6 @@ export default function Projects() {
               </span>
             </h2>
           </div>
-
-          <p
-            data-sub
-            className="absolute left-gutter right-gutter top-[5svh] z-20 max-w-[26rem] text-[min(0.92rem,2.1svh)] leading-relaxed text-ink/65"
-          >
-            <Words text={sub} />
-          </p>
 
           <div
             data-stage
@@ -1031,15 +1129,85 @@ export default function Projects() {
           </div>
 
           <div
-            data-hint
-            className="label pointer-events-none absolute bottom-[5svh] left-1/2 z-20 -translate-x-1/2 whitespace-nowrap text-center text-muted opacity-0"
+            data-close
+            className="pointer-events-none absolute left-gutter right-gutter bottom-[clamp(1.2rem,4svh,3rem)] z-20 flex justify-start text-left"
           >
-            TAP A PROJECT
+            <div className="max-w-[38rem]">
+              <p
+                data-clabel
+                className="label text-[0.7rem] tracking-[0.18em] text-muted"
+              >
+                <Words text="WHAT'S NEXT" />
+              </p>
+              <p
+                data-ctext
+                className="mt-[0.5svh] text-[min(1.12rem,2.3svh)] font-medium leading-snug text-ink"
+              >
+                <Words text="Every project here started as an idea and shipped as a working product." />
+              </p>
+              <p
+                data-csub
+                className="mt-[0.6svh] text-[min(0.94rem,2.1svh)] leading-relaxed text-muted"
+              >
+                <Words text="Want to see more? Browse the code on" />{" "}
+                <a
+                  href={content.social.github}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group/plink pointer-events-auto inline-flex items-center gap-1 font-medium text-ink transition-colors hover:text-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
+                >
+                  <span data-w className="inline-block">GitHub</span>{" "}
+                  <span
+                    data-w
+                    className="inline-block transition-transform duration-200 group-hover/plink:-translate-y-0.5 group-hover/plink:translate-x-0.5"
+                  >
+                    ↗
+                  </span>
+                </a>{" "}
+                <Words text="or get in touch via" />{" "}
+                <a
+                  href="#contact"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToId("contact");
+                  }}
+                  className="group/plink pointer-events-auto inline-flex items-center gap-1 font-medium text-ink transition-colors hover:text-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
+                >
+                  <span data-w className="inline-block">Contact</span>{" "}
+                  <span
+                    data-w
+                    className="inline-block transition-transform duration-200 group-hover/plink:-translate-y-0.5 group-hover/plink:translate-x-0.5"
+                  >
+                    ↗
+                  </span>
+                </a>
+                <span data-w className="inline-block">.</span>
+              </p>
+            </div>
           </div>
         </>
       ) : (
         <div className="px-gutter py-[5svh]">
-          <header data-heading className="flex flex-col gap-4">
+          <header className="flex flex-col items-start gap-2 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
+            <div className="min-w-0">
+              <h2 className="display flex flex-wrap gap-x-[0.28em] text-[clamp(1.8rem,6vw,3.2rem)] leading-[0.9]">
+                <span className="block w-fit text-ink">
+                  <Words text="PROJECTS" />
+                </span>
+                <span className="block w-fit text-red">
+                  <Words text="IN LIVE" />
+                </span>
+              </h2>
+              <p className="mt-2 max-w-[30rem] text-sm leading-relaxed text-ink">
+                <Words text={sub} />
+              </p>
+            </div>
+            <p className="label shrink-0 whitespace-nowrap text-muted lg:mt-1 lg:text-right">
+              TAP A PROJECT
+            </p>
+          </header>
+
+          <header data-heading className="mt-7 flex flex-col gap-4">
             <h2 className="display text-[clamp(2.4rem,11vw,4rem)] leading-[0.9]">
               <span data-h1 className="block w-fit text-ink">
                 <Words text={headline[0]} />
@@ -1048,15 +1216,9 @@ export default function Projects() {
                 <Words text={headline[1]} />
               </span>
             </h2>
-            <p
-              data-sub
-              className="max-w-[30rem] text-sm leading-relaxed text-ink/65"
-            >
-              <Words text={sub} />
-            </p>
           </header>
 
-          <ul className="mx-auto mt-8 grid max-w-[900px] grid-cols-2 gap-[clamp(0.5rem,1.2vw,1rem)] sm:grid-cols-3">
+          <ul className="mx-auto mt-8 grid max-w-[900px] grid-cols-2 gap-[clamp(0.5rem,1.2vw,1rem)] lg:grid-cols-3">
             {projects.map((p, i) => (
               <li key={p.title}>
                 <GridCard
@@ -1068,6 +1230,40 @@ export default function Projects() {
               </li>
             ))}
           </ul>
+
+          <div className="mt-10 flex flex-col items-start gap-3 text-left">
+            <div className="max-w-[38rem]">
+              <p className="label text-[0.7rem] tracking-[0.18em] text-muted">
+                <Words text="WHAT'S NEXT" />
+              </p>
+              <p className="mt-1 text-[min(1.12rem,2.3svh)] font-medium leading-snug text-ink">
+                <Words text="Every project here started as an idea and shipped as a working product." />
+              </p>
+              <p className="mt-1 text-[min(0.94rem,2.1svh)] leading-relaxed text-muted">
+                <Words text="Want to see more? Browse the code on" />{" "}
+                <a
+                  href={content.social.github}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 font-medium text-ink transition-colors hover:text-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
+                >
+                  GitHub <span aria-hidden="true">↗</span>
+                </a>{" "}
+                <Words text="or get in touch via" />{" "}
+                <a
+                  href="#contact"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToId("contact");
+                  }}
+                  className="inline-flex items-center gap-1 font-medium text-ink transition-colors hover:text-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
+                >
+                  Contact <span aria-hidden="true">↗</span>
+                </a>
+                .
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

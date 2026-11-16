@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- context hook and provider share one module. */
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import gsap from "gsap";
 

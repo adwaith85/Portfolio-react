@@ -33,8 +33,9 @@ function Chip({ item, dup = false }) {
   return (
     <li
       data-stack-chip
+      data-cursor-hover
       {...(dup ? { "aria-hidden": "true", "data-dup": "" } : {})}
-      className="group/chip mr-8 flex shrink-0 items-center gap-2.5 outline-offset-[6px] transition-[translate,scale] duration-200 hover:-translate-y-1 hover:scale-110 hover:outline hover:outline-1 hover:outline-dashed hover:outline-[#4c8dff]/70 sm:mr-12 sm:gap-3 lg:mr-14"
+      className="group/chip mr-8 flex shrink-0 items-center gap-2.5 outline-offset-[6px] transition-[translate,scale] duration-250 hover:-translate-y-1 hover:scale-110 hover:outline hover:outline-1 hover:outline-dashed hover:outline-red/70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-red/70 sm:mr-12 sm:gap-3 lg:mr-14"
     >
       <Logo item={item} />
       <span className="whitespace-nowrap text-[0.68rem] font-medium uppercase tracking-[0.12em] text-muted transition-colors group-hover/chip:text-ink sm:text-[0.72rem]">

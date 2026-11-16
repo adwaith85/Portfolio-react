@@ -4,9 +4,13 @@ import { agentStore } from "../../engine/agentStore";
 const agents = []; // { wrap, ripple, arrow, tween, claimed }
 const waiting = new Set();
 let ready = false;
+let hoverIdx = -1;
 const PAD = 48;
 
 const rand = (a, b) => a + Math.random() * (b - a);
+
+const ARROW_FILTER = "drop-shadow(0 2px 3px rgba(0,0,0,0.6))";
+const HOVER_FILTER = "drop-shadow(0 0 8px rgba(214,26,41,0.9))";
 
 // While roaming, keep the cursors reasonably spread out. A pure random point
 // lets 20 agents pile up in the same corner, which looks messy. Each agent
@@ -19,7 +23,7 @@ const randomPoint = (self = null) => {
     let crowded = false;
     for (let i = 0; i < agents.length; i++) {
       const a = agents[i];
-      if (!a || a === self || !a.wrap) continue;
+      if (!a || a === self || !a.wrap || a.hoverOnly) continue;
       const ax = Number(gsap.getProperty(a.wrap, "x")) || 0;
       const ay = Number(gsap.getProperty(a.wrap, "y")) || 0;
       if (Math.abs(ax - x) < 52 && Math.abs(ay - y) < 42) {
@@ -43,9 +47,44 @@ function pointOf(target, offset = { x: 0.5, y: 0.5 }) {
   return { x: r.left + r.width * offset.x, y: r.top + r.height * offset.y };
 }
 
+// stop the pointer-follow state on whichever agent currently has it
+function endHover({ roam = true, includeHover = false } = {}) {
+  const i = hoverIdx;
+  const a = agents[i];
+  // section builds call this too; they must not hide the pointer cursor that
+  // the user is actively hovering with.
+  if (a && a.hoverOnly && !includeHover) return;
+  hoverIdx = -1;
+  if (!a || !a.wrap) return;
+  a.hovering = false;
+  gsap.to(a.arrow, {
+    scale: 1,
+    duration: 0.1,
+    ease: "power2.out",
+    overwrite: "auto",
+  });
+  gsap.to(a.wrap, {
+    opacity: 0,
+    duration: 0.1,
+    ease: "power2.out",
+    overwrite: "auto",
+  });
+  gsap.to(a.arrow, {
+    filter: ARROW_FILTER,
+    duration: 0.1,
+    ease: "power2.out",
+  });
+  if (roam && !a.claimed && !a.hoverOnly) swarm.roam(i);
+}
+
 export const swarm = {
   register(list) {
+    agents.forEach((a) => {
+      if (!a) return;
+      gsap.killTweensOf([a.wrap, a.arrow, a.ripple].filter(Boolean));
+    });
     agents.length = 0;
+    hoverIdx = -1;
     list.forEach((a) => (a.claimed = false));
     agents.push(...list);
     ready = agents.length > 0;
@@ -70,13 +109,104 @@ export const swarm = {
     agents.forEach((a) => a.tween && a.tween.kill());
   },
 
+  pauseIdle() {
+    agents.forEach((a) => {
+      if (!a || a.hoverOnly || a.claimed) return;
+      if (a.tween) a.tween.kill();
+      a.tween = null;
+      gsap.set(a.wrap, { opacity: 0 });
+    });
+  },
+
+  park(list) {
+    if (!Array.isArray(list)) return;
+    list.forEach((i) => {
+      const a = agents[i];
+      if (!a || a.hoverOnly) return;
+      if (a.tween) a.tween.kill();
+      a.tween = null;
+      a.claimed = true;
+      gsap.killTweensOf(a.wrap);
+      gsap.set(a.wrap, { opacity: 0, visibility: "hidden" });
+    });
+  },
+
+  resumeIdle() {
+    if (document.hidden) return;
+    agents.forEach((a, i) => {
+      if (!a || a.hoverOnly || a.claimed) return;
+      gsap.to(a.wrap, { opacity: 1, duration: 0.18, overwrite: "auto" });
+      swarm.roam(i);
+    });
+  },
+
   // a build takes an agent (it stops roaming)
   claim(i) {
     const a = agents[i];
     if (!a) return;
+    if (hoverIdx === i) endHover({ roam: false });
     a.claimed = true;
     if (a.tween) a.tween.kill();
     a.tween = null;
+  },
+
+  // pointer hover: the dedicated hover agent (not leased by any build) chases
+  // the pointer quickly while it is over an interactive target. The chase is
+  // intentionally fast (0.07s) so the cursor
+  // feels attached to the pointer.
+  hoverAt(x, y) {
+    if (document.hidden) return;
+    let a = agents[hoverIdx];
+    if (!a || !a.hoverOnly) {
+      hoverIdx = agents.findIndex((n) => n && n.hoverOnly);
+      a = agents[hoverIdx];
+    }
+    if (!a || !a.wrap) return;
+
+    if (!a.qx) {
+      const opts = { duration: 0.07, ease: "power3.out", force3D: true };
+      a.qx = gsap.quickTo(a.wrap, "x", opts);
+      a.qy = gsap.quickTo(a.wrap, "y", opts);
+    }
+
+    // keep the cursor visible even if a running section build faded it out
+    if (Number(gsap.getProperty(a.wrap, "opacity")) < 0.98) {
+      gsap.to(a.wrap, {
+        opacity: 1,
+        duration: 0.07,
+        ease: "power2.out",
+        overwrite: "auto",
+      });
+    }
+
+    if (!a.hovering) {
+      a.hovering = true;
+      gsap.to(a.arrow, {
+        scale: 1.65,
+        duration: 0.16,
+        ease: "power2.out",
+        overwrite: "auto",
+      });
+      if (a.ripple) {
+        gsap.fromTo(
+          a.ripple,
+          { scale: 0.25, opacity: 0.8 },
+          { scale: 1.7, opacity: 0, duration: 0.42, ease: "power2.out" }
+        );
+      }
+      gsap.to(a.arrow, {
+        filter: HOVER_FILTER,
+        duration: 0.16,
+        ease: "power2.out",
+      });
+    }
+
+    a.qx(x);
+    a.qy(y);
+  },
+
+  hoverEnd() {
+    endHover({ includeHover: true });
   },
 
   // the build is done with the agent, back to roaming
@@ -93,12 +223,12 @@ export const swarm = {
     agentStore.addActions(1);
     return gsap
       .timeline()
-      .to(a.arrow, { scale: 0.8, duration: 0.08, ease: "power2.out" })
-      .to(a.arrow, { scale: 1, duration: 0.18, ease: "back.out(3)" })
+      .to(a.arrow, { scale: 0.8, duration: 0.05, ease: "power2.out" })
+      .to(a.arrow, { scale: 1, duration: 0.1, ease: "back.out(3)" })
       .fromTo(
         a.ripple,
         { scale: 0.2, opacity: 0.8 },
-        { scale: 1.6, opacity: 0, duration: 0.5, ease: "power2.out" },
+        { scale: 1.6, opacity: 0, duration: 0.3, ease: "power2.out" },
         0
       );
   },
@@ -109,7 +239,7 @@ export const swarm = {
     i,
     target,
     {
-      duration = 0.9,
+      duration = 0.08,
       click = false,
       ease = "power3.inOut",
       offset = { x: 0.5, y: 0.5 },
@@ -129,7 +259,7 @@ export const swarm = {
     tl.add(() => {
       swarm.claim(i);
     });
-    tl.to(a.wrap, { x: pos("x"), y: pos("y"), duration, ease });
+    tl.to(a.wrap, { x: pos("x"), y: pos("y"), duration, ease, force3D: true });
     if (click) {
       tl.add(() => {
         swarm.click(i);
@@ -148,15 +278,16 @@ export const swarm = {
   // wander forever: fast moves, random pauses, random clicks
   roam(i) {
     const a = agents[i];
-    if (!a || a.claimed) return;
+    if (!a || a.claimed || a.hoverOnly) return;
     const step = () => {
       const p = randomPoint(a);
       const tl = gsap.timeline({ onComplete: step });
       tl.to(a.wrap, {
         x: p.x,
         y: p.y,
-        duration: rand(0.7, 2.0),
+        duration: rand(0.45, 1.2),
         ease: "power3.inOut",
+        force3D: true,
       });
       if (Math.random() < 0.32) {
         tl.add(() => {
@@ -176,11 +307,13 @@ export const swarm = {
   // fade every cursor out and stop them. Returns a timeline to add to a build.
   fadeOut(duration = 0.5) {
     const tl = gsap.timeline();
-    const wraps = agents.map((a) => a.wrap);
+    const wraps = agents.filter((a) => !a.hoverOnly).map((a) => a.wrap);
     if (wraps.length) tl.to(wraps, { opacity: 0, duration, ease: "power2.out" });
     tl.add(() => {
       swarm.stopAll();
-      agents.forEach((a) => (a.claimed = true));
+      agents.forEach((a) => {
+        if (!a.hoverOnly) a.claimed = true;
+      });
     });
     return tl;
   },
@@ -188,6 +321,7 @@ export const swarm = {
   // bring the cursors back (for a later section's build)
   showAll() {
     agents.forEach((a, i) => {
+      if (a.hoverOnly) return;
       a.claimed = false;
       gsap.to(a.wrap, { opacity: 1, duration: 0.3 });
       swarm.roam(i);
@@ -210,24 +344,45 @@ export const swarm = {
   // never hides the cursors another visible group is still using
   show(i) {
     const a = agents[i];
-    if (a) a.wrap.style.visibility = "visible";
+    if (!a || !a.wrap) return;
+    a.wrap.style.display = "";
+    a.wrap.style.visibility = "visible";
   },
 
   hide(i) {
     const a = agents[i];
-    if (a) a.wrap.style.visibility = "hidden";
+    if (!a || !a.wrap) return;
+    a.wrap.style.visibility = "hidden";
+  },
+
+  dismiss(list) {
+    if (!Array.isArray(list)) return;
+    list.forEach((i) => {
+      const a = agents[i];
+      if (!a || !a.wrap) return;
+      if (a.tween) a.tween.kill();
+      a.tween = null;
+      a.claimed = true;
+      gsap.killTweensOf([a.wrap, a.arrow, a.ripple].filter(Boolean));
+      gsap.set(a.wrap, { opacity: 0, x: 0, y: 0 });
+      a.wrap.style.display = "none";
+      a.wrap.style.visibility = "hidden";
+    });
   },
 
   // hide/show every cursor without touching its opacity (used for scroll-back)
   setVisible(v) {
     agents.forEach((a) => {
+      if (a.hoverOnly) return;
       a.wrap.style.visibility = v ? "visible" : "hidden";
     });
   },
 
   // a new section takes all cursors: stop roaming, make them invisible and idle
   takeOver() {
+    endHover({ roam: false });
     agents.forEach((a) => {
+      if (a.hoverOnly) return;
       if (a.tween) a.tween.kill();
       a.tween = null;
       a.claimed = true;

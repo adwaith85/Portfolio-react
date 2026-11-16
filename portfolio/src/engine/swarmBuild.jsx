@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- this module shares build helpers. */
 import { Fragment } from "react";
 import gsap from "gsap";
 import { swarm } from "../components/cursors/swarmApi";
@@ -56,7 +57,7 @@ export function dragBox(
 
   tl.add(
     swarm.moveTo(ag, el, {
-      duration: 0.25,
+      duration: 0.12,
       offset: { x: 0, y: 0 },
       dx: -pad,
       dy: -pad,
@@ -96,18 +97,18 @@ export function dragBox(
 }
 
 /* cursor writes the words of an element one by one and follows the writing edge */
-export function typeWords(tl, el, ag, at, perLetter = 0.03) {
+export function typeWords(tl, el, ag, at, perLetter = 0.006) {
   if (!el) return at;
   const words = [...el.querySelectorAll("[data-w]")];
   if (!words.length) return at;
 
   tl.add(
-    swarm.moveTo(ag, words[0], { duration: 0.3, offset: { x: 0, y: 0.55 } }),
+    swarm.moveTo(ag, words[0], { duration: 0.08, offset: { x: 0, y: 0.55 } }),
     at
   );
-  tl.add(() => swarm.click(ag), at + 0.3);
+  tl.add(() => swarm.click(ag), at + 0.08);
 
-  let t = at + 0.32;
+  let t = at + 0.1;
   words.forEach((w) => {
     const len = Math.max(2, (w.textContent || "").length);
     const d = len * perLetter;
@@ -118,7 +119,7 @@ export function typeWords(tl, el, ag, at, perLetter = 0.03) {
 }
 
 /* cursor flies to a small element, clicks, and the element pops in */
-export function popIn(tl, ag, el, at, { travel = 0.25, from = { autoAlpha: 0, scale: 0.4 } } = {}) {
+export function popIn(tl, ag, el, at, { travel = 0.08, from = { autoAlpha: 0, scale: 0.4 } } = {}) {
   if (!el) return at;
   tl.add(swarm.moveTo(ag, el, { duration: travel }), at);
   tl.add(() => swarm.click(ag), at + travel);

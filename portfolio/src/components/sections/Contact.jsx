@@ -1,7 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { content } from "../../data/content";
-import { logoUrl } from "../../data/stack";
 import { ENVS, envCss } from "../../theme/palette";
 import {
   createViewportReveal,
@@ -17,7 +16,6 @@ import {
   makeOverlay,
   clearOverlays,
   dragBox,
-  popIn,
   tiltTiles,
   typeWords,
 } from "../../engine/swarmBuild";
@@ -38,55 +36,162 @@ const FORM_EXTRA_FIELDS = {};
 
 const CONTACT = ENVS.contact;
 
-/* Disjoint cursor leases: heading [0,1], cylinder [2,3,4], icons [5,6,7,8]. */
-const AGENTS = [0, 1, 2, 3, 4, 5, 6, 7, 8];
-const OUTRO = 0.9;
+/* Disjoint cursor leases: heading [0,1], form [2,3,4]. */
+const AGENTS = [0, 1, 2, 3, 4];
+const OUTRO = 0.35;
 
 /* Front view of a cylinder outline: straight vertical walls, shallow convex arcs at top and bottom. */
 const CYLINDER_PATH =
   "M0,0.07 C0.25,0.01 0.75,0.01 1,0.07 L1,0.93 C0.75,0.99 0.25,0.99 0,0.93 Z";
 
-/* 10 path icons: VS Code (L) -> Git (R) -> React (L) -> GitHub (R) -> Node.js (L)
-   -> Express (R) -> MongoDB (L) -> Postman (R) -> Docker (L) -> AWS (R) */
-const ORBIT_ICONS = [
-  { name: "VS Code", slug: "vscode", color: "#007ACC", side: "left" },
-  { name: "Git", slug: "git", color: "#F05032", side: "right" },
-  { name: "React", slug: "react", color: "#61DAFB", side: "left" },
-  { name: "GitHub", slug: "github", color: "#FFFFFF", side: "right", white: true },
-  { name: "Node.js", slug: "nodejs", color: "#339933", side: "left" },
-  { name: "Express", slug: "express", color: "#FFFFFF", side: "right", white: true },
-  { name: "MongoDB", slug: "mongodb", color: "#47A248", side: "left" },
-  { name: "Postman", slug: "postman", color: "#FF6C37", side: "right" },
-  { name: "Docker", slug: "docker", color: "#2496ED", side: "left" },
-  {
-    name: "AWS",
-    slug: "amazonwebservices",
-    cdnUrl:
-      "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/amazonwebservices/amazonwebservices-original-wordmark.svg",
-    color: "#FF9900",
-    side: "right",
-  },
-].map((item, index) => ({ ...item, y: 7 + (86 / 9) * index }));
+/* ---------- small helpers ---------- */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/* 4 small decorative orbs tucked into the vertical gaps next to the cylinder */
-const DECOR_ICONS = [
-  { name: "HTML5", slug: "html5", color: "#E34F26", side: "left", y: 16.5 },
-  { name: "CSS3", slug: "css3", color: "#1572B6", side: "right", y: 26 },
-  { name: "JavaScript", slug: "javascript", color: "#F7DF1E", side: "left", y: 55 },
-  { name: "TypeScript", slug: "typescript", color: "#3178C6", side: "right", y: 84 },
-];
+const prefersReduced = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/* 0..8 join the 10 icons; 9 sweeps down around the bottom into the button. */
-const segmentKind = (index) =>
-  index === 9 ? "front" : index % 2 === 0 ? "front" : "back";
+const centerOf = (el, hostRect) => {
+  const r = el.getBoundingClientRect();
+  return {
+    x: r.left - hostRect.left + r.width / 2,
+    y: r.top - hostRect.top + r.height / 2,
+  };
+};
+
+/* Catmull-Rom curve through the points */
+function smoothPath(points) {
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const p0 = points[i - 1] || points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] || p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`;
+  }
+  return d;
+}
+
+const validate = ({ name, email, message }) => {
+  const errors = {};
+  if (!name) errors.name = "Please enter your name.";
+  else if (name.length > 80) errors.name = "Name must be 80 characters or fewer.";
+
+  if (!email) errors.email = "Please enter your email.";
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    errors.email = "Enter a valid email address.";
+
+  if (!message) errors.message = "Please write a short message.";
+  else if (message.length > 2000)
+    errors.message = "Message must be 2000 characters or fewer.";
+
+  return errors;
+};
+
+/* Cursor build: heading, form card, fields, submit. Cursors leave at the end. */
+function buildContact(host) {
+  const tl = gsap.timeline();
+  const q = (selector) => host.querySelector(selector);
+  const [H1, H2, F1, F2, F3] = AGENTS;
+
+  cursorIntro(tl, AGENTS, 0);
+
+  const ovH1 = makeOverlay(host);
+  const ovH2 = makeOverlay(host);
+  const ovF1 = makeOverlay(host);
+
+  const label = q("[data-contact-label]");
+  const h1 = q("[data-contact-h1]");
+  const h2 = q("[data-contact-h2]");
+
+  let t = dragBox(tl, ovH1, H1, label, host, 0.04, {
+    tag: "p.label",
+    dur: 0.1,
+    pad: 2,
+  });
+  t = typeWords(tl, label, H1, t, 0.014);
+
+  let t1 = dragBox(tl, ovH2, H2, h1, host, 0.1, {
+    tag: "h3.headline",
+    dur: 0.12,
+    pad: 3,
+  });
+  t1 = typeWords(tl, h1, H2, t1, 0.015);
+
+  const t2 = cursorType(tl, h2, H1, {
+    at: Math.max(0.18, t1 - 0.03),
+    duration: 0.38,
+    travel: 0.14,
+    offset: { x: 0.5, y: 0.6 },
+  });
+
+  const formStart = Math.max(t, t1, t2) + 0.05;
+
+  const card = q("[data-form-card]");
+  const fields = [...host.querySelectorAll("[data-field]")];
+  const submit = q("[data-submit]");
+
+  dragBox(tl, ovF1, F1, card, host, formStart, {
+    tag: "form",
+    dur: 0.2,
+    pad: 5,
+  });
+  tl.to(
+    card,
+    { autoAlpha: 1, y: 0, scale: 1, duration: 0.35, ease: "power3.out" },
+    formStart + 0.12
+  );
+
+  const fieldAgents = [F2, F3, F1];
+  const firstField = formStart + 0.22;
+
+  fields.forEach((field, k) => {
+    const agent = fieldAgents[k % fieldAgents.length];
+    const at = firstField + k * 0.12;
+    cursorMove(tl, agent, field, {
+      at,
+      duration: 0.13,
+      offset: { x: 0.36, y: 0.5 },
+    });
+    cursorClick(tl, agent, at + 0.13);
+    tl.fromTo(
+      field,
+      { autoAlpha: 0, y: 12 },
+      { autoAlpha: 1, y: 0, duration: 0.22, ease: "power2.out" },
+      at + 0.13
+    );
+  });
+
+  const submitAt = firstField + Math.max(0, fields.length - 1) * 0.12 + 0.36;
+  cursorMove(tl, F2, submit, {
+    at: submitAt,
+    duration: 0.13,
+    offset: { x: 0.5, y: 0.5 },
+  });
+  cursorClick(tl, F2, submitAt + 0.13);
+  tl.fromTo(
+    submit,
+    { autoAlpha: 0, y: 10 },
+    { autoAlpha: 1, y: 0, duration: 0.22, ease: "power2.out" },
+    submitAt + 0.13
+  );
+
+  const at = submitAt + 0.4 + OUTRO;
+  cursorOutro(tl, AGENTS, { at, duration: 0.25 });
+  tl.add(() => AGENTS.forEach((i) => swarm.hide(i)), at + 0.3);
+
+  return tl;
+}
 
 const CONTACT_STYLE = `
 .contact-shell {
   --card-w: min(66%, 330px);
   --card-h: 88%;
-  --orb: clamp(48px, 12vw, 54px);
-  --wall-gap: calc(var(--orb) / 2 + 6px);
-  --decor: 44px;
+  --wall-gap: 10px;
   position: relative;
   width: 100%;
   height: 100%;
@@ -95,9 +200,7 @@ const CONTACT_STYLE = `
   .contact-shell {
     --card-w: 46%;
     --card-h: 92%;
-    --orb: clamp(60px, 4.2vw, 68px);
-    --wall-gap: calc(var(--orb) / 2 + 10px);
-    --decor: clamp(44px, 3.2vw, 48px);
+    --wall-gap: 14px;
   }
 }
 .contact-card {
@@ -124,19 +227,21 @@ const CONTACT_STYLE = `
 }
 .contact-glass {
   z-index: 0;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.015) 12%, rgba(255, 255, 255, 0.008) 55%, rgba(0, 0, 0, 0.18) 94%, rgba(255, 255, 255, 0.02) 100%);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: none;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
+/* container is intentionally invisible; keep the element for the build */
+.contact-glass::after { content: none; }
 .contact-sheen {
   z-index: 1;
-  background: linear-gradient(90deg, transparent 3%, rgba(255, 255, 255, 0.11) 8%, rgba(255, 255, 255, 0.03) 14%, transparent 22%);
+  background: none;
 }
 .contact-wall-dark {
   z-index: 1;
-  background: linear-gradient(270deg, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.07) 10%, transparent 18%);
+  background: none;
 }
 .contact-form-pad {
   position: absolute;
@@ -147,6 +252,21 @@ const CONTACT_STYLE = `
   justify-content: center;
   padding: clamp(38px, 6.8svh, 60px) clamp(20px, 8.5%, 52px);
 }
+.contact-form-pad::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  width: 116%;
+  height: 72%;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: radial-gradient(ellipse at center, rgba(214, 26, 41, 0.2), rgba(214, 26, 41, 0.06) 48%, transparent 72%);
+  filter: blur(30px);
+  pointer-events: none;
+  z-index: 0;
+}
+.contact-form-pad form { position: relative; z-index: 1; counter-reset: contact-field; }
 @media (min-width: 1024px) {
   .contact-form-pad {
     padding: clamp(44px, 8svh, 78px) clamp(22px, 8.5%, 54px);
@@ -154,97 +274,90 @@ const CONTACT_STYLE = `
 }
 .contact-field {
   width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.035);
-  padding: 0.58rem 0.75rem;
-  font-size: 0.85rem;
-  line-height: 1.4;
-  color: #f2efeb;
+  min-height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.8rem 1rem;
+  font-family: inherit;
+  font-size: clamp(0.95rem, 1vw, 1.05rem);
+  line-height: 1.42;
+  color: #f8f5f1;
   outline: none;
-  transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+  animation: contactFloat 7.4s ease-in-out infinite;
+  box-shadow:
+    0 20px 40px -20px #000,
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    inset 0 8px 20px rgba(0, 0, 0, 0.28);
+  transition:
+    border-color 240ms cubic-bezier(.2, .7, .2, 1),
+    box-shadow 240ms cubic-bezier(.2, .7, .2, 1),
+    background-color 240ms cubic-bezier(.2, .7, .2, 1);
 }
-.contact-field::placeholder { color: rgba(242, 239, 235, 0.35); }
-.contact-field:hover { border-color: rgba(255, 255, 255, 0.38); }
+.contact-form-pad [data-field]:nth-child(1) .contact-field { animation-delay: -0.35s; }
+.contact-form-pad [data-field]:nth-child(2) .contact-field { animation-delay: -1.45s; }
+.contact-form-pad [data-field]:nth-child(3) .contact-field { animation-delay: -2.55s; }
+.contact-field::placeholder { color: rgba(242, 239, 235, 0.45); }
+.contact-field:hover { border-color: rgba(255, 255, 255, 0.3); }
 .contact-field:focus {
-  border-color: rgba(214, 26, 41, 0.95);
-  background: rgba(255, 255, 255, 0.045);
-  box-shadow: 0 0 0 3px rgba(214, 26, 41, 0.16), 0 0 22px rgba(214, 26, 41, 0.25);
+  border-color: rgba(214, 26, 41, 0.92);
+  background: rgba(255, 255, 255, 0.072);
+  animation-play-state: paused;
+  box-shadow:
+    0 20px 40px -20px #000,
+    inset 3px 0 0 0 #d61a29,
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 3px rgba(214, 26, 41, 0.17),
+    0 0 26px rgba(214, 26, 41, 0.26);
 }
 .contact-field[aria-invalid="true"] {
   border-color: #ff5964;
-  box-shadow: 0 0 0 3px rgba(214, 26, 41, 0.12);
+  background: rgba(214, 26, 41, 0.075);
+  box-shadow:
+    0 20px 40px -20px #000,
+    inset 3px 0 0 0 #ff5964,
+    0 0 0 3px rgba(214, 26, 41, 0.14),
+    0 0 22px rgba(214, 26, 41, 0.18);
 }
+.contact-field[aria-invalid="true"]:focus {
+  box-shadow:
+    0 20px 40px -20px #000,
+    inset 3px 0 0 0 #ff5964,
+    0 0 0 3px rgba(214, 26, 41, 0.2),
+    0 0 28px rgba(214, 26, 41, 0.3);
+}
+[data-sending="1"] .contact-field { animation-play-state: paused; }
 .contact-field:disabled { opacity: 0.72; cursor: progress; }
-.contact-icon,
-.contact-decor {
-  position: absolute;
-  transform: translate(-50%, -50%);
+.contact-label {
+  display: block;
+  margin-bottom: 0.38rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(242, 239, 235, 0.74);
+  counter-increment: contact-field;
 }
-.contact-icons {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 100%;
-  height: var(--card-h);
-  transform: translateY(-50%);
+.contact-label::before {
+  content: counter(contact-field, decimal-leading-zero) " /";
+  margin-right: 0.55em;
+  color: #ff5964;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 12px rgba(214, 26, 41, 0.55);
 }
-.contact-icon-left {
-  left: calc(50% - var(--card-w) / 2 - var(--wall-gap));
+@media (hover: none) {
+  .contact-field,
+  .contact-send { min-height: 48px; }
 }
-.contact-icon-right {
-  left: calc(50% + var(--card-w) / 2 + var(--wall-gap));
-}
-.contact-decor-left {
-  left: calc(50% - var(--card-w) / 2 - var(--wall-gap) - 4px);
-}
-.contact-decor-right {
-  left: calc(50% + var(--card-w) / 2 + var(--wall-gap) + 4px);
-}
-.contact-drift {
-  animation: contactDrift 7s ease-in-out infinite;
-  will-change: transform;
-}
-@keyframes contactDrift {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(-1deg); }
-  50% { transform: translate3d(0, -8px, 0) rotate(1.4deg); }
-}
-.contact-orb {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: var(--orb);
-  height: var(--orb);
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.32);
-  background: radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.025) 48%, rgba(10, 10, 12, 0.36) 100%);
+.contact-liquid {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(0, 0, 0, 0.28)) !important;
   box-shadow:
-    0 12px 24px -14px rgba(0, 0, 0, 0.95),
-    0 0 22px -6px var(--orb-glow, rgba(214, 26, 41, 0.5)),
-    inset 0 1px 1px rgba(255, 255, 255, 0.26);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  pointer-events: auto;
-  transition: border-color 220ms ease, box-shadow 220ms ease, translate 220ms ease, scale 220ms ease;
-}
-.contact-orb img,
-.contact-orb svg {
-  width: 68%;
-  height: 68%;
-  object-fit: contain;
-}
-.contact-orb-small {
-  width: var(--decor);
-  height: var(--decor);
-}
-.contact-orb:hover {
-  translate: 0 -4px;
-  scale: 1.08;
-  border-color: rgba(255, 255, 255, 0.7);
-  box-shadow:
-    0 16px 30px -14px rgba(0, 0, 0, 0.95),
-    0 0 34px -4px var(--orb-glow, rgba(214, 26, 41, 0.6)),
-    inset 0 1px 1px rgba(255, 255, 255, 0.32);
+    0 20px 40px -20px #000,
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 26px -18px rgba(214, 26, 41, 0.9) !important;
 }
 .contact-wave-anim {
   display: block;
@@ -256,381 +369,175 @@ const CONTACT_STYLE = `
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
-.contact-send { transition: border-color 200ms ease; }
-.contact-send:hover { border-color: rgba(214, 26, 41, 0.72); }
-.contact-send:focus-visible { outline: 2px solid rgba(214, 26, 41, 0.85); outline-offset: 3px; }
+.contact-send {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: #fff;
+  overflow: hidden;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  transition:
+    translate 240ms cubic-bezier(.2, .7, .2, 1),
+    scale 180ms cubic-bezier(.2, .7, .2, 1),
+    box-shadow 240ms cubic-bezier(.2, .7, .2, 1),
+    border-color 240ms cubic-bezier(.2, .7, .2, 1),
+    background-color 240ms cubic-bezier(.2, .7, .2, 1);
+}
+.contact-send::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: 0;
+  width: 42%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-180%) skewX(-18deg);
+  transition:
+    transform 300ms cubic-bezier(.2, .7, .2, 1),
+    opacity 220ms cubic-bezier(.2, .7, .2, 1);
+}
+@media (hover: hover) {
+  .contact-send:hover:not(:disabled) {
+    translate: 0 -2px;
+    border-color: rgba(255, 255, 255, 0.38);
+    box-shadow:
+      0 14px 34px -12px rgba(214, 26, 41, 0.72),
+      0 0 26px rgba(214, 26, 41, 0.32);
+  }
+  .contact-send:hover:not(:disabled)::after {
+    opacity: 1;
+    transform: translateX(340%) skewX(-18deg);
+  }
+}
+.contact-send:active:not(:disabled) {
+  translate: 0 0;
+  scale: 0.98;
+}
+.contact-send:focus-visible {
+  outline: 2px solid rgba(255, 89, 100, 0.95);
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 4px rgba(214, 26, 41, 0.2),
+    0 0 30px rgba(214, 26, 41, 0.4);
+}
 .contact-send:disabled { cursor: progress; }
-[data-sending="1"] .contact-float,
-[data-sending="1"] .contact-drift {
+[data-sending="1"] .contact-send {
+  background: transparent;
+  border-color: rgba(255, 89, 100, 0.72);
+  box-shadow: 0 0 22px rgba(214, 26, 41, 0.28);
+}
+[data-sending="1"] .contact-send::after { opacity: 0; }
+.contact-status { text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65); }
+
+/* ---------- section atmosphere ---------- */
+#contact { isolation: isolate; }
+#contact::before {
+  content: "";
+  position: absolute;
+  inset: -12% -6%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58% 52% at 54% 48%, rgba(214, 26, 41, 0.11), rgba(214, 26, 41, 0.035) 44%, transparent 72%);
+}
+#contact::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 56px 56px, 56px 56px;
+  opacity: 0.42;
+  -webkit-mask-image: radial-gradient(ellipse 72% 74% at 50% 52%, #000 0%, rgba(0, 0, 0, 0.62) 54%, transparent 84%);
+  mask-image: radial-gradient(ellipse 72% 74% at 50% 52%, #000 0%, rgba(0, 0, 0, 0.62) 54%, transparent 84%);
+}
+#contact > [data-contact-inner] { position: relative; z-index: 1; }
+#contact .label { font-size: 0.85rem; letter-spacing: 0.14em; }
+
+/* ---------- left photo frame ---------- */
+#contact-photo-slot {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.72), rgba(214, 26, 41, 0.6)) left 15px top 15px / 20px 1px no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(214, 26, 41, 0.6)) left 15px top 15px / 1px 20px no-repeat,
+    linear-gradient(270deg, rgba(255, 255, 255, 0.72), rgba(214, 26, 41, 0.6)) right 15px top 15px / 20px 1px no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(214, 26, 41, 0.6)) right 15px top 15px / 1px 20px no-repeat,
+    linear-gradient(90deg, rgba(214, 26, 41, 0.6), rgba(255, 255, 255, 0.72)) left 15px bottom 15px / 20px 1px no-repeat,
+    linear-gradient(0deg, rgba(214, 26, 41, 0.6), rgba(255, 255, 255, 0.72)) left 15px bottom 15px / 1px 20px no-repeat,
+    linear-gradient(270deg, rgba(214, 26, 41, 0.6), rgba(255, 255, 255, 0.72)) right 15px bottom 15px / 20px 1px no-repeat,
+    linear-gradient(0deg, rgba(214, 26, 41, 0.6), rgba(255, 255, 255, 0.72)) right 15px bottom 15px / 1px 20px no-repeat,
+    linear-gradient(155deg, rgba(20, 11, 13, 0.94), rgba(9, 9, 11, 0.98)) padding-box,
+    linear-gradient(160deg, rgba(255, 255, 255, 0.52), rgba(214, 26, 41, 0.16) 42%, rgba(214, 26, 41, 0.72)) border-box;
+  box-shadow:
+    inset 0 0 68px rgba(0, 0, 0, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 20px 54px -36px rgba(0, 0, 0, 0.9);
+}
+#contact-photo-slot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='pn'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23pn)'/></svg>");
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  z-index: 2;
+}
+#contact-photo-slot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 74% at 50% 108%, rgba(0, 0, 0, 0.78), transparent 58%),
+    linear-gradient(180deg, rgba(214, 26, 41, 0.06), transparent 24%);
+  box-shadow: inset 0 0 0 1px rgba(214, 26, 41, 0.16);
+  z-index: 1;
+}
+@media (hover: hover) {
+  #contact-photo-slot {
+    transition:
+      transform 280ms cubic-bezier(.2, .7, .2, 1),
+      box-shadow 280ms cubic-bezier(.2, .7, .2, 1),
+      border-color 280ms cubic-bezier(.2, .7, .2, 1);
+  }
+  #contact-photo-slot:hover {
+    transform: perspective(1100px) rotateX(1.1deg) rotateY(-1.6deg) translateY(-3px);
+    box-shadow:
+      inset 0 0 68px rgba(0, 0, 0, 0.66),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 24px 62px -34px rgba(214, 26, 41, 0.72),
+      0 0 0 1px rgba(214, 26, 41, 0.36);
+  }
+}
+[data-sending="1"] .contact-float {
   animation-play-state: paused;
 }
 @media (prefers-reduced-motion: reduce) {
   .contact-float,
-  .contact-drift,
   .contact-wave-anim { animation: none; }
   .contact-field,
-  .contact-orb { transition: none; }
+  .contact-send,
+  .contact-send::after,
+  #contact-photo-slot { transition: none; animation: none; }
+  .contact-send:hover,
+  .contact-send:active,
+  #contact-photo-slot:hover { translate: none; scale: none; transform: none; }
 }
 `;
-
-/* Fallback vector icons rendered in authentic brand colors */
-function BrandSvg({ name, color }) {
-  switch (name) {
-    case "VS Code":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill={color}>
-          <path d="M23.15 2.587l-4.743-2.188c-.686-.316-1.517-.184-2.062.33L7.747 8.243 4.226 5.566c-.453-.346-1.09-.328-1.52.044L.43 7.784a1.055 1.055 0 00-.007 1.547l3.29 2.977-3.29 2.977a1.055 1.055 0 00.007 1.547l2.276 2.174c.43.372 1.067.39 1.52.044l3.52-2.677 8.598 7.514c.545.514 1.376.646 2.062.33l4.743-2.188a1.218 1.218 0 00.732-1.116V3.703a1.218 1.218 0 00-.732-1.116zm-4.708 14.54l-6.85-5.23 6.85-5.23v10.46z" />
-        </svg>
-      );
-    case "Git":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill={color}>
-          <path d="M2.59 13.41l8 8a2 2 0 002.83 0l8-8a2 2 0 000-2.83l-8-8a2 2 0 00-2.83 0l-8 8a2 2 0 000 2.83zm13.16-2.16a1.75 1.75 0 11-2.47-2.47 1.75 1.75 0 012.47 2.47zM8.25 10.5a1.75 1.75 0 112.47 2.47l-1.22 1.23a1.75 1.75 0 11-1.24-1.23l1.22-1.23a1.75 1.75 0 01-1.23-1.24z" />
-        </svg>
-      );
-    case "React":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke={color} strokeWidth="1.5">
-          <ellipse cx="12" cy="12" rx="4.2" ry="10" transform="rotate(30 12 12)" />
-          <ellipse cx="12" cy="12" rx="4.2" ry="10" transform="rotate(90 12 12)" />
-          <ellipse cx="12" cy="12" rx="4.2" ry="10" transform="rotate(150 12 12)" />
-          <circle cx="12" cy="12" r="2" fill={color} stroke="none" />
-        </svg>
-      );
-    case "GitHub":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill={color}>
-          <path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.3-3.2-.1-.3-.6-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.2.9 2.4v3.5c0 .3.2.7.8.6A12 12 0 0012 .3" />
-        </svg>
-      );
-    case "Node.js":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill={color}>
-          <path d="M12 1.5l9 5.2v10.6l-9 5.2-9-5.2V6.7l9-5.2zm0 2.4L4.8 8v8l7.2 4.1 7.2-4.1V8L12 3.9zm-2.4 6.7h4.8v1.6H12v2.4h2.4v1.6H9.6V10.6z" />
-        </svg>
-      );
-    case "Express":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill={color}>
-          <text x="12" y="16.5" textAnchor="middle" fontSize="13" fontWeight="800" fontFamily="sans-serif">
-            ex
-          </text>
-        </svg>
-      );
-    case "MongoDB":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill={color}>
-          <path d="M12 1.5c-.3 0-6 5.8-6 12.3 0 4.9 3.6 8.7 6 8.7s6-3.8 6-8.7c0-6.5-5.7-12.3-6-12.3zm0 18.2c-1.8 0-4-3-4-6.8 0-4 3.2-8.3 4-9.3.8 1 4 5.3 4 9.3 0 3.8-2.2 6.8-4 6.8z" />
-        </svg>
-      );
-    case "Postman":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill={color}>
-          <circle cx="12" cy="12" r="10" opacity="0.22" />
-          <path d="M14.5 7.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zM7 16l3.5-3.5 2 2L17 10l-1.5 6.5H7z" />
-        </svg>
-      );
-    case "Docker":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill={color}>
-          <path d="M13.9 8.2h2v2h-2zm-2.6 0h2v2h-2zm-2.6 0h2v2h-2zm5.2-2.5h2v2h-2zm-2.6 0h2v2h-2zm-2.6 0h2v2h-2zm7.8 5h2v2h-2zm-13 0h2v2h-2zm20.8 1.4c-.4-.3-1.6-.4-2.5.2-.1-.7-.6-1.4-1.3-1.8l-.8-.5-.5.8c-.4.7-.5 1.5-.4 2.3-.6.4-1.7.5-3.4.5H2c-.4 1.7.2 3.8 1.5 5.1C5 20.3 8 21 11.2 21c6.5 0 11.3-3.6 12.3-8.8l.1-.6z" />
-        </svg>
-      );
-    case "AWS":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill={color}>
-          <text x="12" y="11" textAnchor="middle" fontSize="7.5" fontWeight="900" fontFamily="sans-serif">
-            aws
-          </text>
-          <path d="M5.5 14.5c4.5 3 8.5 3 13 0" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M17.5 13.2l1.6 1.4-1.9 1" fill={color} />
-        </svg>
-      );
-    case "HTML5":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill={color}>
-          <path d="M3 2l1.8 18.5L12 23l7.2-2.5L21 2H3zm14.8 5.6h-8.2l.2 2.6h7.7l-.7 7.7-4.8 1.5-4.8-1.5-.3-3.5h2.5l.2 1.7 2.4.7 2.4-.7.3-3.3H7.4l-.7-7.8h11.4l-.3 2.7z" />
-        </svg>
-      );
-    case "CSS3":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill={color}>
-          <path d="M3 2l1.8 18.5L12 23l7.2-2.5L21 2H3zm14.7 6.4h-7.9l.2 2.5h7.5l-.8 8-4.7 1.5-4.7-1.5-.3-3.6h2.5l.2 1.8 2.3.7 2.3-.7.4-4.2H7.5l-.6-7.1h11.2l-.4 2.5z" />
-        </svg>
-      );
-    case "JavaScript":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect width="24" height="24" rx="3" fill="#F7DF1E" />
-          <text x="13.5" y="18" textAnchor="middle" fontSize="13" fontWeight="900" fill="#000000" fontFamily="sans-serif">
-            JS
-          </text>
-        </svg>
-      );
-    case "TypeScript":
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect width="24" height="24" rx="3" fill="#3178C6" />
-          <text x="13.5" y="18" textAnchor="middle" fontSize="13" fontWeight="900" fill="#FFFFFF" fontFamily="sans-serif">
-            TS
-          </text>
-        </svg>
-      );
-    default:
-      return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" fill={color} opacity="0.25" />
-          <text x="12" y="15.5" textAnchor="middle" fontSize="7.5" fontWeight="700" fill={color}>
-            {name.slice(0, 2).toUpperCase()}
-          </text>
-        </svg>
-      );
-  }
-}
-
-/* Catmull-Rom curve: creates smooth bending curves around cylinder edges */
-function smoothPath(points) {
-  if (points.length < 2) return "";
-  if (points.length === 2) {
-    return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
-  }
-  let d = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 0; i < points.length - 1; i += 1) {
-    const p0 = points[i - 1] || points[i];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[i + 2] || p2;
-    const c1x = p1.x + (p2.x - p0.x) / 6;
-    const c1y = p1.y + (p2.y - p0.y) / 6;
-    const c2x = p2.x - (p3.x - p1.x) / 6;
-    const c2y = p2.y - (p3.y - p1.y) / 6;
-    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`;
-  }
-  return d;
-}
-
-function centerOf(el, hostRect) {
-  const r = el.getBoundingClientRect();
-  return {
-    x: r.left - hostRect.left + r.width / 2,
-    y: r.top - hostRect.top + r.height / 2,
-  };
-}
-
-/* One segment that visibly bends around the cylinder walls */
-function wrapPoints(p0, p1, wallL, wallR, kind) {
-  const dy = p1.y - p0.y;
-  const midX = (wallL + wallR) / 2;
-  const midY = (p0.y + p1.y) / 2;
-  const out = 8;
-  if (kind === "front") {
-    return [
-      p0,
-      { x: wallL - out, y: p0.y + dy * 0.28 },
-      { x: midX, y: midY + 8 },
-      { x: wallR + out, y: p1.y - dy * 0.28 },
-      p1,
-    ];
-  }
-  return [
-    p0,
-    { x: wallR + out, y: p0.y + dy * 0.28 },
-    { x: midX, y: midY - 8 },
-    { x: wallL - out, y: p1.y - dy * 0.28 },
-    p1,
-  ];
-}
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const prefersReduced = () =>
-  typeof window !== "undefined" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-/* Disjoint cursor build: heading [0,1], cylinder [2,3,4], icons [5,6,7,8] */
-function buildContact(host) {
-  const tl = gsap.timeline();
-  const q = (selector) => host.querySelector(selector);
-  const [H1, H2, F1, F2, F3, I1, I2, I3, I4] = AGENTS;
-
-  cursorIntro(tl, AGENTS, 0);
-
-  const ovH1 = makeOverlay(host);
-  const ovH2 = makeOverlay(host);
-  const ovF1 = makeOverlay(host);
-
-  const label = q("[data-contact-label]");
-  const h1 = q("[data-contact-h1]");
-  const h2 = q("[data-contact-h2]");
-
-  let t = dragBox(tl, ovH1, H1, label, host, 0.04, {
-    tag: "p.label",
-    dur: 0.15,
-    pad: 2,
-  });
-  t = typeWords(tl, label, H1, t, 0.02);
-
-  let t1 = dragBox(tl, ovH2, H2, h1, host, 0.14, {
-    tag: "h3.headline",
-    dur: 0.18,
-    pad: 3,
-  });
-  t1 = typeWords(tl, h1, H2, t1, 0.022);
-
-  const t2 = cursorType(tl, h2, H1, {
-    at: Math.max(0.24, t1 - 0.03),
-    duration: 0.52,
-    travel: 0.2,
-    offset: { x: 0.5, y: 0.6 },
-  });
-
-  const headEnd = Math.max(t, t1, t2);
-  const formStart = headEnd + 0.08;
-
-  const card = q("[data-form-card]");
-  const fields = [...host.querySelectorAll("[data-field]")];
-  const submit = q("[data-submit]");
-
-  dragBox(tl, ovF1, F1, card, host, formStart, {
-    tag: "form.cylinder",
-    dur: 0.3,
-    pad: 5,
-  });
-  tl.to(
-    card,
-    { autoAlpha: 1, y: 0, scale: 1, duration: 0.48, ease: "power3.out" },
-    formStart + 0.18
-  );
-
-  const fieldAgents = [F2, F3, F1];
-  const firstField = formStart + 0.34;
-
-  fields.forEach((field, k) => {
-    const agent = fieldAgents[k % fieldAgents.length];
-    const at = firstField + k * 0.18;
-    cursorMove(tl, agent, field, {
-      at,
-      duration: 0.2,
-      offset: { x: 0.36, y: 0.5 },
-    });
-    cursorClick(tl, agent, at + 0.2);
-    tl.fromTo(
-      field,
-      { autoAlpha: 0, y: 12 },
-      { autoAlpha: 1, y: 0, duration: 0.3, ease: "power2.out" },
-      at + 0.2
-    );
-  });
-
-  const submitAt = firstField + Math.max(0, fields.length - 1) * 0.18 + 0.58;
-  cursorMove(tl, F2, submit, {
-    at: submitAt,
-    duration: 0.2,
-    offset: { x: 0.5, y: 0.5 },
-  });
-  cursorClick(tl, F2, submitAt + 0.2);
-  tl.fromTo(
-    submit,
-    { autoAlpha: 0, y: 10 },
-    { autoAlpha: 1, y: 0, duration: 0.3, ease: "power2.out" },
-    submitAt + 0.2
-  );
-
-  const formEnd = submitAt + 0.55;
-  const iconStart = formEnd + 0.12;
-  const iconAgents = [I1, I2, I3, I4];
-  const orbs = [...host.querySelectorAll("[data-orbit]")].filter(
-    (orb) => orb.offsetParent !== null
-  );
-
-  orbs.forEach((orb, k) => {
-    popIn(tl, iconAgents[k % iconAgents.length], orb, iconStart + k * 0.12, {
-      travel: 0.22,
-    });
-  });
-
-  const iconEnd = iconStart + Math.max(0, orbs.length - 1) * 0.12 + 0.55;
-  const lastAction = Math.max(formEnd, iconEnd);
-
-  const at = lastAction + OUTRO;
-  cursorOutro(tl, AGENTS, { at, duration: 0.35 });
-  tl.add(() => AGENTS.forEach((i) => swarm.hide(i)), at + 0.4);
-
-  return tl;
-}
-
-const validate = ({ name, email, message }) => {
-  const errors = {};
-  if (!name) errors.name = "Please enter your name.";
-  else if (name.length > 80) errors.name = "Name must be 80 characters or fewer.";
-
-  if (!email) errors.email = "Please enter your email.";
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    errors.email = "Enter a valid email address.";
-
-  if (!message) errors.message = "Please write a short message.";
-  else if (message.length > 2000)
-    errors.message = "Message must be 2000 characters or fewer.";
-
-  return errors;
-};
-
-function Orb({ item, decorative = false, index = 0 }) {
-  const [failed, setFailed] = useState(false);
-  const src = item.cdnUrl || (item.slug ? logoUrl(item.slug) : null);
-  const showImg = Boolean(src && !failed);
-  const place = decorative
-    ? `contact-decor contact-decor-${item.side} hidden lg:block`
-    : `contact-icon contact-icon-${item.side}`;
-
-  return (
-    <div className={place} style={{ top: `${item.y}%` }}>
-      <div
-        className="contact-drift"
-        style={{
-          animationDelay: `${-1.1 * index}s`,
-          animationDuration: `${6.4 + (index % 4) * 0.7}s`,
-        }}
-      >
-        <div
-          data-orbit
-          {...(decorative ? { "data-decorative": "" } : { "data-tech-icon": "" })}
-          className={`contact-orb group/chip ${decorative ? "contact-orb-small" : ""}`}
-          style={{ "--orb-glow": `${item.color}66` }}
-          title={item.name}
-        >
-          <span data-tech-inner className="grid size-full place-items-center">
-            {showImg ? (
-              <img
-                src={src}
-                alt=""
-                loading="lazy"
-                draggable="false"
-                onError={() => setFailed(true)}
-                className="select-none object-contain"
-                style={
-                  item.white
-                    ? { filter: "brightness(0) invert(1)" }
-                    : undefined
-                }
-              />
-            ) : (
-              <BrandSvg name={item.name} color={item.color} />
-            )}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function Contact() {
   const root = useRef(null);
   const stageRef = useRef(null);
-  const backSvgRef = useRef(null);
-  const frontSvgRef = useRef(null);
   const cardRef = useRef(null);
   const formRef = useRef(null);
+  const frontSvgRef = useRef(null);
   const successRef = useRef(null);
   const sendErrorRef = useRef(null);
   const fillRef = useRef(null);
@@ -647,16 +554,23 @@ export default function Contact() {
   const mountedRef = useRef(true);
   const sendingRef = useRef(false);
   const pendingRef = useRef(false);
-  const lineData = useRef(null);
   const sendTlRef = useRef(null);
   const statusTimerRef = useRef(null);
   const shimmerTweenRef = useRef(null);
   const abortRef = useRef(null);
+  const savedValuesRef = useRef(null);
+  const dustNodesRef = useRef([]);
+  const lineData = useRef(null);
+
+  const clearDust = useCallback(() => {
+    dustNodesRef.current.forEach((n) => n && n.remove());
+    dustNodesRef.current = [];
+  }, []);
 
   const section =
     content.sections.find((s) => s.id === "contact") || {
       num: "07",
-      label: "YOUR NEXT STORY",
+      label: "CONTACT",
       headline: ["LET'S WORK", "TOGETHER."],
     };
 
@@ -676,100 +590,76 @@ export default function Contact() {
       });
   }, []);
 
-  /* Measure the icons and button, then construct every helix segment */
+  /* One light line: up the left wall, over the top, down the right wall,
+     under the form and into the submit button. */
   const drawLine = useCallback(() => {
     const stage = stageRef.current;
-    const back = backSvgRef.current;
     const front = frontSvgRef.current;
     const card = cardRef.current;
-    if (!stage || !back || !front || !card || !btnRef.current) return;
+    const btnEl = btnRef.current;
+    if (!stage || !front || !card || !btnEl) return;
 
     const hostRect = stage.getBoundingClientRect();
-    const cardRect = card.getBoundingClientRect();
-    if (hostRect.width < 10 || hostRect.height < 10 || cardRect.width < 10) return;
+    if (hostRect.width < 10 || hostRect.height < 10) return;
 
-    const icons = [...stage.querySelectorAll("[data-tech-icon]")];
-    if (icons.length < 10) return;
+    const cr = card.getBoundingClientRect();
+    const left = cr.left - hostRect.left - 8;
+    const right = cr.left - hostRect.left + card.offsetWidth + 8;
+    const top = cr.top - hostRect.top;
+    const bottom = top + card.offsetHeight;
+    const cx = (left + right) / 2;
+    const btn = centerOf(btnEl, hostRect);
+    const bh = btnEl.offsetHeight;
 
-    const cardW = card.offsetWidth || cardRect.width;
-    const cardH = card.offsetHeight || cardRect.height;
-    const wallL = cardRect.left - hostRect.left;
-    const wallR = wallL + cardW;
-    const cardTop = cardRect.top - hostRect.top;
-    const cardBottom = cardTop + cardH;
+    const pts = [
+      { x: left, y: bottom - 18 },
+      { x: left, y: top + 30 },
+      { x: left + 12, y: top + 10 },
+      { x: cx, y: top - 6 },
+      { x: right - 12, y: top + 10 },
+      { x: right, y: top + 30 },
+      { x: right, y: bottom - 30 },
+      { x: right - 14, y: bottom - 8 },
+      { x: cx + (right - cx) * 0.4, y: bottom + 2 },
+      { x: btn.x, y: btn.y + bh / 2 + 16 },
+      { x: btn.x, y: btn.y + bh / 2 },
+    ];
 
-    const iconPoints = icons.map((icon) => centerOf(icon, hostRect));
-    const btn = centerOf(btnRef.current, hostRect);
-    const btnRect = btnRef.current.getBoundingClientRect();
-
-    const stageSegments = [];
-    for (let i = 0; i < 9; i += 1) {
-      stageSegments.push(
-        wrapPoints(iconPoints[i], iconPoints[i + 1], wallL, wallR, segmentKind(i))
-      );
-    }
-
-    const aws = iconPoints[9];
-    const btnLeft = btn.x - btnRect.width / 2;
-    stageSegments.push([
-      aws,
-      { x: wallR + 2, y: aws.y + 22 },
-      { x: (wallL + wallR) / 2, y: cardBottom + 4 },
-      { x: btnLeft - 22, y: btn.y + 12 },
-      { x: btnLeft - 2, y: btn.y },
-      btn,
-    ]);
-
-    back.setAttribute("viewBox", `0 0 ${hostRect.width} ${hostRect.height}`);
     front.setAttribute("viewBox", `0 0 ${hostRect.width} ${hostRect.height}`);
+    const d = smoothPath(pts);
+    const gold = stage.querySelector('[data-seg="0"]');
+    const core = stage.querySelector('[data-core="0"]');
+    const track = stage.querySelector('[data-track="0"]');
+    if (!gold) return;
 
-    const segments = [];
-    let total = 0;
-    for (let i = 0; i < stageSegments.length; i += 1) {
-      const kind = segmentKind(i);
-      const d = smoothPath(stageSegments[i]);
-      const gold = stage.querySelector(`[data-seg="${i}"]`);
-      const core = stage.querySelector(`[data-core="${i}"]`);
-      const track = stage.querySelector(`[data-track="${i}"]`);
-      if (!gold) continue;
-      gold.setAttribute("d", d);
-      if (core) core.setAttribute("d", d);
-      if (track) track.setAttribute("d", d);
-      const length = gold.getTotalLength();
-      gold.setAttribute("stroke-dasharray", length);
-      gold.setAttribute("stroke-dashoffset", length);
-      if (core) {
-        core.setAttribute("stroke-dasharray", length);
-        core.setAttribute("stroke-dashoffset", length);
-      }
-      segments.push({
-        index: i,
-        kind,
-        gold,
-        core,
-        track,
-        pathEl: gold,
-        length,
-        start: total,
-      });
-      total += length;
-    }
-    if (!segments.length || !total) return;
-
-    segments.forEach((s) => {
-      s.startFrac = s.start / total;
-      s.endFrac = (s.start + s.length) / total;
-      s.gold.setAttribute("opacity", 0);
-      if (s.core) s.core.setAttribute("opacity", 0);
-      if (s.track) s.track.setAttribute("opacity", 0.08);
+    [gold, core, track].filter(Boolean).forEach((p) => p.setAttribute("d", d));
+    const length = gold.getTotalLength();
+    if (!length) return;
+    [gold, core].filter(Boolean).forEach((p) => {
+      p.setAttribute("stroke-dasharray", length);
+      p.setAttribute("stroke-dashoffset", length);
+      p.setAttribute("opacity", 0);
     });
+    if (track) track.setAttribute("opacity", 0.08);
 
-    const fractions = iconPoints.map(
-      (_, i) => (segments[i] ? segments[i].start / total : 0)
-    );
-    fractions.push(1);
-
-    lineData.current = { segments, total, fractions };
+    lineData.current = {
+      segments: [
+        {
+          index: 0,
+          kind: "front",
+          gold,
+          core,
+          track,
+          pathEl: gold,
+          length,
+          start: 0,
+          startFrac: 0,
+          endFrac: 1,
+        },
+      ],
+      total: length,
+      fractions: [1],
+    };
   }, []);
 
   const stopShimmer = useCallback(() => {
@@ -799,7 +689,94 @@ export default function Contact() {
     );
   }, [stopShimmer]);
 
-  /* Liquid fill and helix line draw share one duration and ease */
+  /* Turn the typed text into per-character spans that drift away like dust */
+  const dustText = useCallback((text, sourceEl, host, delay = 0) => {
+    if (!sourceEl || !host || !text) return 0;
+    const r = sourceEl.getBoundingClientRect();
+    const hr = host.getBoundingClientRect();
+    const cs = window.getComputedStyle(sourceEl);
+    const chars = [...String(text)];
+    const padX = parseFloat(cs.paddingLeft) || 0;
+    const padY = parseFloat(cs.paddingTop) || 0;
+    const lineH = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.4 || 18;
+    const fontSize = parseFloat(cs.fontSize) || 16;
+    const charW = fontSize * 0.58;
+    const maxChars = Math.max(1, Math.floor((r.width - padX * 2) / Math.max(4, charW)));
+    chars.forEach((ch, idx) => {
+      if (ch === "\n") return;
+      const col = idx % maxChars;
+      const row = Math.floor(idx / maxChars);
+      const span = document.createElement("span");
+      span.textContent = ch === " " ? "\u00A0" : ch;
+      span.style.cssText =
+        "position:absolute;pointer-events:none;white-space:pre;will-change:transform,opacity,filter;z-index:40;";
+      span.style.left = `${r.left - hr.left + padX + col * charW}px`;
+      span.style.top = `${r.top - hr.top + padY + row * lineH}px`;
+      span.style.font = cs.font;
+      span.style.letterSpacing = cs.letterSpacing;
+      span.style.color = cs.color;
+      span.style.lineHeight = cs.lineHeight;
+      host.appendChild(span);
+      dustNodesRef.current.push(span);
+      gsap.to(span, {
+        x: 60 + Math.random() * 60,
+        y: -20 - Math.random() * 20,
+        rotation: -10 + Math.random() * 30,
+        opacity: 0,
+        filter: "blur(6px)",
+        duration: 0.9,
+        delay: delay + idx * 0.01,
+        ease: "power2.in",
+        onComplete: () => {
+          span.remove();
+          dustNodesRef.current = dustNodesRef.current.filter((n) => n !== span);
+        },
+      });
+    });
+    return 0.9 + Math.min(chars.length, 40) * 0.01;
+  }, []);
+
+  /* One field at a time: name, then email, then message */
+  const dustField = useCallback(
+    (wrap, host, index) => {
+      if (!wrap || !host) return;
+      const label = wrap.querySelector("label");
+      const input = wrap.querySelector("input, textarea");
+      const base = index * 0.3;
+      if (label) {
+        gsap.to(label, {
+          x: 60 + Math.random() * 40,
+          y: -20 - Math.random() * 12,
+          rotation: 8 + Math.random() * 10,
+          opacity: 0,
+          filter: "blur(6px)",
+          duration: 0.9,
+          delay: base,
+          ease: "power2.in",
+        });
+      }
+      if (input) {
+        const val = input.value || "";
+        if (val) {
+          const prev = input.style.color;
+          gsap.delayedCall(base, () => {
+            input.style.color = "transparent";
+            input.style.caretColor = "transparent";
+          });
+          dustText(val, input, host, base + 0.03);
+          gsap.delayedCall(base + 0.95, () => {
+            if (input) {
+              input.style.color = prev;
+              input.style.caretColor = "";
+            }
+          });
+        }
+      }
+    },
+    [dustText]
+  );
+
+  /* Line travels around the form, then the button fills with red like water */
   const startSendAnimation = useCallback(() => {
     const data = lineData.current;
     const stage = stageRef.current;
@@ -810,16 +787,14 @@ export default function Contact() {
       sendTlRef.current = null;
     }
 
-    const { segments, total, fractions } = data;
-    const icons = [...stage.querySelectorAll("[data-tech-icon]")];
+    const { segments, total } = data;
     const frontHead = stage.querySelector("[data-head-front]");
-    const backHead = stage.querySelector("[data-head-back]");
     const golds = segments.map((s) => s.gold);
     const cores = segments.map((s) => s.core).filter(Boolean);
     const tracks = segments.map((s) => s.track).filter(Boolean);
-    const pulsed = new Set();
     const progress = { v: 0 };
-    const duration = 1.75;
+    const lineDur = 0.9;
+    const fillDur = 0.55;
 
     gsap.set(fillRef.current, { scaleY: 0, opacity: 1 });
     gsap.set([...golds, ...cores], { autoAlpha: 1 });
@@ -832,7 +807,7 @@ export default function Contact() {
       }
       if (s.track) s.track.setAttribute("opacity", 0.12);
     });
-    gsap.set([frontHead, backHead].filter(Boolean), { autoAlpha: 0 });
+    if (frontHead) gsap.set(frontHead, { autoAlpha: 0 });
     stopShimmer();
 
     let resolveArrive;
@@ -850,75 +825,43 @@ export default function Contact() {
       progress,
       {
         v: 1,
-        duration,
+        duration: lineDur,
         ease: "power2.inOut",
         onUpdate() {
-          const v = progress.v;
-          const travelled = v * total;
-
+          const travelled = progress.v * total;
           segments.forEach((s) => {
-            const local = Math.min(
-              s.length,
-              Math.max(0, travelled - s.start)
-            );
+            const local = Math.min(s.length, Math.max(0, travelled - s.start));
             const offset = s.length - local;
             s.gold.setAttribute("stroke-dashoffset", offset);
             if (s.core) s.core.setAttribute("stroke-dashoffset", offset);
           });
 
-          let active = segments[segments.length - 1];
-          for (let i = 0; i < segments.length; i += 1) {
-            if (travelled <= segments[i].start + segments[i].length) {
-              active = segments[i];
-              break;
-            }
-          }
-          const local = Math.min(
-            active.length,
-            Math.max(0, travelled - active.start)
-          );
+          const active = segments[0];
+          const local = Math.min(active.length, Math.max(0, travelled - active.start));
           const point = active.pathEl.getPointAtLength(local);
-          const head = active.kind === "front" ? frontHead : backHead;
-          const other = active.kind === "front" ? backHead : frontHead;
-          if (head) {
-            gsap.set(head, { x: point.x, y: point.y, autoAlpha: 1 });
-          }
-          if (other) gsap.set(other, { autoAlpha: 0 });
-
-          icons.forEach((icon, k) => {
-            if (pulsed.has(k) || v < (fractions[k] ?? 0)) return;
-            pulsed.add(k);
-            const inner = icon.querySelector("[data-tech-inner]");
-            if (inner) {
-              gsap.fromTo(
-                inner,
-                { scale: 1 },
-                {
-                  scale: 1.18,
-                  duration: 0.18,
-                  yoyo: true,
-                  repeat: 1,
-                  ease: "power2.out",
-                  overwrite: true,
-                }
-              );
-            }
-            gsap.fromTo(
-              icon,
-              { opacity: 0.64 },
-              { opacity: 1, duration: 0.32, ease: "power2.out", overwrite: true }
-            );
-          });
-
-          gsap.set(fillRef.current, { scaleY: v });
-          if (waveRef.current) {
-            const height = btnRef.current ? btnRef.current.clientHeight : 0;
-            waveRef.current.style.transform = `translateY(${(1 - v) * height - 8}px)`;
-            waveRef.current.style.opacity = v > 0.02 ? "0.58" : "0";
+          if (frontHead) {
+            gsap.set(frontHead, { x: point.x, y: point.y, autoAlpha: 1 });
           }
         },
       },
       0
+    );
+
+    tl.to(
+      fillRef.current,
+      {
+        scaleY: 1,
+        duration: fillDur,
+        ease: "power2.inOut",
+        onUpdate() {
+          if (!waveRef.current || !fillRef.current) return;
+          const v = Number(gsap.getProperty(fillRef.current, "scaleY")) || 0;
+          const height = btnRef.current ? btnRef.current.clientHeight : 0;
+          waveRef.current.style.transform = `translateY(${(1 - v) * height - 8}px)`;
+          waveRef.current.style.opacity = v > 0.02 && v < 1 ? "0.58" : "0";
+        },
+      },
+      lineDur
     );
 
     tl.call(
@@ -927,13 +870,15 @@ export default function Contact() {
         resolveArrive();
       },
       [],
-      duration
+      lineDur + fillDur
     );
 
-    tl.to([...golds, ...cores], { autoAlpha: 0, duration: 0.4, ease: "power2.out" }, duration + 0.12);
-    tl.to([frontHead, backHead].filter(Boolean), { autoAlpha: 0, duration: 0.3, ease: "power2.out" }, duration + 0.1);
-    tl.to(tracks, { attr: { opacity: 0.08 }, duration: 0.5, ease: "power1.out" }, duration + 0.1);
-    tl.to(waveRef.current, { opacity: 0, duration: 0.3, ease: "power1.out" }, duration);
+    tl.to([...golds, ...cores], { autoAlpha: 0, duration: 0.4, ease: "power2.out" }, lineDur + 0.05);
+    if (frontHead) {
+      tl.to(frontHead, { autoAlpha: 0, duration: 0.3, ease: "power2.out" }, lineDur + 0.02);
+    }
+    tl.to(tracks, { attr: { opacity: 0.08 }, duration: 0.5, ease: "power1.out" }, lineDur + 0.05);
+    tl.to(waveRef.current, { opacity: 0, duration: 0.25, ease: "power1.out" }, lineDur + fillDur);
 
     sendTlRef.current = tl;
     return arrived;
@@ -956,8 +901,8 @@ export default function Contact() {
     if (ring) {
       gsap.fromTo(
         ring,
-        { scale: 0.2, opacity: 0.9 },
-        { scale: 2.8, opacity: 0, duration: 0.85, ease: "power2.out" }
+        { scale: 1, opacity: 0.85 },
+        { scale: 1.25, opacity: 0, duration: 0.45, ease: "power2.out" }
       );
     }
 
@@ -1010,21 +955,24 @@ export default function Contact() {
     }
   }, []);
 
+  /* Button explodes and disappears, "Message sent" shows, then after 3s the form returns */
   const showSuccess = useCallback(() => {
     if (!mountedRef.current) return;
     pendingRef.current = false;
     stopShimmer();
     clearStatusTimer();
+    clearDust();
 
     const reduced = prefersReduced();
     if (!reduced) playExplosion();
     if (btnRef.current) {
       gsap.to(btnRef.current, {
         autoAlpha: 0,
-        scale: 0.9,
-        duration: reduced ? 0 : 0.16,
+        scale: 0.6,
+        duration: reduced ? 0 : 0.2,
         ease: "power2.in",
       });
+      btnRef.current.style.pointerEvents = "none";
     }
     if (fillRef.current) {
       gsap.to(fillRef.current, {
@@ -1050,6 +998,8 @@ export default function Contact() {
       );
     }
 
+    swarm.dismiss(AGENTS);
+    savedValuesRef.current = null;
     setStatus("success");
     setSending(false);
     sendingRef.current = false;
@@ -1060,27 +1010,31 @@ export default function Contact() {
       if (successRef.current) {
         gsap.to(successRef.current, { autoAlpha: 0, y: -4, duration: 0.3 });
       }
-      if (btnRef.current) {
-        gsap.to(btnRef.current, {
-          autoAlpha: 1,
-          scale: 1,
-          duration: 0.35,
-          delay: 0.08,
-          ease: "back.out(1.6)",
-        });
-      }
-      formRef.current?.reset();
-      setErrors({});
-      setStatus("idle");
       resetFill();
+      if (btnRef.current) {
+        btnRef.current.style.pointerEvents = "";
+        gsap.fromTo(
+          btnRef.current,
+          { autoAlpha: 0, scale: 0.8 },
+          {
+            autoAlpha: 1,
+            scale: 1,
+            duration: 0.4,
+            delay: 0.2,
+            ease: "back.out(1.6)",
+          }
+        );
+      }
+      setStatus("idle");
       setFloatPaused(false);
     });
-  }, [clearStatusTimer, playExplosion, resetFill, setFloatPaused, stopShimmer]);
+  }, [clearDust, clearStatusTimer, playExplosion, resetFill, setFloatPaused, stopShimmer]);
 
   const failSend = useCallback(() => {
     pendingRef.current = false;
     stopShimmer();
     clearStatusTimer();
+    clearDust();
     if (sendTlRef.current) {
       sendTlRef.current.kill();
       sendTlRef.current = null;
@@ -1089,11 +1043,31 @@ export default function Contact() {
     const stage = stageRef.current;
     if (stage) {
       gsap.to(
-        stage.querySelectorAll(
-          "[data-seg], [data-core], [data-head-front], [data-head-back]"
-        ),
+        stage.querySelectorAll("[data-seg], [data-core], [data-head-front]"),
         { autoAlpha: 0, duration: 0.3, ease: "power2.out" }
       );
+      stage.querySelectorAll("[data-field]").forEach((wrap) => {
+        const label = wrap.querySelector("label");
+        const input = wrap.querySelector("input, textarea");
+        [label, input].filter(Boolean).forEach((el) => {
+          gsap.killTweensOf(el);
+          gsap.set(el, { clearProps: "opacity,transform,filter,x,y,rotation" });
+          el.style.opacity = "";
+          el.style.transform = "";
+          el.style.filter = "";
+          if (input && el === input) {
+            input.style.color = "";
+            input.style.caretColor = "";
+          }
+        });
+      });
+    }
+    if (formRef.current && savedValuesRef.current) {
+      ["name", "email", "message"].forEach((k) => {
+        if (formRef.current.elements?.[k] != null) {
+          formRef.current.elements[k].value = savedValuesRef.current[k] || "";
+        }
+      });
     }
     gsap.to(fillRef.current, {
       scaleY: 0,
@@ -1105,11 +1079,12 @@ export default function Contact() {
       waveRef.current.style.opacity = "0";
     }
     if (btnRef.current) {
+      btnRef.current.style.pointerEvents = "";
       gsap.to(btnRef.current, {
-        autoAlpha: 0,
-        scale: 0.94,
-        duration: 0.2,
-        ease: "power2.in",
+        autoAlpha: 1,
+        scale: 1,
+        duration: 0.3,
+        ease: "back.out(1.6)",
       });
     }
     if (successRef.current) gsap.set(successRef.current, { autoAlpha: 0 });
@@ -1137,20 +1112,11 @@ export default function Contact() {
       if (sendErrorRef.current) {
         gsap.to(sendErrorRef.current, { autoAlpha: 0, y: -4, duration: 0.3 });
       }
-      if (btnRef.current) {
-        gsap.to(btnRef.current, {
-          autoAlpha: 1,
-          scale: 1,
-          duration: 0.35,
-          delay: 0.08,
-          ease: "back.out(1.6)",
-        });
-      }
       setStatus("idle");
       resetFill();
       setFloatPaused(false);
     });
-  }, [clearStatusTimer, resetFill, setFloatPaused, stopShimmer]);
+  }, [clearDust, clearStatusTimer, resetFill, setFloatPaused, stopShimmer]);
 
   const requestMessage = useCallback(async (payload) => {
     if (!FORM_ENDPOINT) {
@@ -1208,14 +1174,19 @@ export default function Contact() {
       gsap.set(sendErrorRef.current, { autoAlpha: 0 });
     }
     if (successRef.current) gsap.set(successRef.current, { autoAlpha: 0 });
-    gsap.set(btnRef.current, { autoAlpha: 1, scale: 1 });
+    if (btnRef.current) {
+      gsap.set(btnRef.current, { autoAlpha: 1, scale: 1 });
+      btnRef.current.style.pointerEvents = "";
+    }
     setStatus("sending");
     setSending(true);
     sendingRef.current = true;
     pendingRef.current = true;
+    savedValuesRef.current = { name, email, message };
 
     const reduced = prefersReduced();
     let lineDone = Promise.resolve();
+    let dustDone = Promise.resolve();
     if (!reduced) {
       setFloatPaused(true);
       if (cardRef.current) {
@@ -1223,8 +1194,26 @@ export default function Contact() {
       }
       drawLine();
       lineDone = startSendAnimation();
+      const fields = [...(formRef.current?.querySelectorAll("[data-field]") || [])];
+      const host = stageRef.current || formRef.current;
+      fields.forEach((f, i) => dustField(f, host, i));
+      dustDone = new Promise((resolve) => {
+        gsap.delayedCall(1.75, () => {
+          formRef.current?.reset();
+          if (host) {
+            host.querySelectorAll("[data-field] label").forEach((l) => {
+              gsap.set(l, { clearProps: "opacity,transform,filter,x,y,rotation" });
+              l.style.opacity = "";
+              l.style.transform = "";
+              l.style.filter = "";
+            });
+          }
+          resolve();
+        });
+      });
     } else {
-      gsap.set(fillRef.current, { scaleY: 0, opacity: 1 });
+      gsap.set(fillRef.current, { scaleY: 1, opacity: 1 });
+      formRef.current?.reset();
     }
 
     const result = honeypot
@@ -1245,7 +1234,7 @@ export default function Contact() {
     }
 
     pendingRef.current = false;
-    if (!reduced) await lineDone;
+    if (!reduced) await Promise.all([lineDone, dustDone]);
     if (!mountedRef.current) return;
     showSuccess();
   };
@@ -1299,7 +1288,6 @@ export default function Contact() {
       gsap.set(el.querySelector("[data-contact-h2]"), { autoAlpha: 0 });
       gsap.set(all("[data-field]"), { autoAlpha: 0, y: 12 });
       gsap.set(all("[data-submit]"), { autoAlpha: 0, y: 10 });
-      gsap.set(all("[data-orbit]"), { autoAlpha: 0, scale: 0.4 });
       gsap.set(el.querySelector("[data-form-card]"), {
         autoAlpha: 0,
         y: 14,
@@ -1309,10 +1297,9 @@ export default function Contact() {
       gsap.set(sendErrorRef.current, { autoAlpha: 0 });
       gsap.set(fillRef.current, { scaleY: 0 });
       gsap.set(shimmerRef.current, { opacity: 0, xPercent: -120 });
-      gsap.set(
-        all("[data-seg], [data-core], [data-head-front], [data-head-back]"),
-        { autoAlpha: 0 }
-      );
+      gsap.set(all("[data-seg], [data-core], [data-head-front]"), {
+        autoAlpha: 0,
+      });
     }, root);
 
     stopTilt = tiltTiles(el, "[data-form-card]", { max: 5 });
@@ -1354,6 +1341,8 @@ export default function Contact() {
         shimmerTweenRef.current.kill();
         shimmerTweenRef.current = null;
       }
+      clearDust();
+      swarm.dismiss(AGENTS);
       cancelAnimationFrame(raf);
       clearTimeout(resizeTimer);
       window.removeEventListener("resize", onResize);
@@ -1362,13 +1351,13 @@ export default function Contact() {
       clearOverlays(el);
       if (ctx) ctx.revert();
     };
-  }, [enabled, drawLine]);
+  }, [enabled, drawLine, clearDust]);
 
   const liveText =
     status === "sending"
       ? "Sending your message."
       : status === "success"
-        ? "Your message is sent to me."
+        ? "Message sent."
         : status === "error"
           ? "Sending failed. Please try again."
           : "";
@@ -1437,60 +1426,9 @@ export default function Contact() {
             ref={stageRef}
             className="relative flex w-full min-w-0 items-center justify-center max-lg:h-[580px] max-lg:shrink-0 lg:ml-[3.5%] lg:h-full lg:flex-1"
           >
-            {/* Back light line SVG: behind glass layer */}
-            <svg
-              ref={backSvgRef}
-              data-line-back
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 z-0 h-full w-full"
-            >
-              {[1, 3, 5, 7].map((index) => (
-                <g key={index}>
-                  <path
-                    data-track={index}
-                    fill="none"
-                    stroke="#ffd24a"
-                    strokeWidth="1"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity="0.08"
-                  />
-                  <path
-                    data-seg={index}
-                    data-kind="back"
-                    fill="none"
-                    stroke="#ffd24a"
-                    strokeWidth="3.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeOpacity="0.45"
-                    opacity="0"
-                    style={{ filter: "drop-shadow(0 0 4px rgba(255,210,74,0.4))" }}
-                  />
-                  <path
-                    data-core={index}
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="1.1"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeOpacity="0.4"
-                    opacity="0"
-                  />
-                </g>
-              ))}
-              <g data-head-back opacity="0">
-                <circle r="5" fill="#ffd24a" fillOpacity="0.16" />
-                <circle r="2.2" fill="#ffd24a" fillOpacity="0.45" />
-                <circle r="1.1" fill="#ffffff" fillOpacity="0.4" />
-              </g>
-            </svg>
-
-            {/* Cylinder container */}
             <div className="contact-shell flex items-center justify-center">
               <div ref={cardRef} data-form-card className="contact-card">
                 <div className="contact-float absolute inset-0">
-                  {/* Glass tint layer with 2px blur */}
                   <div
                     className="contact-glass"
                     style={{
@@ -1498,7 +1436,6 @@ export default function Contact() {
                       WebkitClipPath: "url(#contact-cylinder)",
                     }}
                   />
-                  {/* Subtle left sheen strip */}
                   <div
                     className="contact-sheen"
                     style={{
@@ -1506,7 +1443,6 @@ export default function Contact() {
                       WebkitClipPath: "url(#contact-cylinder)",
                     }}
                   />
-                  {/* Darkened right wall for 3D depth */}
                   <div
                     className="contact-wall-dark"
                     style={{
@@ -1526,7 +1462,7 @@ export default function Contact() {
                       <div data-field>
                         <label
                           htmlFor="contact-name"
-                          className="mb-1 block text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-ink/70"
+                          className="contact-label mb-1 block text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-ink/70"
                         >
                           Name
                         </label>
@@ -1543,7 +1479,7 @@ export default function Contact() {
                           className="contact-field"
                         />
                         {errors.name && (
-                          <p id="contact-name-error" className="mt-1 text-[11px] leading-tight text-red">
+                          <p id="contact-name-error" className="mt-1.5 text-[0.85rem] leading-snug text-red">
                             {errors.name}
                           </p>
                         )}
@@ -1552,7 +1488,7 @@ export default function Contact() {
                       <div data-field>
                         <label
                           htmlFor="contact-email"
-                          className="mb-1 block text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-ink/70"
+                          className="contact-label mb-1 block text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-ink/70"
                         >
                           Email
                         </label>
@@ -1568,7 +1504,7 @@ export default function Contact() {
                           className="contact-field"
                         />
                         {errors.email && (
-                          <p id="contact-email-error" className="mt-1 text-[11px] leading-tight text-red">
+                          <p id="contact-email-error" className="mt-1.5 text-[0.85rem] leading-snug text-red">
                             {errors.email}
                           </p>
                         )}
@@ -1577,7 +1513,7 @@ export default function Contact() {
                       <div data-field>
                         <label
                           htmlFor="contact-message"
-                          className="mb-1 block text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-ink/70"
+                          className="contact-label mb-1 block text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-ink/70"
                         >
                           Message
                         </label>
@@ -1593,7 +1529,7 @@ export default function Contact() {
                           className="contact-field resize-none"
                         />
                         {errors.message && (
-                          <p id="contact-message-error" className="mt-1 text-[11px] leading-tight text-red">
+                          <p id="contact-message-error" className="mt-1.5 text-[0.85rem] leading-snug text-red">
                             {errors.message}
                           </p>
                         )}
@@ -1604,10 +1540,10 @@ export default function Contact() {
                         data-submit
                         className="relative mt-1 flex h-[56px] w-full items-center justify-center"
                       >
-                        <div className="relative h-[46px] w-[clamp(170px,15vw,200px)] shrink-0">
+                        <div className="relative h-[48px] w-[clamp(170px,15vw,200px)] shrink-0">
                           {/* Liquid fill container */}
                           <div
-                            className="pointer-events-none absolute inset-0 overflow-hidden rounded-full border border-white/15 bg-white/[0.04]"
+                            className="contact-liquid pointer-events-none absolute inset-0 overflow-hidden rounded-full border border-white/15 bg-white/[0.04]"
                             aria-hidden="true"
                           >
                             <div
@@ -1659,14 +1595,14 @@ export default function Contact() {
                             ref={btnRef}
                             type="submit"
                             disabled={sending}
-                            className="contact-send absolute inset-0 z-10 rounded-full border border-white/25 bg-white/[0.035] text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-ink backdrop-blur-sm"
+                            className="contact-send absolute inset-0 z-10 rounded-full text-[0.85rem] font-semibold uppercase tracking-[0.18em] text-white"
                           >
                             Send message
                           </button>
 
                           <span
                             ref={successRef}
-                            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center gap-1.5 whitespace-nowrap text-[11px] font-medium tracking-wide text-ink"
+                            className="contact-status pointer-events-none absolute inset-0 z-20 flex items-center justify-center gap-1.5 whitespace-normal text-center text-[0.95rem] font-medium leading-tight tracking-wide text-ink"
                             style={{ visibility: "hidden" }}
                           >
                             <svg viewBox="0 0 24 24" className="size-3.5" aria-hidden="true">
@@ -1679,12 +1615,12 @@ export default function Contact() {
                                 strokeLinejoin="round"
                               />
                             </svg>
-                            Your message is sent to me.
+                            Message sent ✓
                           </span>
 
                           <span
                             ref={sendErrorRef}
-                            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center whitespace-nowrap text-[11px] font-semibold tracking-wide text-red"
+                            className="contact-status pointer-events-none absolute inset-0 z-20 flex items-center justify-center whitespace-nowrap text-[0.85rem] font-semibold tracking-wide text-red"
                             style={{ visibility: "hidden" }}
                           >
                             Failed. Try again.
@@ -1708,90 +1644,60 @@ export default function Contact() {
                       </div>
                     </form>
                   </div>
-
-                  {/* Rim outline stroke & subtle red edge glow */}
-                  <svg
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 z-[6] h-full w-full"
-                    viewBox="0 0 100 100"
-                    preserveAspectRatio="none"
-                  >
-                    <path
-                      d="M0 7 C25 1 75 1 100 7 L100 93 C75 99 25 99 0 93 Z"
-                      fill="none"
-                      stroke="#d61a29"
-                      strokeWidth="2.2"
-                      opacity="0.45"
-                      vectorEffect="non-scaling-stroke"
-                      style={{ filter: "blur(2px)" }}
-                    />
-                    <path
-                      d="M0 7 C25 1 75 1 100 7 L100 93 C75 99 25 99 0 93 Z"
-                      fill="none"
-                      stroke="rgba(255,255,255,0.85)"
-                      strokeWidth="1.5"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  </svg>
                 </div>
               </div>
 
-              {/* 10 Path Icons + 4 Decorative Icons */}
-              <div className="contact-icons pointer-events-none z-10">
-                {ORBIT_ICONS.map((item, index) => (
-                  <Orb key={item.name} item={item} index={index} />
-                ))}
-                {DECOR_ICONS.map((item, index) => (
-                  <Orb key={item.name} item={item} decorative index={index + 10} />
-                ))}
-              </div>
-
-              {/* Front light line SVG: on layer above cylinder & form */}
+              {/* Light line: on layer above the form, ends at the submit button */}
               <svg
                 ref={frontSvgRef}
                 data-line-front
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0 z-20 h-full w-full"
               >
-                {[0, 2, 4, 6, 8, 9].map((index) => (
-                  <g key={index}>
-                    <path
-                      data-track={index}
-                      fill="none"
-                      stroke="#ffd24a"
-                      strokeWidth="1"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity="0.08"
-                    />
-                    <path
-                      data-seg={index}
-                      data-kind="front"
-                      fill="none"
-                      stroke="#ffd24a"
-                      strokeWidth="3.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity="0"
-                      style={{
-                        filter:
-                          "drop-shadow(0 0 4px rgba(255,210,74,0.85)) drop-shadow(0 0 10px rgba(255,210,74,0.32))",
-                      }}
-                    />
-                    <path
-                      data-core={index}
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeWidth="1.3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity="0"
-                    />
-                  </g>
-                ))}
+                <defs>
+                  <linearGradient id="contact-line-front" x1="0" y1="0" x2="0.3" y2="1">
+                    <stop offset="0%" stopColor="#ff7a83" stopOpacity="0.98" />
+                    <stop offset="48%" stopColor="#d61a29" stopOpacity="0.9" />
+                    <stop offset="100%" stopColor="#d61a29" stopOpacity="0.9" />
+                  </linearGradient>
+                </defs>
+                <g>
+                  <path
+                    data-track="0"
+                    fill="none"
+                    stroke="#d61a29"
+                    strokeWidth="1"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.12"
+                  />
+                  <path
+                    data-seg="0"
+                    data-kind="front"
+                    fill="none"
+                    stroke="url(#contact-line-front)"
+                    strokeWidth="3.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0"
+                    style={{
+                      filter:
+                        "drop-shadow(0 0 5px rgba(214,26,41,0.85)) drop-shadow(0 0 13px rgba(214,26,41,0.34))",
+                    }}
+                  />
+                  <path
+                    data-core="0"
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0"
+                  />
+                </g>
                 <g data-head-front opacity="0">
-                  <circle r="5.6" fill="#ffd24a" opacity="0.38" />
-                  <circle r="2.4" fill="#ffd24a" />
+                  <circle r="5.6" fill="#d61a29" opacity="0.42" />
+                  <circle r="2.4" fill="#ff5964" />
                   <circle r="1.2" fill="#ffffff" />
                 </g>
               </svg>
@@ -1804,7 +1710,7 @@ export default function Contact() {
               >
                 <span
                   data-shockwave
-                  className="absolute left-0 top-0 -ml-6 -mt-6 block size-12 rounded-full border-2 border-[#ffd24a]"
+                  className="absolute left-0 top-0 -ml-6 -mt-6 block size-12 rounded-full border-2 border-[#d61a29]"
                   style={{ opacity: 0 }}
                 />
               </div>

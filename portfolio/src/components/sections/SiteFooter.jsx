@@ -162,9 +162,11 @@ const FOOTER_STYLE = `
     display: inline-block;
     transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
   }
-  .footer-link:hover .footer-link-arrow,
   .footer-link:focus-visible .footer-link-arrow {
     transform: translate(2px, -2px);
+  }
+  @media (hover: hover) {
+    .footer-link:hover .footer-link-arrow { transform: translate(2px, -2px); }
   }
   .footer-top-arrow {
     display: inline-block;
@@ -178,9 +180,11 @@ const FOOTER_STYLE = `
       transform: translateY(-4px);
     }
   }
-  .footer-top:hover .footer-top-arrow,
   .footer-top:focus-visible .footer-top-arrow {
     animation: footerArrowBounce 700ms ease-in-out infinite;
+  }
+  @media (hover: hover) {
+    .footer-top:hover .footer-top-arrow { animation: footerArrowBounce 700ms ease-in-out infinite; }
   }
 
   @media (prefers-reduced-motion: reduce) {

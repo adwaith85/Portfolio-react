@@ -86,7 +86,7 @@ export function cursorMove(
   tl,
   i,
   target,
-  { at = 0, duration = 0.4, offset, dx, dy, ease } = {}
+  { at = 0, duration = 0.22, offset, dx, dy, ease } = {}
 ) {
   if (target) {
     tl.add(swarm.moveTo(i, target, { duration, offset, dx, dy, ease }), at);
@@ -113,7 +113,7 @@ export function cursorType(
     duration = 0.4,
     smooth = false,
     click = true,
-    travel = 0.35,
+    travel = 0.12,
     offset = { x: 0, y: 0.55 },
   } = {}
 ) {
@@ -132,7 +132,7 @@ export function cursorOpen(
   tl,
   i,
   el,
-  { at = 0, duration = 0.5, travel = 0.35, from = "inset(0% 0% 100% 0%)" } = {}
+  { at = 0, duration = 0.5, travel = 0.12, from = "inset(0% 0% 100% 0%)" } = {}
 ) {
   if (!el) return at;
   tl.add(swarm.moveTo(i, el, { duration: travel, offset: { x: 0.5, y: 0.15 } }), at);

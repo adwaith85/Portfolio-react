@@ -1,7 +1,6 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, useCallback } from "react";
 import gsap from "gsap";
 import { content } from "../../data/content";
-import { swarm } from "../cursors/swarmApi";
 import {
   createViewportReveal,
   cursorIntro,
@@ -9,429 +8,308 @@ import {
 } from "../../engine/viewport";
 import useAgentsEnabled from "../../engine/useAgentsEnabled";
 import {
-  BLUE,
   Words,
-  SPOTLIGHT_STYLE,
   makeOverlay,
   clearOverlays,
   dragBox,
   typeWords,
   popIn,
-  tiltTiles,
 } from "../../engine/swarmBuild";
 
-/* Cursor leases: heading 2, photo card 2, intro 2, approach 2, focus 2,
-   details 3, qualities 2, connection 2. */
+/* ─── cursor agent leases ─── */
 const AG = {
-  head: [0, 1],
-  photo: [2, 3],
-  intro: [4, 5],
-  approach: [6, 7],
-  focus: [8, 9],
-  details: [10, 11, 12],
-  qualities: [13, 14],
-  contact: [15, 16],
+  head:     [0, 1],
+  photo:    [2, 3],
+  intro:    [4, 5],
+  focus:    [6, 7],
+  qualities:[8, 9],
 };
-
-const NORMAL = { fill: "#121212", edge: "rgba(255,255,255,0.1)" };
-const HOT = { fill: "#2a0a0f", edge: "rgba(214,26,41,0.45)" };
-
-/* same glow as the hero photo: red on the right edge, blue on the left */
-const PHOTO_GLOW =
-  "drop-shadow(18px 0 26px rgba(214,26,41,0.6)) drop-shadow(-16px 0 26px rgba(50,110,255,0.45))";
 
 const photoSrc = (p) => (!p ? "/photo.png" : /^(https?:)?\//.test(p) ? p : `/${p}`);
 
-/* design-tool selection box that a cursor drags out over a frame */
-function SelBox({ tag }) {
-  const corners = [
-    "-left-1 -top-1",
-    "-right-1 -top-1",
-    "-bottom-1 -left-1",
-    "-bottom-1 -right-1",
-  ];
-  return (
-    <span
-      data-sel
-      className="pointer-events-none absolute left-0 top-0 z-[3] border border-dashed"
-      style={{ borderColor: BLUE }}
-    >
-      {corners.map((c) => (
-        <i
-          key={c}
-          data-handle
-          className={`absolute size-2 border bg-white ${c}`}
-          style={{ borderColor: BLUE }}
-        />
-      ))}
-      <b
-        data-tag
-        className="absolute -top-6 left-0 whitespace-nowrap rounded-sm px-1.5 py-[3px] text-[10px] font-semibold leading-none text-white"
-        style={{ background: BLUE }}
-      >
-        {tag}
-      </b>
-    </span>
-  );
-}
-
-function Shell({ tag, colors = NORMAL, className = "", children, ...rest }) {
-  return (
-    <div data-frame {...rest} className={`relative ${className}`}>
-      <span
-        data-bg
-        data-fill={colors.fill}
-        data-edge={colors.edge}
-        className="absolute inset-0 rounded-[3px] border transition-colors duration-300 group-hover/card:border-red/50!"
-        style={{ backgroundColor: colors.fill, borderColor: colors.edge }}
-      />
-      <i data-bar className="absolute left-0 top-0 h-[2px] w-full origin-left bg-red" />
-      <SelBox tag={tag} />
-      <div className="relative h-full">{children}</div>
-    </div>
-  );
-}
-
-/* ---------- cursor building blocks ---------- */
-
-/* cursor drags the card frame out corner to corner, recolors it, nudges it, sweeps its red bar */
-function drawFrame(tl, frame, ag, t0 = 0) {
-  const sel = frame.querySelector("[data-sel]");
-  const handles = sel ? sel.querySelectorAll("[data-handle]") : [];
-  const tag = sel ? sel.querySelector("[data-tag]") : null;
-  const bg = frame.querySelector("[data-bg]");
-  const bar = frame.querySelector("[data-bar]");
-  const p = { v: 0 };
-
-  tl.add(swarm.moveTo(ag, frame, { duration: 0.5, offset: { x: 0, y: 0 } }), t0);
-  if (sel) tl.set(sel, { autoAlpha: 1 }, t0 + 0.5);
-  tl.add(() => swarm.click(ag), t0 + 0.5);
-
-  tl.to(
-    p,
-    {
-      v: 1,
-      duration: 0.55,
-      ease: "power2.out",
-      onUpdate: () => {
-        const r = (1 - p.v) * 100;
-        if (sel) {
-          sel.style.width = `${p.v * 100}%`;
-          sel.style.height = `${p.v * 100}%`;
-        }
-        if (bg) bg.style.clipPath = `inset(0 ${r}% ${r}% 0)`;
-        swarm.placeAt(ag, frame, p.v, p.v);
-      },
-    },
-    t0 + 0.55
-  );
-  if (handles.length) {
-    tl.fromTo(
-      handles,
-      { scale: 0 },
-      { scale: 1, duration: 0.25, stagger: 0.03, ease: "back.out(3)" },
-      t0 + 1.05
-    );
-  }
-  if (tag) {
-    tl.fromTo(tag, { autoAlpha: 0, y: 4 }, { autoAlpha: 1, y: 0, duration: 0.2 }, t0 + 1.05);
-  }
-  tl.add(swarm.moveTo(ag, frame, { duration: 0.35, offset: { x: 0.5, y: 0.5 } }), t0 + 1.15);
-  tl.add(() => swarm.click(ag), t0 + 1.5);
-  if (bg) {
-    tl.to(
-      bg,
-      { backgroundColor: bg.dataset.fill, borderColor: bg.dataset.edge, duration: 0.4 },
-      t0 + 1.5
-    );
-  }
-  tl.fromTo(
-    frame,
-    { scale: 1 },
-    { scale: 1.02, duration: 0.15, yoyo: true, repeat: 1, ease: "power2.inOut" },
-    t0 + 1.55
-  );
-  if (bar) tl.to(bar, { scaleX: 1, duration: 0.45, ease: "power3.out" }, t0 + 1.65);
-  if (sel) tl.to(sel, { autoAlpha: 0, duration: 0.25 }, t0 + 1.75);
-  return t0 + 1.65;
-}
-
-/* ---------- group builders ---------- */
-
+/* ─── cursor builders ─── */
 function buildHeading(rootEl) {
   const $ = (s) => rootEl.querySelector(s);
   const [a, b] = AG.head;
   const tl = gsap.timeline();
   cursorIntro(tl, AG.head, 0);
-
-  const tl0 = typeWords(tl, $("[data-label]"), b, 0.05, 0.03);
-  let t = typeWords(tl, $("[data-h1]"), a, 0.05, 0.05);
-  t = typeWords(tl, $("[data-h2]"), a, t, 0.05);
-  const t2 = typeWords(tl, $("[data-sub]"), b, Math.max(tl0, 0.4), 0.02);
-
-  cursorOutro(tl, AG.head, { at: Math.max(t, t2) + 0.4 });
+  const tl0 = typeWords(tl, $("[data-label]"), b, 0.03, 0.02);
+  let t = typeWords(tl, $("[data-h1]"), a, 0.03, 0.03);
+  t = typeWords(tl, $("[data-h2]"), a, t, 0.03);
+  const t2 = typeWords(tl, $("[data-sub]"), b, Math.max(tl0, 0.25), 0.015);
+  cursorOutro(tl, AG.head, { at: Math.max(t, t2) + 0.25 });
   return tl;
 }
 
-/* left card: A drags it out, B clicks the photo area and it rises in with the blue + red glow,
-   then the name, role and location are written */
-function buildPhoto(card, host) {
+function buildPhoto(block, host) {
   const [A, B] = AG.photo;
-  const q = (s) => card.querySelector(s);
+  const q = (s) => block.querySelector(s);
   const ov = makeOverlay(host);
   const tl = gsap.timeline();
   cursorIntro(tl, AG.photo, 0);
 
-  const base = drawFrame(tl, card, A, 0.05);
-
   const fig = q("[data-photo]");
+  let t = dragBox(tl, ov, A, fig, host, 0.08, { tag: "figure.photo", dur: 0.3, pad: 0 });
   const img = q("[data-pimg]");
-  const glow = q("[data-pglow]");
-  let t = dragBox(tl, ov, B, fig, host, Math.max(0.2, base - 0.5), {
-    tag: "figure.photo",
-    dur: 0.4,
-    pad: 0,
-  });
   if (img) {
     tl.fromTo(
       img,
-      { clipPath: "inset(100% 0% 0% 0%)", y: 40, autoAlpha: 1 },
-      {
-        clipPath: "inset(0% 0% 0% 0%)",
-        y: 0,
-        duration: 0.9,
-        ease: "power3.out",
-        onComplete() {
-          gsap.set(img, { clearProps: "clipPath" });
-        },
+      { clipPath: "inset(100% 0% 0% 0%)", autoAlpha: 1 },
+      { clipPath: "inset(0% 0% 0% 0%)", duration: 0.65, ease: "power3.out",
+        onComplete() { gsap.set(img, { clearProps: "clipPath" }); }
       },
       t - 0.05
     );
   }
-  if (glow) tl.to(glow, { autoAlpha: 1, duration: 0.9 }, t + 0.1);
-  t += 0.7;
+  t += 0.6;
+  t = typeWords(tl, q("[data-name]"), A, Math.max(t, 0.5), 0.03);
+  [...block.querySelectorAll("[data-drow]")].forEach((row, k) => {
+    const ag = k % 2 ? B : A;
+    const key = row.querySelector("[data-dk]");
+    const val = row.querySelector("[data-dv]");
+    const rule = row.querySelector("[data-drule]");
+    if (rule) { tl.to(rule, { scaleX: 1, duration: 0.3, ease: "power3.out" }, t); t += 0.18; }
+    const tk = typeWords(tl, key, ag, t, 0.025);
+    t = typeWords(tl, val, ag, tk - 0.08, 0.018) + 0.04;
+  });
 
-  t = typeWords(tl, q("[data-name]"), A, Math.max(t, base), 0.045);
-  t = typeWords(tl, q("[data-role]"), B, t - 0.05, 0.03);
-
-  const pin = q("[data-pin]");
-  if (pin) t = popIn(tl, B, pin, t, { travel: 0.25, from: { autoAlpha: 0, scale: 0 } });
-  t = typeWords(tl, q("[data-loc]"), B, t - 0.1, 0.03);
-
-  cursorOutro(tl, AG.photo, { at: t + 0.4 });
+  cursorOutro(tl, AG.photo, { at: t + 0.25 });
   return tl;
 }
 
-/* intro card: A drags it out, B selects the kicker and writes it,
-   then selects the paragraph and writes it word by word */
-function buildIntro(card, host) {
-  const [A, B] = AG.intro;
-  const q = (s) => card.querySelector(s);
+function buildIntro(block, host) {
+  const B = AG.intro[1];
+  const q = (s) => block.querySelector(s);
   const ov = makeOverlay(host);
   const tl = gsap.timeline();
   cursorIntro(tl, AG.intro, 0);
 
-  const base = drawFrame(tl, card, A, 0.05);
-
-  const kicker = q("[data-kicker]");
-  let t = dragBox(tl, ov, B, kicker, host, Math.max(0.3, base - 0.35), {
-    tag: "p.kicker",
-    dur: 0.25,
-  });
-  t = typeWords(tl, kicker, B, t, 0.04);
-
-  const bio = q("[data-bio]");
-  let tb = dragBox(tl, ov, B, bio, host, Math.max(t, base - 0.1), {
-    tag: "p.bio",
-    dur: 0.35,
-  });
-  tb = typeWords(tl, bio, B, tb, 0.02);
-
-  cursorOutro(tl, AG.intro, { at: Math.max(t, tb) + 0.4 });
+  let tb = dragBox(tl, ov, B, q("[data-bio]"), host, 0.05, { tag: "p.bio", dur: 0.28 });
+  tb = typeWords(tl, q("[data-bio]"), B, tb, 0.015);
+  cursorOutro(tl, AG.intro, { at: tb + 0.25 });
   return tl;
 }
 
-/* approach card: A drags it out, B writes the kicker and the paragraph */
-function buildApproach(card, host) {
-  const [A, B] = AG.approach;
-  const q = (s) => card.querySelector(s);
-  const ov = makeOverlay(host);
-  const tl = gsap.timeline();
-  cursorIntro(tl, AG.approach, 0);
-
-  const base = drawFrame(tl, card, A, 0.05);
-
-  const kicker = q("[data-kicker]");
-  let t = dragBox(tl, ov, B, kicker, host, Math.max(0.3, base - 0.35), {
-    tag: "p.kicker",
-    dur: 0.25,
-  });
-  t = typeWords(tl, kicker, B, t, 0.04);
-
-  const text = q("[data-approach]");
-  let tb = dragBox(tl, ov, B, text, host, Math.max(t, base - 0.1), {
-    tag: "p.approach",
-    dur: 0.35,
-  });
-  tb = typeWords(tl, text, B, tb, 0.02);
-
-  cursorOutro(tl, AG.approach, { at: Math.max(t, tb) + 0.4 });
-  return tl;
-}
-
-/* focus card: the four points are selected one by one, their dots pop and the text is written */
-function buildFocus(card, host) {
+function buildFocus(block, host) {
   const [A, B] = AG.focus;
-  const q = (s) => card.querySelector(s);
+  const q = (s) => block.querySelector(s);
   const ov = { [A]: makeOverlay(host), [B]: makeOverlay(host) };
   const tl = gsap.timeline();
   cursorIntro(tl, AG.focus, 0);
 
-  const base = drawFrame(tl, card, A, 0.05);
-
-  const kicker = q("[data-kicker]");
-  let t = dragBox(tl, ov[B], B, kicker, host, Math.max(0.3, base - 0.35), {
-    tag: "p.kicker",
-    dur: 0.25,
-  });
-  t = typeWords(tl, kicker, B, t, 0.04);
-
+  let t = dragBox(tl, ov[A], A, q("[data-kicker]"), host, 0.05, { tag: "p.kicker", dur: 0.2 });
+  t = typeWords(tl, q("[data-kicker]"), A, t, 0.03);
   let end = t;
-  [...card.querySelectorAll("[data-fitem]")].forEach((item, k) => {
+  [...block.querySelectorAll("[data-fitem]")].forEach((item, k) => {
     const ag = k % 2 ? B : A;
-    const at = Math.max(t, base) + k * 0.3;
-    let te = dragBox(tl, ov[ag], ag, item, host, at, {
-      tag: "li.focus",
-      dur: 0.18,
-      pad: 2,
-    });
+    const at = Math.max(t, 0.2) + k * 0.2;
+    let te = dragBox(tl, ov[ag], ag, item, host, at, { tag: "li.focus", dur: 0.14, pad: 2 });
     const dot = item.querySelector("[data-fdot]");
-    if (dot) te = popIn(tl, ag, dot, te, { travel: 0.18, from: { autoAlpha: 0, scale: 0 } });
-    const tt = typeWords(tl, item.querySelector("[data-ftext]"), ag, te, 0.02);
+    if (dot) te = popIn(tl, ag, dot, te, { travel: 0.14, from: { autoAlpha: 0, scale: 0 } });
+    const tt = typeWords(tl, item.querySelector("[data-ftext]"), ag, te, 0.015);
     end = Math.max(end, tt);
   });
-
-  cursorOutro(tl, AG.focus, { at: end + 0.4 });
-  return tl;
-}
-
-/* details card: rows type in one after another, a cursor follows each */
-function buildDetails(card, host) {
-  const ags = AG.details;
-  const q = (s) => card.querySelector(s);
-  const ov = {};
-  ags.forEach((i) => (ov[i] = makeOverlay(host)));
-  const tl = gsap.timeline();
-  cursorIntro(tl, ags, 0);
-
-  const base = drawFrame(tl, card, ags[0], 0.05);
-
-  let t = Math.max(0.4, base - 0.3);
-  [...card.querySelectorAll("[data-drow]")].forEach((row, k) => {
-    const ag = ags[1 + (k % (ags.length - 1))];
-    const key = row.querySelector("[data-dk]");
-    const val = row.querySelector("[data-dv]");
-    const rule = row.querySelector("[data-drule]");
-    if (rule) {
-      tl.add(swarm.moveTo(ag, rule, { duration: 0.25, offset: { x: 0, y: 0.5 } }), t);
-      tl.add(() => swarm.click(ag), t + 0.25);
-      tl.to(rule, { scaleX: 1, duration: 0.4, ease: "power3.out" }, t + 0.25);
-      t += 0.3;
-    }
-    const tk = typeWords(tl, key, ag, t, 0.035);
-    t = typeWords(tl, val, ag, tk - 0.1, 0.025) + 0.05;
+  [...block.querySelectorAll("[data-badge]")].forEach((b, k) => {
+    const ag = k % 2 ? B : A;
+    const at = Math.max(t, 0.25) + k * 0.14;
+    end = Math.max(end, popIn(tl, ag, b, at, { travel: 0.14, from: { autoAlpha: 0, scale: 0.3 } }));
   });
-
-  cursorOutro(tl, ags, { at: t + 0.4 });
+  cursorOutro(tl, AG.focus, { at: end + 0.25 });
   return tl;
 }
 
-/* qualities: heading is written, then each badge zooms in one by one */
-function buildQualities(block, host) {
+function buildQualities(block) {
   const [A, B] = AG.qualities;
-  const q = (s) => block.querySelector(s);
-  const ov = makeOverlay(host);
   const tl = gsap.timeline();
   cursorIntro(tl, AG.qualities, 0);
 
-  const head = q("[data-shead]");
-  let t = dragBox(tl, ov, A, head, host, 0.05, { tag: "p.qualities", dur: 0.25 });
-  t = typeWords(tl, head, A, t, 0.04);
-
-  let end = t;
-  [...block.querySelectorAll("[data-badge]")].forEach((b, k) => {
+  let t = 0.05;
+  // Bottom detail rows (Background, Languages, Interests)
+  [...block.querySelectorAll("[data-drow]")].forEach((row, k) => {
     const ag = k % 2 ? B : A;
-    const at = Math.max(t, 0.35) + k * 0.22;
-    end = Math.max(end, popIn(tl, ag, b, at, { travel: 0.2, from: { autoAlpha: 0, scale: 0.3 } }));
+    const rule = row.querySelector("[data-drule]");
+    if (rule) { tl.to(rule, { scaleX: 1, duration: 0.28, ease: "power3.out" }, t); t += 0.14; }
+    const tk = typeWords(tl, row.querySelector("[data-dk]"), ag, t, 0.025);
+    t = typeWords(tl, row.querySelector("[data-dv]"), ag, tk - 0.06, 0.018) + 0.04;
   });
 
-  cursorOutro(tl, AG.qualities, { at: end + 0.6 });
+  cursorOutro(tl, AG.qualities, { at: t + 0.35 });
   return tl;
 }
 
-/* connection: the kicker and CTA are written, then the links pop in */
-function buildContact(block, host) {
-  const [A, B] = AG.contact;
-  const q = (s) => block.querySelector(s);
-  const ov = makeOverlay(host);
-  const tl = gsap.timeline();
-  cursorIntro(tl, AG.contact, 0);
+/* ─── cursor-reveal image component ─── */
+function RevealImage({ src, name }) {
+  const containerRef = useRef(null);
+  const radiusRef = useRef(0);
+  const rafRef = useRef(null);
+  const posRef = useRef({ x: 0, y: 0 });
+  const colorLayerRef = useRef(null);
+  const [imgOk, setImgOk] = useState(true);
 
-  const head = q("[data-chead]");
-  let t = dragBox(tl, ov, A, head, host, 0.05, { tag: "p.connection", dur: 0.25 });
-  t = typeWords(tl, head, A, t, 0.04);
+  /* update the radial mask on the color layer */
+  const applyMask = useCallback((x, y, r) => {
+    const el = colorLayerRef.current;
+    if (!el) return;
+    el.style.maskImage = `radial-gradient(circle ${r}px at ${x}px ${y}px, #000 87%, transparent 100%)`;
+    el.style.webkitMaskImage = `radial-gradient(circle ${r}px at ${x}px ${y}px, #000 87%, transparent 100%)`;
+  }, []);
 
-  const cta = q("[data-cta]");
-  let tc = dragBox(tl, ov, B, cta, host, Math.max(t, 0.35), {
-    tag: "a.email",
-    dur: 0.22,
-    pad: 2,
-  });
-  tc = typeWords(tl, cta, B, tc, 0.02);
+  const startReveal = useCallback((x, y) => {
+    posRef.current = { x, y };
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const target = window.innerWidth < 768 ? 70 : 100;
+    const startR = radiusRef.current;
+    const startT = performance.now();
+    const dur = 250;
+    const tick = (now) => {
+      const prog = Math.min(1, (now - startT) / dur);
+      const ease = prog < 0.5 ? 2 * prog * prog : -1 + (4 - 2 * prog) * prog;
+      radiusRef.current = startR + (target - startR) * ease;
+      applyMask(posRef.current.x, posRef.current.y, radiusRef.current);
+      if (prog < 1) rafRef.current = requestAnimationFrame(tick);
+      else rafRef.current = null;
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }, [applyMask]);
 
-  let end = Math.max(t, tc);
-  const arrow = q("[data-carrow]");
-  if (arrow) end = Math.max(end, popIn(tl, B, arrow, end, { travel: 0.2, from: { autoAlpha: 0, scale: 0 } }));
+  const hideReveal = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const startR = radiusRef.current;
+    const startT = performance.now();
+    const dur = 250;
+    const tick = (now) => {
+      const prog = Math.min(1, (now - startT) / dur);
+      const ease = prog < 0.5 ? 2 * prog * prog : -1 + (4 - 2 * prog) * prog;
+      radiusRef.current = startR * (1 - ease);
+      applyMask(posRef.current.x, posRef.current.y, radiusRef.current);
+      if (prog < 1) rafRef.current = requestAnimationFrame(tick);
+      else rafRef.current = null;
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }, [applyMask]);
 
-  [...block.querySelectorAll("[data-slink]")].forEach((link, k) => {
-    const ag = k % 2 ? A : B;
-    const at = end + 0.08 + k * 0.2;
-    end = Math.max(end, popIn(tl, ag, link, at, { travel: 0.2, from: { autoAlpha: 0, scale: 0.4 } }));
-  });
+  const onMouseMove = useCallback((e) => {
+    const r = containerRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    posRef.current = { x, y };
+    applyMask(x, y, radiusRef.current);
+  }, [applyMask]);
 
-  cursorOutro(tl, AG.contact, { at: end + 0.4 });
-  return tl;
-}
+  const onMouseEnter = useCallback((e) => {
+    const r = containerRef.current?.getBoundingClientRect();
+    if (!r) return;
+    startReveal(e.clientX - r.left, e.clientY - r.top);
+  }, [startReveal]);
 
-/* ---------- the section ---------- */
+  const onTouchStart = useCallback((e) => {
+    const r = containerRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const touch = e.touches[0];
+    startReveal(touch.clientX - r.left, touch.clientY - r.top);
+  }, [startReveal]);
 
-function PinIcon() {
+  const onTouchMove = useCallback((e) => {
+    const r = containerRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const touch = e.touches[0];
+    const x = touch.clientX - r.left;
+    const y = touch.clientY - r.top;
+    posRef.current = { x, y };
+    applyMask(x, y, radiusRef.current);
+  }, [applyMask]);
+
+  /* initialize mask hidden */
+  const initMask = useCallback(() => {
+    applyMask(0, 0, 0);
+  }, [applyMask]);
+
+  if (!imgOk) {
+    return (
+      <div className="relative flex h-full w-full items-center justify-center border border-dashed border-white/15 text-[0.72rem] text-muted/50">
+        public/photo.png
+      </div>
+    );
+  }
+
   return (
-    <svg viewBox="0 0 24 24" className="size-4 fill-none stroke-red" strokeWidth="1.8" aria-hidden="true">
-      <path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z" />
-      <circle cx="12" cy="10" r="2.5" />
-    </svg>
+    <div
+      ref={containerRef}
+      className="about-img-container relative h-full w-full cursor-crosshair overflow-hidden"
+      onMouseEnter={onMouseEnter}
+      onMouseMove={onMouseMove}
+      onMouseLeave={hideReveal}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={hideReveal}
+    >
+      {/* silhouette layer: always visible, bottom */}
+      <img
+        data-pimg
+        src={src}
+        alt=""
+        loading="lazy"
+        draggable="false"
+        onError={() => setImgOk(false)}
+        className="about-photo-base absolute inset-0 h-full w-full object-cover object-top"
+        style={{
+          filter: "brightness(0.04) contrast(1.3)",
+          background:
+            "radial-gradient(ellipse at 50% 60%, rgba(255,255,255,0.08) 0%, rgba(214,26,41,0.12) 55%, transparent 80%)",
+        }}
+        aria-hidden="true"
+      />
+      {/* colored photo layer: revealed by mask */}
+      <img
+        ref={colorLayerRef}
+        src={src}
+        alt={name}
+        loading="lazy"
+        draggable="false"
+        onLoad={initMask}
+        className="about-photo-color absolute inset-0 h-full w-full object-cover object-top"
+        style={{ maskImage: "none", WebkitMaskImage: "none" }}
+      />
+      {/* soft backlight glow behind silhouette */}
+      <i
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 55%, rgba(255,255,255,0.055) 0%, rgba(214,26,41,0.14) 48%, transparent 72%)",
+          mixBlendMode: "screen",
+        }}
+      />
+    </div>
   );
 }
 
+/* ─── main component ─── */
 export default function About() {
   const root = useRef(null);
   const enabled = useAgentsEnabled();
-  const [photoOk, setPhotoOk] = useState(true);
   const { about } = content;
-  const { headline, num, label } = content.sections.find((s) => s.id === "about");
+  const { num, label } = content.sections.find((s) => s.id === "about");
   const name = content.hero.name;
 
-  const rows = [
+  // Heading lives here so the About copy stays exactly as requested.
+  const headline = ["I'M THE PERSON.", "BEHIND THE CODE."];
+
+  const captionRows = [
+    { k: "Role", v: about.role },
     { k: "Location", v: about.location },
+  ];
+
+  const detailRows = [
     { k: "Background", v: about.background },
-    { k: "Specialization", v: about.specialization },
     { k: "Languages", v: about.languages.join(", ") },
     { k: "Interests", v: about.interests.join(", ") },
   ];
 
   useLayoutEffect(() => {
     const el = root.current;
+    if (!el) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const all = (s) => [...el.querySelectorAll(s)];
 
@@ -440,65 +318,24 @@ export default function About() {
       return;
     }
 
-    // hidden starting state, so nothing flashes before its group is reached
     const ctx = gsap.context(() => {
       gsap.set(
-        all(
-          "[data-w],[data-badge],[data-pin],[data-fdot],[data-carrow],[data-slink],[data-sel],[data-tag]"
-        ),
+        all("[data-w],[data-badge],[data-pin],[data-fdot],[data-carrow],[data-slink]"),
         { autoAlpha: 0 }
       );
       gsap.set(all("[data-pimg]"), { autoAlpha: 0, clipPath: "inset(100% 0% 0% 0%)" });
-      gsap.set(all("[data-handle]"), { scale: 0 });
-      gsap.set(all("[data-bar]"), { scaleX: 0 });
       gsap.set(all("[data-drule]"), { scaleX: 0 });
-      gsap.set(all("[data-bg]"), {
-        clipPath: "inset(0 100% 100% 0)",
-        backgroundColor: "rgba(255,255,255,0.05)",
-        borderColor: "rgba(255,255,255,0.12)",
-      });
-      gsap.set(all("[data-sel]"), { width: "0%", height: "0%" });
     }, root);
 
     const headingEl = el.querySelector("header");
-    const card = (n) => el.querySelector(`[data-card="${n}"]`);
+    const block = (n) => el.querySelector(`[data-block="${n}"]`);
+
     const groups = [
       headingEl && { element: headingEl, agents: AG.head, build: () => buildHeading(el) },
-      card("photo") && {
-        element: card("photo"),
-        agents: AG.photo,
-        build: (n) => buildPhoto(n, el),
-      },
-      card("intro") && {
-        element: card("intro"),
-        agents: AG.intro,
-        build: (n) => buildIntro(n, el),
-      },
-      card("approach") && {
-        element: card("approach"),
-        agents: AG.approach,
-        build: (n) => buildApproach(n, el),
-      },
-      card("focus") && {
-        element: card("focus"),
-        agents: AG.focus,
-        build: (n) => buildFocus(n, el),
-      },
-      card("details") && {
-        element: card("details"),
-        agents: AG.details,
-        build: (n) => buildDetails(n, el),
-      },
-      el.querySelector("[data-skills]") && {
-        element: el.querySelector("[data-skills]"),
-        agents: AG.qualities,
-        build: (n) => buildQualities(n, el),
-      },
-      el.querySelector("[data-contact]") && {
-        element: el.querySelector("[data-contact]"),
-        agents: AG.contact,
-        build: (n) => buildContact(n, el),
-      },
+      block("photo") && { element: block("photo"), agents: AG.photo, build: (n) => buildPhoto(n, el) },
+      block("intro") && { element: block("intro"), agents: AG.intro, build: (n) => buildIntro(n, el) },
+      block("focus") && { element: block("focus"), agents: AG.focus, build: (n) => buildFocus(n, el) },
+      block("qualities") && { element: block("qualities"), agents: AG.qualities, build: (n) => buildQualities(n) },
     ].filter(Boolean);
 
     const stop = createViewportReveal({
@@ -511,326 +348,530 @@ export default function About() {
       back: 2.2,
       groups,
     });
-    const stopTilt = tiltTiles(el, "[data-tile]", { max: 5 });
 
     return () => {
-      stopTilt();
       stop();
       clearOverlays(el);
       ctx.revert();
     };
   }, [enabled]);
 
-  const tile =
-    "group/card relative rounded-[3px] transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_14px_40px_-14px_rgba(214,26,41,0.45)]";
-  const spot = (
-    <span
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 z-[1] rounded-[3px] opacity-0 transition-opacity duration-300 group-hover/card:opacity-100"
-      style={SPOTLIGHT_STYLE}
-    />
-  );
-
   return (
     <section
       id="about"
       data-env="about"
       ref={root}
-      className="relative flex min-h-svh flex-col gap-[3svh] border-t border-line px-gutter py-[5svh]"
+      className="relative flex min-h-svh flex-col justify-between gap-[2svh] overflow-x-clip border-t border-line px-gutter py-[3.5svh]"
     >
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
+      <style>{ABOUT_STYLE}</style>
+
+      {/* ── heading ── */}
+      <header className="flex shrink-0 flex-col gap-2 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
         <div className="min-w-0">
-          <p data-label className="label mb-[1.2svh] block w-fit">
-            <span className="text-red">
-              <Words text={num} />
-            </span>{" "}
-            <Words text={`/ ${label}`} />
+          <p
+            data-label
+            data-cursor-hover
+            className="label mb-[0.8svh] block w-fit cursor-hover transition-colors duration-200 hover:text-ink"
+          >
+            {/* <span className="text-red"><Words text={num} /></span>{" "} */}
+            <Words text={` ${label}`} />
           </p>
-          <h2 className="display flex flex-wrap gap-x-[0.28em] text-[min(5.2vw,9.5svh)] max-lg:text-[clamp(2.4rem,11vw,3.6rem)]">
-            <span data-h1 className="block w-fit">
+          <h2 className="about-heading display flex flex-wrap gap-x-[0.28em] text-[min(4.8vw,8.5svh)] max-lg:text-[clamp(1.9rem,8.6vw,3rem)]">
+            <span
+              data-h1
+              data-cursor-hover
+              className="about-head-line about-head-line--light cursor-hover block w-fit"
+            >
               <Words text={headline[0]} />
             </span>
-            <span data-h2 className="block w-fit text-red">
+            <span
+              data-h2
+              data-cursor-hover
+              className="about-head-line about-head-line--red cursor-hover block w-fit text-red"
+            >
               <Words text={headline[1]} />
             </span>
           </h2>
         </div>
         <p
           data-sub
-          className="block max-w-[26rem] text-[min(0.95rem,2.1svh)] leading-relaxed text-ink/65 transition-colors duration-200 hover:text-ink"
+          data-cursor-hover
+          className="about-sub block max-w-[26rem] text-[min(0.9rem,1.9svh)] leading-relaxed text-ink/65"
         >
           <Words text={about.tagline} />
         </p>
       </header>
 
-      <div className="grid flex-1 items-stretch gap-4 lg:grid-cols-[minmax(0,40fr)_minmax(0,60fr)] lg:gap-[1.4vw]">
-        {/* LEFT: photo, name, role, location */}
-        <div data-tile className={`${tile} h-full`}>
-          <Shell data-card="photo" tag="article.photo" colors={HOT} className="h-full">
-            <div className="flex h-full flex-col p-4 lg:p-[min(1.4rem,2.6svh)]">
-              <figure
-                data-photo
-                className="group/photo relative flex h-[22rem] items-end justify-center overflow-hidden lg:h-auto lg:min-h-0 lg:flex-1"
-              >
-                <i
-                  data-pglow
-                  aria-hidden="true"
-                  className="absolute -inset-[8%] bg-[radial-gradient(ellipse_at_66%_55%,rgba(214,26,41,0.28),transparent_58%),radial-gradient(ellipse_at_34%_55%,rgba(50,110,255,0.22),transparent_52%)] blur-2xl"
-                />
-                {photoOk ? (
-                  <img
-                    data-pimg
-                    src={photoSrc(about.photo)}
-                    alt={name}
-                    loading="lazy"
-                    draggable="false"
-                    onError={() => setPhotoOk(false)}
-                    className="relative block h-full w-auto max-w-full object-contain object-bottom transition-transform duration-700 group-hover/photo:scale-[1.03]"
-                    style={{ filter: PHOTO_GLOW }}
-                  />
-                ) : (
-                  <span
-                    data-pimg
-                    className="label relative grid size-full place-items-center border border-dashed border-white/15 text-muted/60"
-                  >
-                    public/photo.png
-                  </span>
-                )}
-              </figure>
+      {/* ── two-column body ── */}
+      <div className="about-body grid flex-1 min-h-0 items-center gap-[2.5svh] lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] lg:gap-[4.5vw]">
 
-              <div className="mt-[2svh] w-full border-t border-white/10 pt-[1.6svh]">
-                <h3
-                  data-name
-                  className="display block w-fit text-[clamp(1.8rem,7vw,2.4rem)] transition-colors duration-300 hover:text-red lg:text-[min(2.6vw,5.2svh)]"
-                >
-                  <Words text={name} />
-                  <span className="text-red">.</span>
-                </h3>
-                <p
-                  data-role
-                  className="mt-[0.7svh] flex items-center gap-2 text-[0.78rem] font-semibold uppercase tracking-[0.12em] text-gold transition-colors duration-200 hover:text-ink"
-                >
-                  <Words text={about.role} />
-                </p>
-                <p className="group/loc mt-[0.9svh] flex items-center gap-2 text-[0.9rem] text-ink/75 transition-colors duration-200 hover:text-ink">
-                  <span data-pin className="inline-flex">
-                    <PinIcon />
-                  </span>
-                  <span data-loc>
-                    <Words text={about.location} />
-                  </span>
-                </p>
-              </div>
+        {/* ════ LEFT: text content ════ */}
+        <div className="flex min-w-0 flex-col gap-[1.8svh]">
+
+          {/* INTRO BIO */}
+          <div data-block="intro" className="about-text-block">
+            <p
+              data-bio
+              data-cursor-hover
+              className="about-bio about-reveal-host block max-w-[42rem] leading-relaxed"
+              tabIndex={0}
+              aria-label={about.bio}
+            >
+              {about.bio.split(" ").map((w, i) => (
+                <span key={i} className="about-reveal-word" style={{ transitionDelay: `${i * 16}ms` }} aria-hidden="true">
+                  {i > 0 && " "}
+                  <span data-w className="inline-block">{w}</span>
+                </span>
+              ))}
+            </p>
+          </div>
+
+          {/* WHAT I FOCUS ON + professional qualities */}
+          <div data-block="focus" className="about-text-block">
+            <p
+              data-kicker
+              data-cursor-hover
+              className="about-kicker label mb-[0.9svh] block w-fit cursor-hover"
+            >
+              <Words text="What I focus on" />
+            </p>
+
+            <div className="about-focus-grid">
+              <ul className="about-focus-list grid gap-[0.55rem]">
+                {about.focus.map((item) => (
+                  <li
+                    key={item}
+                    data-fitem
+                    data-cursor-hover
+                    className="about-focus-item cursor-hover relative flex items-start gap-2.5 rounded-[4px] py-0.5 pr-2"
+                    tabIndex={0}
+                    aria-label={item}
+                  >
+                    <i
+                      data-fdot
+                      className="about-focus-dot mt-[0.4rem] size-1.5 shrink-0 rounded-full bg-red"
+                    />
+                    <span
+                      data-ftext
+                      className="about-focus-text block leading-snug"
+                      aria-hidden="true"
+                    >
+                      {item.split(" ").map((w, i) => (
+                        <span
+                          key={i}
+                          className="about-reveal-word"
+                          style={{ transitionDelay: `${i * 16}ms` }}
+                        >
+                          {i > 0 && " "}
+                          <span data-w className="inline-block">{w}</span>
+                        </span>
+                      ))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <ul className="about-chip-list flex flex-wrap content-start gap-2">
+                {about.softSkills.map((s) => (
+                  <li
+                    key={s}
+                    data-badge
+                    data-cursor-hover
+                    className="about-chip cursor-hover flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-1 pl-3 pr-3.5 text-[0.75rem] font-medium tracking-wide text-ink/80"
+                  >
+                    <i className="size-1.5 rounded-full bg-red" />
+                    {s}
+                  </li>
+                ))}
+              </ul>
             </div>
-          </Shell>
-          {spot}
+          </div>
+
+          {/* BOTTOM DETAILS: background / languages / interests */}
+          <div data-block="qualities" className="about-text-block">
+            <dl className="about-meta-dl about-detail-dl">
+              {detailRows.map((r) => (
+                <div
+                  key={r.k}
+                  data-drow
+                  data-cursor-hover
+                  className="about-row cursor-hover relative py-[0.4svh]"
+                >
+                  <i data-drule className="about-rule-thin absolute left-0 top-0 h-px w-full origin-left" aria-hidden="true" />
+                  <div className="flex items-baseline gap-3">
+                    <dt data-dk className="label w-[6.2rem] shrink-0 self-start sm:w-[7rem]">
+                      <Words text={r.k} />
+                    </dt>
+                    <dd data-dv className="about-row-value text-[min(0.86rem,1.85svh)] text-ink/85">
+                      <Words text={r.v} />
+                    </dd>
+                  </div>
+                </div>
+              ))}
+            </dl>
+          </div>
         </div>
 
-        {/* RIGHT: intro, approach, focus, details */}
-        <div className="flex min-w-0 flex-col gap-4 lg:gap-[1.4svh]">
-          <div data-tile className={tile}>
-            <Shell data-card="intro" tag="article.intro" className="w-full">
-              <div className="relative p-5 lg:p-[min(1.4rem,2.6svh)]">
-                <p
-                  data-kicker
-                  className="label block w-fit transition-colors duration-200 hover:text-ink"
-                >
-                  <Words text="Who I am" />
-                </p>
-                <p
-                  data-bio
-                  className="mt-[1.2svh] block max-w-[44rem] text-[min(1.02rem,2.3svh)] leading-relaxed text-ink/85 transition-colors duration-200 hover:text-ink"
-                >
-                  <Words text={about.bio} />
-                </p>
-              </div>
-            </Shell>
-            {spot}
-          </div>
+        {/* ════ RIGHT: image + caption ════ */}
+        <div
+          data-block="photo"
+          className="about-photo-col relative flex min-w-0 flex-col items-center gap-[1.2svh] lg:items-end lg:justify-center"
+        >
+          <div className="about-photo-card mx-auto flex w-full flex-col lg:mx-0">
+            {/* image container: rounded border, transparent fill */}
+            <div
+              data-photo
+              data-cursor-hover
+              className="about-img-wrap cursor-hover group/imgcard relative overflow-hidden rounded-2xl border border-white/[0.1]"
+              style={{ aspectRatio: "4/5" }}
+            >
+              <RevealImage src={photoSrc(about.photo)} name={name} />
+            </div>
 
-          <div data-tile className={tile}>
-            <Shell data-card="approach" tag="article.approach" className="w-full">
-              <div className="relative p-5 lg:p-[min(1.4rem,2.6svh)]">
-                <p
-                  data-kicker
-                  className="label block w-fit transition-colors duration-200 hover:text-ink"
-                >
-                  <Words text="My approach" />
-                </p>
-                <p
-                  data-approach
-                  className="mt-[1.2svh] block max-w-[44rem] text-[min(0.95rem,2.1svh)] leading-relaxed text-ink/70 transition-colors duration-200 hover:text-ink"
-                >
-                  <Words text={about.approach} />
-                </p>
-              </div>
-            </Shell>
-            {spot}
-          </div>
+            {/* caption block below image */}
+            <div className="mt-[1svh] w-full pl-[2px]">
+              <h3
+                data-name
+                data-cursor-hover
+                className="about-name display block w-fit cursor-hover text-[clamp(1.3rem,4.5vw,1.8rem)]"
+              >
+                <Words text={name} />
+                <span className="text-red">.</span>
+              </h3>
 
-          <div data-tile className={tile}>
-            <Shell data-card="focus" tag="article.focus" className="w-full">
-              <div className="relative p-4 lg:p-[min(1.2rem,2.2svh)]">
-                <p
-                  data-kicker
-                  className="label block w-fit transition-colors duration-200 hover:text-ink"
-                >
-                  <Words text="What I focus on" />
-                </p>
-                <ul className="mt-[1svh] grid gap-1.5 sm:grid-cols-2">
-                  {about.focus.map((item) => (
-                    <li
-                      key={item}
-                      data-fitem
-                      className="group/focus relative flex items-start gap-2 rounded-[3px] px-2 py-1.5 transition-[background-color,translate] duration-200 hover:-translate-y-0.5 hover:bg-white/[0.05]"
-                    >
-                      <i
-                        data-fdot
-                        className="mt-[0.42rem] size-1.5 shrink-0 rounded-full bg-red transition-[scale] duration-300 group-hover/focus:scale-150"
-                      />
-                      <span
-                        data-ftext
-                        className="block text-[min(0.84rem,1.85svh)] leading-snug text-ink/70 transition-[color,translate] duration-200 group-hover/focus:translate-x-0.5 group-hover/focus:text-ink"
-                      >
-                        <Words text={item} />
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Shell>
-            {spot}
-          </div>
-
-          <div data-tile className={tile}>
-            <Shell data-card="details" tag="dl.details" className="w-full">
-              <div className="relative p-4 lg:p-[min(1.2rem,2.2svh)]">
-                <p
-                  data-kicker
-                  className="label block w-fit transition-colors duration-200 hover:text-ink"
-                >
-                  <Words text="Personal details" />
-                </p>
-                <dl className="mt-[0.4svh]">
-                  {rows.map((r) => (
-                    <div
-                      key={r.k}
-                      data-drow
-                      className="group/row relative grid grid-cols-[6.8rem_1fr] gap-3 py-[0.9svh] transition-colors duration-200 hover:bg-white/[0.04]"
-                    >
-                      <i
-                        data-drule
-                        className="absolute left-0 top-0 h-px w-full origin-left bg-white/10"
-                      />
-                      <dt
-                        data-dk
-                        className="label block w-fit self-center transition-colors duration-200 group-hover/row:text-red"
-                      >
+              <dl className="about-meta-dl mt-[0.6svh]">
+                {captionRows.map((r) => (
+                  <div
+                    key={r.k}
+                    data-drow
+                    data-cursor-hover
+                    className="about-row cursor-hover relative py-[0.4svh]"
+                  >
+                    <div className="flex items-baseline gap-3">
+                      <dt data-dk className="label w-[6rem] shrink-0 self-start">
                         <Words text={r.k} />
                       </dt>
-                      <dd
-                        data-dv
-                        className="block w-fit text-[min(0.9rem,1.95svh)] text-ink transition-[translate] duration-200 group-hover/row:translate-x-1"
-                      >
+                      <dd data-dv className="about-row-value text-[min(0.82rem,1.75svh)] text-ink/80">
                         <Words text={r.v} />
                       </dd>
                     </div>
-                  ))}
-                </dl>
-              </div>
-            </Shell>
-            {spot}
-          </div>
-        </div>
-      </div>
-
-      {/* BOTTOM STRIP: qualities and connection CTA */}
-      <div className="grid gap-4 border-t border-line pt-[2svh] lg:grid-cols-[minmax(0,40fr)_minmax(0,60fr)] lg:items-end lg:gap-[1.4vw]">
-        <div data-skills className="min-w-0">
-          <p
-            data-shead
-            className="label mb-2.5 block w-fit transition-colors duration-200 hover:text-ink"
-          >
-            <Words text="Professional qualities" />
-          </p>
-          <ul className="flex flex-wrap gap-2">
-            {about.softSkills.map((s) => (
-              <li
-                key={s}
-                data-badge
-                className="group/chip flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-1.5 pl-3 pr-4 text-[0.78rem] font-medium tracking-wide text-ink/80 transition-[translate,border-color,background-color,color] duration-200 hover:-translate-y-0.5 hover:border-red/60 hover:bg-red/10 hover:text-ink"
-              >
-                <i className="size-1.5 rounded-full bg-red transition-[scale] duration-300 group-hover/chip:scale-[1.8]" />
-                {s}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div
-          data-contact
-          className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
-        >
-          <div className="min-w-0">
-            <p
-              data-chead
-              className="label mb-1 block w-fit transition-colors duration-200 hover:text-ink"
-            >
-              <Words text="Connection" />
-            </p>
-            <a
-              data-cta
-              href={`mailto:${content.email}`}
-              className="group/cta inline-flex max-w-full items-center gap-2 text-[min(1.05rem,2.3svh)] font-semibold text-ink transition-colors duration-200 hover:text-red"
-            >
-              <span className="truncate">
-                <Words text="Let's build something." />
-              </span>
-              <span
-                data-carrow
-                aria-hidden="true"
-                className="inline-block transition-transform duration-300 group-hover/cta:-translate-y-0.5 group-hover/cta:translate-x-0.5"
-              >
-                ↗
-              </span>
-            </a>
-            <p className="mt-1 block truncate text-[0.78rem] text-muted">
-              <a
-                href={`mailto:${content.email}`}
-                className="transition-colors duration-200 hover:text-red"
-              >
-                {content.email}
-              </a>
-            </p>
-          </div>
-          <div className="flex shrink-0 gap-4">
-            <a
-              data-slink
-              href={content.social.github}
-              target="_blank"
-              rel="noreferrer"
-              className="group/slink inline-flex items-center gap-1 text-[0.75rem] font-semibold uppercase tracking-[0.12em] text-ink/75 transition-colors duration-200 hover:text-red"
-            >
-              GitHub
-              <span className="inline-block transition-transform duration-300 group-hover/slink:-translate-y-0.5 group-hover/slink:translate-x-0.5">
-                ↗
-              </span>
-            </a>
-            <a
-              data-slink
-              href={content.social.linkedin}
-              target="_blank"
-              rel="noreferrer"
-              className="group/slink inline-flex items-center gap-1 text-[0.75rem] font-semibold uppercase tracking-[0.12em] text-ink/75 transition-colors duration-200 hover:text-red"
-            >
-              LinkedIn
-              <span className="inline-block transition-transform duration-300 group-hover/slink:-translate-y-0.5 group-hover/slink:translate-x-0.5">
-                ↗
-              </span>
-            </a>
+                  </div>
+                ))}
+              </dl>
+            </div>
           </div>
         </div>
       </div>
     </section>
   );
 }
+
+/* ─── scoped styles ─── */
+const ABOUT_STYLE = `
+/* ── text reveal: dim → bright on hover/focus ── */
+.about-reveal-word {
+  display: inline;
+  color: rgba(242, 239, 235, 0.35);
+  transition: color 200ms ease-out;
+}
+.about-reveal-host:focus-within .about-reveal-word,
+.about-reveal-host:focus .about-reveal-word {
+  color: rgba(242, 239, 235, 0.94);
+}
+@media (hover: hover) { .about-reveal-host:hover .about-reveal-word { color: rgba(242, 239, 235, 0.94); } }
+
+/* ── intro paragraph: slightly larger + brighter ── */
+.about-bio {
+  font-size: clamp(1.02rem, 0.4vw + 0.78rem, 1.13rem);
+  color: rgba(242, 239, 235, 0.86);
+}
+.about-bio .about-reveal-word {
+  color: rgba(242, 239, 235, 0.62);
+}
+.about-bio:focus-within .about-reveal-word {
+  color: rgba(242, 239, 235, 0.98);
+}
+.about-bio .about-reveal-word:focus-visible { color: #ff6f79; }
+@media (hover: hover) {
+  .about-bio:hover .about-reveal-word { color: rgba(242, 239, 235, 0.98); }
+  .about-bio .about-reveal-word:hover { color: #ff6f79; }
+}
+
+/* ── tagline ── */
+.about-sub {
+  transition: color 200ms ease-out, text-shadow 200ms ease-out;
+}
+.about-sub:focus-visible {
+  color: rgba(242, 239, 235, 0.96);
+  text-shadow: 0 0 18px rgba(242, 239, 235, 0.12);
+}
+@media (hover: hover) { .about-sub:hover { color: rgba(242,239,235,.96); text-shadow: 0 0 18px rgba(242,239,235,.12); } }
+
+/* ── heading words ── */
+.about-head-line {
+  transition: color 220ms ease-out, text-shadow 220ms ease-out;
+}
+.about-head-line--light:focus-visible {
+  color: #ffffff;
+  text-shadow: 0 0 28px rgba(242, 239, 235, 0.22);
+}
+.about-head-line--red:focus-visible {
+  color: #ff3145;
+  text-shadow: 0 0 30px rgba(214, 26, 41, 0.42);
+}
+@media (hover: hover) {
+  .about-head-line--light:hover { color:#fff; text-shadow:0 0 28px rgba(242,239,235,.22); }
+  .about-head-line--red:hover { color:#ff3145; text-shadow:0 0 30px rgba(214,26,41,.42); }
+}
+.about-heading span[data-cursor-hover] {
+  cursor: default;
+}
+
+/* ── section label ── */
+.about-kicker,
+#about header [data-label] {
+  transition: color 220ms ease-out, letter-spacing 220ms ease-out;
+}
+.about-kicker:focus-visible,
+#about header [data-label]:focus-visible {
+  color: var(--color-red, #d61a29);
+  letter-spacing: 0.13em;
+}
+@media (hover: hover) {
+  .about-kicker:hover, #about header [data-label]:hover { color:var(--color-red,#d61a29); letter-spacing:.13em; }
+}
+
+/* ── focus list + chips: side by side on desktop ── */
+.about-focus-grid {
+  display: grid;
+  gap: 1rem 2rem;
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .about-focus-grid {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 0.5rem 2.2rem;
+  }
+}
+
+.about-focus-item {
+  transition: transform 220ms ease-out, background-color 220ms ease-out;
+}
+.about-focus-item:focus-visible {
+  transform: translateX(6px);
+  background-color: rgba(255, 255, 255, 0.035);
+}
+@media (hover: hover) { .about-focus-item:hover { transform:translateX(6px); background-color:rgba(255,255,255,.035); } }
+.about-focus-dot {
+  transition: box-shadow 220ms ease-out, background-color 220ms ease-out,
+    filter 220ms ease-out;
+}
+.about-focus-item:focus-visible .about-focus-dot {
+  background-color: #ff3145;
+  box-shadow: 0 0 0 3px rgba(214, 26, 41, 0.16),
+    0 0 10px 3px rgba(214, 26, 41, 0.55);
+  filter: brightness(1.35);
+}
+@media (hover: hover) { .about-focus-item:hover .about-focus-dot { background-color:#ff3145; box-shadow:0 0 0 3px rgba(214,26,41,.16),0 0 10px 3px rgba(214,26,41,.55); filter:brightness(1.35); } }
+.about-focus-text {
+  font-size: clamp(0.8rem, 0.3vw + 0.69rem, 0.9rem);
+}
+.about-focus-item:focus-visible .about-reveal-word {
+  color: rgba(242, 239, 235, 0.97);
+}
+@media (hover: hover) { .about-focus-item:hover .about-reveal-word { color:rgba(242,239,235,.97); } }
+
+.about-chip {
+  position: relative;
+  top: 0;
+  transition: top 220ms ease-out, border-color 220ms ease-out,
+    background-color 220ms ease-out, box-shadow 220ms ease-out, color 220ms ease-out;
+}
+.about-chip:focus-visible {
+  top: -3px;
+  border-color: rgba(214, 26, 41, 0.68);
+  background-color: rgba(214, 26, 41, 0.09);
+  box-shadow: 0 8px 20px -6px rgba(214, 26, 41, 0.45),
+    0 0 0 1px rgba(214, 26, 41, 0.2) inset;
+  color: rgba(242, 239, 235, 0.98);
+}
+@media (hover: hover) { .about-chip:hover { top:-3px; border-color:rgba(214,26,41,.68); background-color:rgba(214,26,41,.09); box-shadow:0 8px 20px -6px rgba(214,26,41,.45),0 0 0 1px rgba(214,26,41,.2) inset; color:rgba(242,239,235,.98); } }
+.about-chip i {
+  transition: transform 220ms ease-out, box-shadow 220ms ease-out;
+}
+.about-chip:focus-visible i {
+  transform: scale(1.8);
+  box-shadow: 0 0 8px rgba(214, 26, 41, 0.9);
+}
+@media (hover: hover) { .about-chip:hover i { transform:scale(1.8); box-shadow:0 0 8px rgba(214,26,41,.9); } }
+
+/* ── thin hairline dividers ── */
+.about-rule-thin {
+  background: rgba(255, 255, 255, 0.09);
+  transition: background-color 220ms ease-out;
+}
+.about-row:focus-visible .about-rule-thin {
+  background: rgba(214, 26, 41, 0.42);
+}
+@media (hover: hover) { .about-row:hover .about-rule-thin { background:rgba(214,26,41,.42); } }
+
+/* ── meta dl: label / value rows ── */
+.about-meta-dl {
+  position: relative;
+}
+.about-detail-dl {
+  display: grid;
+  gap: 0.1rem;
+}
+.about-row {
+  transition: background-color 220ms ease-out;
+}
+.about-row:focus-visible {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+@media (hover: hover) { .about-row:hover { background-color:rgba(255,255,255,.03); } }
+.about-row [data-dk] {
+  transition: color 220ms ease-out;
+}
+.about-row:focus-visible [data-dk] {
+  color: var(--color-red, #d61a29);
+}
+@media (hover: hover) { .about-row:hover [data-dk] { color:var(--color-red,#d61a29); } }
+.about-row-value {
+  font-size: clamp(0.8rem, 0.25vw + 0.72rem, 0.88rem);
+  transition: transform 220ms ease-out, color 220ms ease-out;
+}
+.about-row:focus-visible .about-row-value {
+  transform: translateX(3px);
+  color: rgba(242, 239, 235, 1);
+}
+@media (hover: hover) { .about-row:hover .about-row-value { transform:translateX(3px); color:rgba(242,239,235,1); } }
+
+/* ── image layers ── */
+.about-img-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.about-photo-base,
+.about-photo-color {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+.about-photo-color {
+  /* mask is set dynamically by JS */
+}
+
+/* ── photo card: ~9% larger, nudge right on desktop ── */
+.about-photo-card {
+  width: 100%;
+  max-width: 304px;
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .about-photo-card { max-width: 327px; }
+}
+@media (min-width: 1024px) {
+  .about-photo-card { max-width: 295px; }
+  .about-photo-col { transform: translateX(20px); }
+}
+@media (min-width: 1280px) {
+  .about-photo-card { max-width: 318px; }
+}
+
+.about-img-wrap {
+  width: 100%;
+  transform-origin: center;
+  transition: transform 220ms ease-out, border-color 220ms ease-out,
+    box-shadow 220ms ease-out;
+}
+.about-img-wrap:focus-within {
+  transform: translateY(-4px) scale(1.012);
+  border-color: rgba(214, 26, 41, 0.55);
+  box-shadow: 0 20px 48px -20px rgba(214, 26, 41, 0.55),
+    0 12px 30px -12px rgba(0, 0, 0, 0.55);
+}
+@media (hover: hover) { .about-img-wrap:hover { transform:translateY(-4px) scale(1.012); border-color:rgba(214,26,41,.55); box-shadow:0 20px 48px -20px rgba(214,26,41,.55),0 12px 30px -12px rgba(0,0,0,.55); } }
+.about-img-wrap img {
+  transition: transform 240ms ease-out;
+  transform-origin: top center;
+}
+.about-img-wrap:focus-within img {
+  transform: scale(1.035);
+}
+@media (hover: hover) { .about-img-wrap:hover img { transform:scale(1.035); } }
+
+/* ── name ── */
+.about-name {
+  transition: color 220ms ease-out, text-shadow 220ms ease-out,
+    letter-spacing 220ms ease-out;
+}
+.about-name:focus-visible {
+  color: #ff3145;
+  text-shadow: 0 0 20px rgba(214, 26, 41, 0.35);
+  letter-spacing: 0.01em;
+}
+@media (hover: hover) { .about-name:hover { color:#ff3145; text-shadow:0 0 20px rgba(214,26,41,.35); letter-spacing:.01em; } }
+
+/* ── body layout ── */
+.about-body {
+  min-height: 0;
+  min-width: 0;
+}
+
+/* ── text blocks: free, no card ── */
+.about-text-block {
+  position: relative;
+  min-width: 0;
+}
+
+/* ── responsive: tablet/mobile stack, centered photo, no offset ── */
+@media (max-width: 1023px) {
+  .about-photo-col {
+    transform: none;
+  }
+  .about-photo-card {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .about-photo-base {
+    display: none !important;
+  }
+  .about-photo-color {
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+    opacity: 1 !important;
+  }
+}
+
+@media (max-width: 479px) {
+  .about-focus-grid {
+    gap: 0.85rem;
+  }
+  .about-row [data-dk] {
+    width: 5.4rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about-focus-item,
+  .about-focus-dot,
+  .about-chip,
+  .about-img-wrap,
+  .about-img-wrap img {
+    transition: none;
+  }
+  .about-focus-item:hover,
+  .about-chip:hover,
+  .about-img-wrap:hover {
+    transform: none;
+  }
+  .about-chip:hover {
+    top: 0;
+  }
+}
+`;

@@ -34,11 +34,47 @@ export function scrollToId(id) {
 
 export default function useSmoothScroll() {
   useEffect(() => {
-    const finePointer = window.matchMedia("(pointer: fine)").matches;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!finePointer || reduced) return;
+    ScrollTrigger.config({ ignoreMobileResize: true });
 
-    const lenis = new Lenis({ lerp: 0.1 });
+    let refreshTimer = 0;
+    let disposed = false;
+    const refresh = () => {
+      if (disposed) return;
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => ScrollTrigger.refresh(), 80);
+    };
+    const onAssetLoad = (event) => {
+      if (event.target instanceof HTMLImageElement) refresh();
+    };
+    document.addEventListener("load", onAssetLoad, true);
+    window.addEventListener("load", refresh, { once: true });
+    if (document.fonts?.ready) document.fonts.ready.then(refresh).catch(() => {});
+    const images = [...document.images].filter((image) => !image.complete);
+    if (images.length) {
+      Promise.all(images.map((image) => image.decode?.().catch(() => undefined)))
+        .then(refresh)
+        .catch(() => {});
+    }
+
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const touchDevice = navigator.maxTouchPoints > 0;
+    if (!finePointer || reduced || touchDevice) {
+      return () => {
+        disposed = true;
+        document.removeEventListener("load", onAssetLoad, true);
+        window.removeEventListener("load", refresh);
+        window.clearTimeout(refreshTimer);
+      };
+    }
+
+    const lenis = new Lenis({
+      lerp: 0.085,
+      wheelMultiplier: 1,
+      smoothWheel: true,
+      syncTouch: false,
+      autoRaf: false,
+    });
     lenisInstance = lenis;
     if (locked) lenis.stop();
     lenis.on("scroll", ScrollTrigger.update);
@@ -48,9 +84,13 @@ export default function useSmoothScroll() {
     gsap.ticker.lagSmoothing(0);
 
     return () => {
+      disposed = true;
       gsap.ticker.remove(tick);
       lenis.destroy();
       lenisInstance = null;
+      document.removeEventListener("load", onAssetLoad, true);
+      window.removeEventListener("load", refresh);
+      window.clearTimeout(refreshTimer);
     };
   }, []);
 }

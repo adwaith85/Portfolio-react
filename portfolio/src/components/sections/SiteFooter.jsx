@@ -6,9 +6,14 @@ import {
   useState,
 } from "react";
 import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { content } from "../../data/content";
 import { ENVS, envCss } from "../../theme/palette";
-import { scrollToId } from "../../hooks/useSmoothScroll";
+import {
+  lockScroll,
+  scrollToId,
+  unlockScroll,
+} from "../../hooks/useSmoothScroll";
 import {
   createViewportReveal,
   cursorClick,
@@ -18,27 +23,35 @@ import {
   cursorType,
 } from "../../engine/viewport";
 import useAgentsEnabled from "../../engine/useAgentsEnabled";
-import { typeReveal } from "../../engine/buildKit";
+import { handoff } from "../../engine/handoff";
 import { swarm } from "../cursors/swarmApi";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const FOOTER = ENVS.footer;
 const RESUME = "/Adwaith_A_Kumar_Resume.pdf";
+const INK = "#f2efeb";
 
-/* Disjoint cursor leases: one small set of agents per band. */
+/* Exactly the 20 build cursors: every one gets a small footer job. */
 const AG = {
   head: [0, 1],
-  stats: [2],
-  columns: [3, 4, 5],
-  socials: [6],
-  bar: [7],
+  explore: [2],
+  links: [3, 4, 5, 6, 7, 8],
+  resume: [9],
+  copy: [10],
+  email: [11],
+  phone: [12],
+  socials: [13, 14, 15, 16, 17, 18],
+  top: [19],
 };
+const AGENTS = Array.from({ length: 20 }, (_, i) => i);
 
 const SOCIALS = [
   { key: "github", label: "GitHub", brand: "#f2efeb" },
   { key: "linkedin", label: "LinkedIn", brand: "#0a66c2" },
-  { key: "twitter", label: "X (Twitter)", brand: "#f2efeb" },
+  { key: "twitter", label: "X", brand: "#f2efeb" },
   { key: "facebook", label: "Facebook", brand: "#1877f2" },
-  { key: "instagram", label: "Instagram", brand: "#e4405f" },
+  { key: "instagram", label: "Instagram", brand: "#e1306c" },
   { key: "email", label: "Email", brand: "#d61a29" },
 ];
 
@@ -72,42 +85,44 @@ const FOOTER_STYLE = `
 
   .footer-social {
     --brand: #f2efeb;
-    transition:
-      translate 220ms cubic-bezier(0.22, 1, 0.36, 1),
-      border-color 220ms ease,
-      box-shadow 220ms ease,
-      background-color 220ms ease;
   }
   .footer-social svg {
     color: #f2efeb;
-    transition: color 220ms ease;
+    transition:
+      color 200ms ease,
+      transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
   }
+  .footer-social:focus-visible svg {
+    color: var(--brand);
+    transform: scale(1.16) translateY(-1px);
+  }
+
   .footer-social-tip {
     position: absolute;
-    bottom: calc(100% + 12px);
+    bottom: calc(100% + 10px);
     left: 50%;
     z-index: 40;
-    translate: -50% 6px;
+    translate: -50% 5px;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
     white-space: nowrap;
-    border: 1px solid rgba(242, 239, 235, 0.18);
-    border-radius: 6px;
-    background: rgba(17, 16, 18, 0.88);
-    padding: 0.36rem 0.58rem;
+    border: 1px solid rgba(242, 239, 235, 0.14);
+    border-radius: 5px;
+    background: rgba(17, 16, 18, 0.9);
+    padding: 0.3rem 0.5rem;
     color: #f2efeb;
-    font-size: 0.6rem;
+    font-size: 0.56rem;
     font-weight: 600;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.13em;
     text-transform: uppercase;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
     transition:
-      opacity 180ms ease,
-      translate 220ms cubic-bezier(0.22, 1, 0.36, 1),
-      visibility 0s linear 220ms;
+      opacity 160ms ease,
+      translate 200ms cubic-bezier(0.22, 1, 0.36, 1),
+      visibility 0s linear 200ms;
   }
   .footer-social-tip::after {
     content: "";
@@ -116,39 +131,101 @@ const FOOTER_STYLE = `
     left: 50%;
     translate: -50% 0;
     border: 4px solid transparent;
-    border-top-color: rgba(17, 16, 18, 0.88);
+    border-top-color: rgba(17, 16, 18, 0.9);
   }
-
-  .footer-social:focus-visible {
-    translate: 0 -4px;
-    border-color: color-mix(in srgb, var(--brand) 62%, transparent);
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--brand) 28%, transparent),
-      0 12px 28px -12px color-mix(in srgb, var(--brand) 60%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  .footer-social:last-child .footer-social-tip {
+    right: 0;
+    left: auto;
+    translate: 0 5px;
   }
-  .footer-social:focus-visible svg {
-    color: var(--brand);
+  .footer-social:last-child .footer-social-tip::after {
+    right: 8px;
+    left: auto;
+    translate: 0 0;
   }
-  .footer-social:focus-visible .footer-social-tip {
+  .footer-social:last-child:hover .footer-social-tip,
+  .footer-social:last-child:focus-visible .footer-social-tip {
+    translate: 0 0;
+  }
+  .footer-social:focus-visible .footer-social-tip,
+  .footer-social:last-child:focus-visible .footer-social-tip {
     translate: -50% 0;
     opacity: 1;
     visibility: visible;
     transition-delay: 0s;
   }
+  .footer-social:last-child:focus-visible .footer-social-tip {
+    translate: 0 0;
+  }
+
+  /* link: sliding underline + tiny lift + colour shift */
+  .footer-link {
+    position: relative;
+    transition:
+      color 200ms ease,
+      transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .footer-link::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 1px;
+    background: #d61a29;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+  .footer-link:focus-visible {
+    color: #d61a29;
+    transform: translateY(-1px);
+  }
+  .footer-link:focus-visible::after {
+    transform: scaleX(1);
+  }
+  .footer-link-arrow {
+    display: inline-block;
+    transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .footer-link:focus-visible .footer-link-arrow {
+    transform: translate(2px, -2px);
+  }
+
+  .footer-copy {
+    transition:
+      color 200ms ease,
+      border-color 200ms ease,
+      transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .footer-copy:focus-visible {
+    color: #d61a29;
+    border-color: rgba(214, 26, 41, 0.55);
+    transform: translateY(-1px);
+  }
+
+  .footer-top {
+    transition:
+      color 200ms ease,
+      transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .footer-top:focus-visible {
+    color: #d61a29;
+    transform: translateY(-1px);
+  }
+  .footer-top-arrow {
+    display: inline-block;
+    transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .footer-top:focus-visible .footer-top-arrow {
+    transform: translateY(-3px);
+  }
 
   @media (hover: hover) and (pointer: fine) {
-    .footer-social:hover {
-      translate: 0 -4px;
-      border-color: color-mix(in srgb, var(--brand) 62%, transparent);
-      background-color: color-mix(in srgb, var(--brand) 8%, transparent);
-      box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--brand) 28%, transparent),
-        0 12px 28px -12px color-mix(in srgb, var(--brand) 60%, transparent),
-        inset 0 1px 0 rgba(255, 255, 255, 0.18);
-    }
     .footer-social:hover svg {
       color: var(--brand);
+      transform: scale(1.16) translateY(-1px);
     }
     .footer-social:hover .footer-social-tip {
       translate: -50% 0;
@@ -156,272 +233,279 @@ const FOOTER_STYLE = `
       visibility: visible;
       transition-delay: 0s;
     }
+    .footer-social:last-child:hover .footer-social-tip {
+      translate: 0 0;
+    }
+    .footer-link:hover {
+      color: #d61a29;
+      transform: translateY(-1px);
+    }
+    .footer-link:hover::after {
+      transform: scaleX(1);
+    }
+    .footer-link:hover .footer-link-arrow {
+      transform: translate(2px, -2px);
+    }
+    .footer-copy:hover {
+      color: #d61a29;
+      border-color: rgba(214, 26, 41, 0.55);
+      transform: translateY(-1px);
+    }
+    .footer-top:hover {
+      color: #d61a29;
+      transform: translateY(-1px);
+    }
+    .footer-top:hover .footer-top-arrow {
+      transform: translateY(-3px);
+    }
   }
 
-  .footer-link-arrow {
-    display: inline-block;
-    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .footer-link:focus-visible .footer-link-arrow {
-    transform: translate(2px, -2px);
-  }
-  @media (hover: hover) {
-    .footer-link:hover .footer-link-arrow { transform: translate(2px, -2px); }
-  }
-  .footer-top-arrow {
-    display: inline-block;
-  }
-  @keyframes footerArrowBounce {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-4px);
-    }
-  }
-  .footer-top:focus-visible .footer-top-arrow {
-    animation: footerArrowBounce 700ms ease-in-out infinite;
-  }
-  @media (hover: hover) {
-    .footer-top:hover .footer-top-arrow { animation: footerArrowBounce 700ms ease-in-out infinite; }
+  .footer-curtain {
+    position: fixed !important;
+    margin: 0 !important;
+    backface-visibility: hidden;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .footer-social,
     .footer-social svg,
-    .footer-link-arrow {
+    .footer-link,
+    .footer-link::after,
+    .footer-link-arrow,
+    .footer-copy,
+    .footer-top,
+    .footer-top-arrow {
       transition: none;
     }
-    .footer-top:hover .footer-top-arrow,
-    .footer-top:focus-visible .footer-top-arrow {
-      animation: none;
+    .footer-social:focus-visible svg,
+    .footer-link:focus-visible,
+    .footer-copy:focus-visible,
+    .footer-top:focus-visible {
+      transform: none;
     }
   }
 `;
 
-/* Fade only this group's cursors, then hide them so none is left roaming. */
-function outro(tl, agents, end) {
-  const at = Math.max(0, end) + 1;
-  cursorOutro(tl, agents, { at, duration: 0.45 });
-  tl.add(() => agents.forEach((i) => swarm.hide(i)), at + 0.46);
+function agentIds() {
+  const ids = [];
+  for (let i = 0; i < 64; i++) {
+    if (swarm.els([i]).length) ids.push(i);
+  }
+  return ids;
 }
 
-/* ---------- band 1: the closing statement ---------- */
+/* every cursor leaves with the footer build */
+function hideAllCursors() {
+  swarm.dismiss(agentIds());
+  swarm.hoverEnd();
+}
 
-function buildHead(block) {
+/* put the hero back into its pre-build state before its timeline is replayed */
+function resetHero(hero) {
+  const all = (s) => [...hero.querySelectorAll(s)];
+
+  gsap.set(
+    all(
+      "[data-role],[data-hello],[data-line],[data-title],[data-gl],[data-loc],[data-logo],[data-row-inner],[data-stat-label],[data-plus],[data-rule-handle],[data-sel],[data-caret],[data-pen],[data-glow],[data-btn-arrow],[data-dl-label],[data-dl-icon]"
+    ),
+    { autoAlpha: 0 }
+  );
+  gsap.set(all("[data-ch]"), { opacity: 0 });
+  gsap.set(all("[data-gl]"), {
+    yPercent: 45,
+    scaleY: 1.3,
+    transformOrigin: "50% 100%",
+  });
+  gsap.set(all("[data-dot]"), { scale: 0 });
+  gsap.set(all("[data-period],[data-title]"), { color: INK });
+  gsap.set(all("[data-rule]"), { clipPath: "inset(0 100% 0 0)" });
+  gsap.set(all("[data-btn-bg]"), { scaleX: 0, transformOrigin: "0% 50%" });
+  gsap.set(all("[data-sketch]"), { clipPath: "inset(0% 0% 100% 0%)" });
+  gsap.set(all("[data-real]"), { clipPath: "inset(0% -60% 100% -60%)" });
+  all("[data-stat-num]").forEach((n) => {
+    n.textContent = "0";
+  });
+}
+
+/* find the intro timeline by the hero targets it owns */
+function findHeroTimeline(hero) {
+  const timelines = gsap.globalTimeline.getChildren(false, false, true);
+  for (const tl of timelines) {
+    if (!tl || tl.duration() < 2) continue;
+    const children = tl.getChildren(true, true, true);
+    for (const child of children) {
+      const targets = child.targets ? child.targets() : [];
+      if (targets.some((t) => t instanceof Element && hero.contains(t))) {
+        return tl;
+      }
+    }
+  }
+  return null;
+}
+
+function replayHeroIntro(known) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const hero = document.getElementById("home");
+  if (!hero) return;
+
+  // Resolve the intro before touching the hero. If it cannot be replayed the
+  // finished hero must be left exactly as it is, never blanked.
+  const intro = known || findHeroTimeline(hero);
+  if (!intro) return;
+
+  resetHero(hero);
+  agentIds().forEach((i) => swarm.show(i));
+  swarm.showAll();
+
+  handoff.claim(intro);
+  // No invalidate(): restarting rewinds to the values recorded on the first
+  // play, so counters, typing and drag boxes replay exactly as before.
+  intro.timeScale(1.35).restart();
+}
+
+/* ---------- one fast build for the whole footer ---------- */
+
+function buildFooter(root, ghost) {
   const tl = gsap.timeline();
-  const [A, B] = AG.head;
-  const h1 = block.querySelector("[data-f-h1]");
-  const h2 = block.querySelector("[data-f-h2]");
-  const script = block.querySelector("[data-f-script]");
-  const cta = block.querySelector("[data-f-cta]");
-  const ctaBg = block.querySelector("[data-f-cta-bg]");
-  const ctaText = block.querySelector("[data-f-cta-text]");
-  const ctaArrow = block.querySelector("[data-f-cta-arrow]");
 
-  cursorIntro(tl, AG.head, 0);
+  const h1 = root.querySelector("[data-f-h1]");
+  const h2 = root.querySelector("[data-f-h2]");
+  const more = root.querySelector("[data-f-continue]");
+  const exploreTitle = root.querySelector("[data-f-explore] [data-f-col-title]");
+  const navLinks = [...root.querySelectorAll("[data-f-nav]")];
+  const resume = root.querySelector("[data-f-resume]");
+  const copy = root.querySelector("[data-f-copy]");
+  const email = root.querySelector("[data-f-email]");
+  const phone = root.querySelector("[data-f-phone]");
+  const socials = [...root.querySelectorAll("[data-f-social]")];
+  const bar = root.querySelector("[data-f-bar]");
 
-  const e1 = cursorType(tl, h1, A, { at: 0.06, duration: 0.5, travel: 0.26 });
-  const e2 = cursorType(tl, h2, B, { at: 0.14, duration: 0.5, travel: 0.26 });
-  let t = Math.max(e1, e2);
+  cursorIntro(tl, AGENTS, 0);
 
+  const t1 = cursorType(tl, h1, AG.head[0], {
+    at: 0.02,
+    duration: 0.18,
+    travel: 0.07,
+  });
+  const t2 = cursorType(tl, h2, AG.head[1], {
+    at: 0.04,
+    duration: 0.2,
+    travel: 0.07,
+  });
+  let headEnd = Math.max(t1, t2);
   tl.fromTo(
-    script,
-    { autoAlpha: 0, clipPath: "inset(0% 100% 0% 0%)" },
+    more,
+    { autoAlpha: 0, y: 5 },
     {
       autoAlpha: 1,
-      clipPath: "inset(0% 0% 0% 0%)",
-      duration: 0.55,
+      y: 0,
+      duration: 0.16,
       ease: "power2.out",
+      clearProps: "transform",
     },
-    t + 0.04
+    headEnd + 0.01
   );
-  t += 0.48;
+  headEnd += 0.12;
 
-  const arrive = cursorMove(tl, B, cta, {
-    at: t,
-    duration: 0.28,
-    offset: { x: 0.5, y: 0.5 },
-  });
-  cursorClick(tl, B, arrive);
-  tl.to(
-    ctaBg,
-    { scaleX: 1, duration: 0.42, ease: "power3.out" },
-    arrive
-  );
-  tl.fromTo(
-    ctaText,
-    { autoAlpha: 0, y: 4 },
-    { autoAlpha: 1, y: 0, duration: 0.32, ease: "power2.out" },
-    arrive + 0.06
-  );
-  tl.fromTo(
-    ctaArrow,
-    { autoAlpha: 0, y: -6 },
-    { autoAlpha: 1, y: 0, duration: 0.45, ease: "bounce.out" },
-    arrive + 0.16
-  );
-
-  outro(tl, AG.head, arrive + 0.55);
-  return tl;
-}
-
-/* ---------- band 2: the proof strip ---------- */
-
-function buildStats(block) {
-  const tl = gsap.timeline();
-  const A = AG.stats[0];
-  const stats = [...block.querySelectorAll("[data-f-stat]")];
-
-  cursorIntro(tl, AG.stats, 0);
-
-  let t = 0.06;
-  stats.forEach((stat) => {
-    const num = stat.querySelector("[data-f-stat-num]");
-    const label = stat.querySelector("[data-f-stat-label]");
-    if (!num) return;
-
-    const to = Number(num.dataset.to || 0);
-    const arrive = cursorMove(tl, A, num, {
-      at: t,
-      duration: 0.2,
-      offset: { x: 0.5, y: 0.45 },
+  // One cursor per item keeps all 20 agents busy for the whole build.
+  const reveal = (node, agent, at, ease = "power2.out") => {
+    if (!node) return at;
+    const arrive = cursorMove(tl, agent, node, {
+      at,
+      duration: 0.08,
+      offset: { x: 0.16, y: 0.5 },
     });
-    cursorClick(tl, A, arrive);
-
-    tl.fromTo(
-      stat,
-      { autoAlpha: 0, y: 6 },
-      { autoAlpha: 1, y: 0, duration: 0.3, ease: "power2.out" },
-      arrive - 0.03
-    );
-
-    const counter = { v: 0 };
+    cursorClick(tl, agent, arrive);
     tl.to(
-      counter,
+      node,
       {
-        v: to,
-        duration: 0.55,
-        ease: "power2.out",
-        onUpdate: () => {
-          num.textContent = String(Math.round(counter.v));
-        },
-        onComplete: () => {
-          num.textContent = String(to);
-        },
+        autoAlpha: 1,
+        x: 0,
+        y: 0,
+        duration: 0.14,
+        ease,
+        clearProps: "transform",
       },
       arrive
     );
+    return arrive + 0.14;
+  };
 
-    if (label) {
-      tl.add(typeReveal(label, { duration: 0.28 }), arrive + 0.04);
-    }
-
-    t = arrive + 0.22;
+  const titleEnd = cursorType(tl, exploreTitle, AG.explore[0], {
+    at: 0.08,
+    duration: 0.14,
+    travel: 0.07,
   });
 
-  outro(tl, AG.stats, t + 0.5);
-  return tl;
-}
-
-/* ---------- band 3: the three quick-read columns ---------- */
-
-function buildColumns(block) {
-  const tl = gsap.timeline();
-  const cols = [...block.querySelectorAll("[data-f-col]")];
-
-  cursorIntro(tl, AG.columns, 0);
-
-  let end = 0;
-  cols.forEach((col, i) => {
-    const ag = AG.columns[i % AG.columns.length];
-    const title = col.querySelector("[data-f-col-title]");
-    const lines = [...col.querySelectorAll("[data-f-line]")];
-    let t = 0.08 + i * 0.04;
-
-    if (title) {
-      t = cursorType(tl, title, ag, {
-        at: t,
-        duration: 0.3,
-        travel: 0.22,
-      });
-    }
-
-    lines.forEach((line, k) => {
-      tl.fromTo(
-        line,
-        { autoAlpha: 0, y: 7 },
-        { autoAlpha: 1, y: 0, duration: 0.32, ease: "power2.out" },
-        t + k * 0.07
-      );
-    });
-
-    end = Math.max(end, t + Math.max(0, lines.length - 1) * 0.07 + 0.32);
+  let leftEnd = titleEnd;
+  navLinks.forEach((link, i) => {
+    const at = Math.max(0.16, titleEnd) + i * 0.032;
+    leftEnd = Math.max(leftEnd, reveal(link, AG.links[i], at));
   });
+  leftEnd = Math.max(
+    leftEnd,
+    reveal(resume, AG.resume[0], Math.max(0.2, titleEnd) + navLinks.length * 0.032)
+  );
 
-  outro(tl, AG.columns, end);
-  return tl;
-}
+  let rightEnd = reveal(copy, AG.copy[0], 0.1);
+  rightEnd = Math.max(rightEnd, reveal(email, AG.email[0], rightEnd + 0.015));
+  rightEnd = Math.max(rightEnd, reveal(phone, AG.phone[0], rightEnd + 0.015));
 
-/* ---------- band 3: social icons, one cursor click each ---------- */
-
-function buildSocials(block) {
-  const tl = gsap.timeline();
-  const A = AG.socials[0];
-  const links = [...block.querySelectorAll("[data-f-social]")];
-
-  cursorIntro(tl, AG.socials, 0);
-
-  let t = 0.05;
-  links.forEach((link) => {
-    const arrive = cursorMove(tl, A, link, {
-      at: t,
-      duration: 0.18,
+  let socialEnd = Math.max(rightEnd + 0.02, 0.22);
+  socials.forEach((link, i) => {
+    const at = socialEnd + i * 0.038;
+    const arrive = cursorMove(tl, AG.socials[i], link, {
+      at,
+      duration: 0.07,
       offset: { x: 0.5, y: 0.5 },
     });
-    cursorClick(tl, A, arrive);
-    tl.fromTo(
+    cursorClick(tl, AG.socials[i], arrive);
+    tl.to(
       link,
-      { autoAlpha: 0, scale: 0.55 },
       {
         autoAlpha: 1,
         scale: 1,
-        duration: 0.32,
-        ease: "back.out(2.4)",
-        clearProps: "transform,translate,rotate,scale",
+        duration: 0.15,
+        ease: "back.out(2.2)",
+        clearProps: "transform,scale",
       },
       arrive
     );
-    t = arrive + 0.12;
+    socialEnd = arrive + 0.12;
   });
 
-  outro(tl, AG.socials, t + 0.35);
-  return tl;
-}
-
-/* ---------- band 5 + 4: bottom bar and the ghost word ---------- */
-
-function buildBar(block, ghost) {
-  const tl = gsap.timeline();
-
-  cursorIntro(tl, AG.bar, 0);
-
+  const barAt = Math.max(headEnd, leftEnd, rightEnd, socialEnd) + 0.02;
+  const arriveBar = cursorMove(tl, AG.top[0], bar, {
+    at: barAt,
+    duration: 0.1,
+    offset: { x: 0.7, y: 0.5 },
+  });
+  cursorClick(tl, AG.top[0], arriveBar);
   tl.to(
-    block,
-    { autoAlpha: 1, y: 0, duration: 0.45, ease: "power2.out" },
-    0.05
+    bar,
+    {
+      autoAlpha: 1,
+      y: 0,
+      duration: 0.18,
+      ease: "power2.out",
+      clearProps: "transform",
+    },
+    arriveBar
   );
-
   if (ghost) {
     tl.to(
       ghost,
-      { autoAlpha: 1, yPercent: 0, duration: 1.05, ease: "power3.out" },
-      0.1
+      { autoAlpha: 1, yPercent: 0, duration: 0.3, ease: "power3.out" },
+      arriveBar + 0.04
     );
   }
 
-  outro(tl, AG.bar, 1.15);
+  const end = arriveBar + 0.36;
+  cursorOutro(tl, AGENTS, { at: end, duration: 0.16 });
+  tl.add(() => {
+    AGENTS.forEach((i) => swarm.hide(i));
+    hideAllCursors();
+  }, end + 0.18);
+
   return tl;
 }
 
@@ -430,7 +514,7 @@ function Icon({ name }) {
     return (
       <svg
         viewBox="0 0 24 24"
-        className="relative size-[22px]"
+        className="relative size-[19px]"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.7"
@@ -447,7 +531,7 @@ function Icon({ name }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="relative size-[21px]"
+      className="relative size-[18px]"
       fill="currentColor"
       aria-hidden="true"
     >
@@ -460,9 +544,17 @@ export default function SiteFooter() {
   const root = useRef(null);
   const ghost = useRef(null);
   const copyTimer = useRef(0);
+  const exitLocked = useRef(false);
+  const stopReveal = useRef(null);
+  const exitApi = useRef(null);
+  const heroTl = useRef(null);
   const [copied, setCopied] = useState(false);
   const enabled = useAgentsEnabled();
   const footer = content.footer;
+
+  const triggerExit = useCallback(() => {
+    exitApi.current?.trigger();
+  }, []);
 
   useLayoutEffect(() => {
     const el = root.current;
@@ -476,74 +568,504 @@ export default function SiteFooter() {
     const ctx = gsap.context(() => {
       gsap.set(
         all(
-          "[data-f-h1],[data-f-h2],[data-f-script],[data-f-stat]," +
-            "[data-f-col-title],[data-f-line],[data-f-social],[data-f-bar]"
+          "[data-f-h1],[data-f-h2],[data-f-continue],[data-f-col-title]," +
+            "[data-f-nav],[data-f-resume],[data-f-copy],[data-f-email]," +
+            "[data-f-phone],[data-f-social],[data-f-bar]"
         ),
         { autoAlpha: 0 }
       );
-      gsap.set(all("[data-f-line]"), { y: 7 });
-      gsap.set(all("[data-f-script]"), {
-        clipPath: "inset(0% 100% 0% 0%)",
-      });
-      gsap.set(all("[data-f-cta-bg]"), {
-        scaleX: 0,
-        transformOrigin: "0% 50%",
-      });
-      gsap.set(all("[data-f-cta-text],[data-f-cta-arrow]"), {
-        autoAlpha: 0,
-      });
+      gsap.set(all("[data-f-nav],[data-f-resume]"), { x: -6 });
+      gsap.set(
+        all("[data-f-continue],[data-f-copy],[data-f-email],[data-f-phone]"),
+        { y: 6 }
+      );
+      gsap.set(all("[data-f-social]"), { scale: 0.6 });
       gsap.set(all("[data-f-bar]"), { y: 10 });
-      all("[data-f-stat-num]").forEach((n) => {
-        n.textContent = "0";
-      });
       if (ghost.current) {
         gsap.set(ghost.current, { yPercent: 30, autoAlpha: 0 });
       }
     }, el);
-
-    const headEl = el.querySelector("[data-f-head]");
-    const statsEl = el.querySelector("[data-f-stats]");
-    const columnsEl = el.querySelector("[data-f-columns]");
-    const socialsEl = el.querySelector("[data-f-socials]");
-    const barEl = el.querySelector("[data-f-bar]");
-
-    const groups = [
-      headEl && { element: headEl, agents: AG.head, build: buildHead },
-      statsEl && { element: statsEl, agents: AG.stats, build: buildStats },
-      columnsEl && {
-        element: columnsEl,
-        agents: AG.columns,
-        build: buildColumns,
-      },
-      socialsEl && {
-        element: socialsEl,
-        agents: AG.socials,
-        build: buildSocials,
-      },
-      barEl && {
-        element: barEl,
-        agents: AG.bar,
-        start: "top bottom",
-        build: (node) => buildBar(node, ghost.current),
-      },
-    ].filter(Boolean);
 
     const stop = createViewportReveal({
       root: el,
       sectionId: "footer",
       enabled,
       reduced,
-      start: "top 95%",
-      speed: 1.45,
-      back: 2.2,
-      groups,
+      start: "top 92%",
+      speed: 2.05,
+      back: 2.4,
+      groups: [
+        {
+          element: el,
+          agents: AGENTS,
+          build: (node) => buildFooter(node, ghost.current),
+        },
+      ],
     });
+    stopReveal.current = stop;
 
     return () => {
       stop();
+      stopReveal.current = null;
       ctx.revert();
     };
   }, [enabled]);
+
+  /*
+    Scroll-driven curtain exit.
+    The page stays put at the footer end until a deliberate extra wheel / touch
+    crosses the resistance threshold. From there progress is scrubbed by the
+    same gesture; stopping or releasing early snaps the curtain back down.
+  */
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) {
+      exitApi.current = {
+        trigger() {
+          window.scrollTo(0, 0);
+          ScrollTrigger.refresh();
+        },
+      };
+      return () => {
+        exitApi.current = null;
+      };
+    }
+
+    const THRESHOLD = 140;
+    const MAX_STEP = 280;
+    const IDLE = 260;
+    const RESISTANCE = 0.9;
+
+    const state = {
+      acc: 0,
+      engaged: false,
+      completing: false,
+      heroStarted: false,
+      progress: 0,
+      mode: "",
+      vh: 0,
+      travel: 300,
+      yTo: null,
+      tween: null,
+      idle: 0,
+      wheelRaf: 0,
+      wheelDelta: 0,
+      touchStart: 0,
+      touchLast: 0,
+    };
+    let alive = true;
+
+    const atEnd = () =>
+      Math.ceil(window.scrollY + window.innerHeight) >=
+      document.documentElement.scrollHeight - 3;
+
+    const bottom = () =>
+      Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+
+    const clearIdle = () => {
+      if (state.idle) {
+        window.clearTimeout(state.idle);
+        state.idle = 0;
+      }
+    };
+
+    // If a user reaches the end while the footer build is still running, make
+    // sure the curtain itself is never half-hidden.
+    const finalFooter = () => {
+      const nodes = el.querySelectorAll(
+        "[data-f-h1],[data-f-h2],[data-f-continue],[data-f-col-title]," +
+          "[data-f-nav],[data-f-resume],[data-f-copy],[data-f-email]," +
+          "[data-f-phone],[data-f-social],[data-f-bar]"
+      );
+      if (nodes.length) {
+        gsap.set(nodes, {
+          autoAlpha: 1,
+          x: 0,
+          y: 0,
+          scale: 1,
+          clearProps: "transform,clipPath",
+        });
+      }
+      if (ghost.current) {
+        gsap.set(ghost.current, { yPercent: 0, autoAlpha: 1 });
+      }
+    };
+
+    const stripCurtain = () => {
+      el.classList.remove("footer-curtain");
+      [
+        "top",
+        "left",
+        "width",
+        "height",
+        "padding-top",
+        "z-index",
+        "margin",
+        "will-change",
+      ].forEach((prop) => el.style.removeProperty(prop));
+      gsap.set(el, { clearProps: "transform" });
+      state.yTo = null;
+    };
+
+    const startHero = () => {
+      if (state.heroStarted) return;
+      state.heroStarted = true;
+      replayHeroIntro(heroTl.current);
+    };
+
+    const COMPLETE_HOLD = 420;
+
+    const setAnchor = (off) => {
+      if (off) {
+        document.documentElement.style.overflowAnchor = "none";
+      } else {
+        document.documentElement.style.removeProperty("overflow-anchor");
+      }
+    };
+
+    const complete = () => {
+      if (!alive || state.completing) return;
+      state.completing = true;
+      clearIdle();
+      if (state.wheelRaf) {
+        cancelAnimationFrame(state.wheelRaf);
+        state.wheelRaf = 0;
+      }
+      state.wheelDelta = 0;
+      if (state.tween) {
+        state.tween.kill();
+        state.tween = null;
+      }
+      gsap.killTweensOf(el);
+      gsap.set(el, { y: -state.vh });
+      startHero();
+
+      // The hero is already running behind the finished curtain. Put the page
+      // geometry back at the top without a smooth journey.
+      stripCurtain();
+      window.scrollTo(0, 0);
+
+      // Hold the lock for a beat so the rest of the same flick cannot scroll
+      // the freshly replayed hero, then unlock exactly at the top.
+      window.setTimeout(() => {
+        if (!alive) return;
+        window.scrollTo(0, 0);
+        // Keep Lenis's internal target in sync with the instant jump.
+        scrollToId("home");
+        if (exitLocked.current) {
+          unlockScroll();
+          exitLocked.current = false;
+        }
+        ScrollTrigger.refresh();
+        ScrollTrigger.update();
+
+        requestAnimationFrame(() => {
+          if (!alive) return;
+          window.scrollTo(0, 0);
+          ScrollTrigger.update();
+          setAnchor(false);
+          state.engaged = false;
+          state.completing = false;
+          state.progress = 0;
+          state.acc = 0;
+          state.mode = "";
+          state.heroStarted = false;
+        });
+      }, COMPLETE_HOLD);
+    };
+
+    const restoreSnap = () => {
+      if (!alive) return;
+      stripCurtain();
+      if (exitLocked.current) {
+        unlockScroll();
+        exitLocked.current = false;
+      }
+      ScrollTrigger.refresh();
+      window.scrollTo(0, bottom());
+      ScrollTrigger.update();
+
+      requestAnimationFrame(() => {
+        if (!alive) return;
+        window.scrollTo(0, bottom());
+        ScrollTrigger.update();
+        setAnchor(false);
+        state.engaged = false;
+        state.completing = false;
+        state.progress = 0;
+        state.acc = 0;
+        state.mode = "";
+        state.heroStarted = false;
+      });
+    };
+
+    const snapBack = () => {
+      if (!alive || !state.engaged || state.completing) return;
+      state.completing = true;
+      clearIdle();
+      if (state.tween) {
+        state.tween.kill();
+        state.tween = null;
+      }
+      gsap.killTweensOf(el);
+      state.yTo = null;
+      gsap.to(el, {
+        y: 0,
+        duration: 0.42,
+        ease: "power3.out",
+        onComplete: restoreSnap,
+      });
+    };
+
+    const applyProgress = () => {
+      if (!alive || !state.engaged) return;
+      const p = Math.max(0, Math.min(1, state.progress));
+      state.progress = p;
+      if (state.yTo) state.yTo(-p * state.vh);
+      if (p >= 0.55) startHero();
+      if (p >= 1) complete();
+    };
+
+    const scheduleIdle = () => {
+      clearIdle();
+      state.idle = window.setTimeout(() => {
+        state.idle = 0;
+        if (state.engaged && !state.completing && state.progress < 1) snapBack();
+      }, IDLE);
+    };
+
+    const engage = (mode) => {
+      if (!alive || state.engaged || state.completing) return;
+
+      hideAllCursors();
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+
+      const rect = el.getBoundingClientRect();
+      const padTop = parseFloat(getComputedStyle(el).paddingTop) || 0;
+      state.vh = window.innerHeight;
+      state.travel = Math.max(240, Math.min(360, state.vh * 0.34));
+      state.engaged = true;
+      state.completing = false;
+      state.heroStarted = false;
+      state.progress = 0;
+      state.acc = THRESHOLD;
+      state.mode = mode;
+
+      // Stop the footer's own reveal trigger from reversing as the page jumps
+      // to the top behind the fixed curtain.
+      finalFooter();
+      stopReveal.current?.();
+
+      lockScroll();
+      exitLocked.current = true;
+
+      el.classList.add("footer-curtain");
+      el.style.top = "0";
+      el.style.left = "0";
+      el.style.width = "100%";
+      el.style.height = `${state.vh}px`;
+      // Keep the content exactly where the user saw it while the background
+      // becomes a full-viewport curtain.
+      el.style.paddingTop = `${Math.max(0, rect.top + padTop)}px`;
+      el.style.zIndex = "10000";
+      el.style.margin = "0";
+      el.style.willChange = "transform";
+
+      window.scrollTo(0, 0);
+      ScrollTrigger.update();
+
+      if (mode === "button") {
+        state.tween = gsap.to(el, {
+          y: -state.vh,
+          duration: 0.72,
+          ease: "power3.inOut",
+          overwrite: true,
+          onUpdate() {
+            if (this.progress() > state.progress) state.progress = this.progress();
+            if (state.progress >= 0.55) startHero();
+          },
+          onComplete: complete,
+        });
+      } else {
+        state.yTo = gsap.quickTo(el, "y", {
+          duration: 0.2,
+          ease: "power2.out",
+        });
+        state.yTo(0);
+        scheduleIdle();
+      }
+    };
+
+    const handleWheelDelta = (delta) => {
+      if (!alive || !delta || state.completing) return;
+
+      if (state.engaged) {
+        if (state.mode !== "scroll") return;
+        state.acc += delta;
+        const next = (state.acc - THRESHOLD) / state.travel;
+        if (delta < 0 && next <= 0) {
+          snapBack();
+          return;
+        }
+        state.progress = Math.max(0, Math.min(1, next));
+        applyProgress();
+        if (state.progress < 1) scheduleIdle();
+        return;
+      }
+
+      if (!atEnd()) {
+        if (delta < 0) state.acc = 0;
+        return;
+      }
+      if (delta <= 0) {
+        state.acc = 0;
+        return;
+      }
+      state.acc += Math.min(delta, MAX_STEP) * RESISTANCE;
+      if (state.acc >= THRESHOLD) engage("scroll");
+    };
+
+    const onWheel = (e) => {
+      if (!alive || state.completing) return;
+      if (state.engaged) {
+        state.wheelDelta += e.deltaY;
+      } else if (atEnd() && e.deltaY > 0) {
+        state.wheelDelta += e.deltaY;
+      } else {
+        if (e.deltaY < 0) {
+          state.acc = 0;
+          state.wheelDelta = 0;
+        }
+        return;
+      }
+      if (!state.wheelRaf) {
+        state.wheelRaf = requestAnimationFrame(() => {
+          state.wheelRaf = 0;
+          const delta = state.wheelDelta;
+          state.wheelDelta = 0;
+          handleWheelDelta(delta);
+        });
+      }
+    };
+
+    const onTouchStart = (e) => {
+      if (!alive) return;
+      state.touchStart = e.touches[0]?.clientY ?? 0;
+      state.touchLast = 0;
+    };
+
+    const onTouchMove = (e) => {
+      if (!alive || state.completing) return;
+      const y = e.touches[0]?.clientY ?? 0;
+      const up = state.touchStart - y; // moving up = scrolling down
+      const delta = up - state.touchLast;
+      state.touchLast = up;
+
+      if (state.engaged) {
+        if (state.mode !== "scroll") return;
+        state.acc += delta;
+        const next = (state.acc - THRESHOLD) / state.travel;
+        if (delta < 0 && next <= 0) {
+          snapBack();
+          return;
+        }
+        state.progress = Math.max(0, Math.min(1, next));
+        applyProgress();
+        return;
+      }
+
+      if (!atEnd()) {
+        if (delta < 0) state.acc = 0;
+        return;
+      }
+      if (delta <= 0) {
+        state.acc = 0;
+        return;
+      }
+      state.acc += Math.min(delta, 120);
+      if (state.acc >= THRESHOLD) engage("scroll");
+    };
+
+    const onTouchEnd = () => {
+      if (!alive || !state.engaged || state.completing) return;
+      if (state.progress < 1) snapBack();
+      else complete();
+    };
+
+    exitApi.current = {
+      trigger() {
+        if (!alive || state.completing) return;
+        if (!state.engaged) {
+          engage("button");
+          return;
+        }
+        // Already scrubbing: finish the lift from wherever it is.
+        state.mode = "button";
+        clearIdle();
+        state.yTo = null;
+        if (state.tween) state.tween.kill();
+        state.tween = gsap.to(el, {
+          y: -state.vh,
+          duration: 0.55,
+          ease: "power2.inOut",
+          overwrite: true,
+          onUpdate() {
+            if (this.progress() > state.progress) state.progress = this.progress();
+            if (state.progress >= 0.55) startHero();
+          },
+          onComplete: complete,
+        });
+      },
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    window.addEventListener("touchcancel", onTouchEnd, { passive: true });
+
+    return () => {
+      alive = false;
+      clearIdle();
+      if (state.wheelRaf) cancelAnimationFrame(state.wheelRaf);
+      if (state.tween) state.tween.kill();
+      gsap.killTweensOf(el);
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchEnd);
+      stripCurtain();
+      if (exitLocked.current) {
+        unlockScroll();
+        exitLocked.current = false;
+      }
+      exitApi.current = null;
+    };
+  }, []);
+
+  /* keep a handle on the hero timeline before GSAP removes it when it ends */
+  useEffect(() => {
+    const started = performance.now();
+    let timer = 0;
+
+    const find = () => {
+      if (heroTl.current) return;
+      const hero = document.getElementById("home");
+      if (hero) heroTl.current = findHeroTimeline(hero);
+      if (!heroTl.current && performance.now() - started < 12000) {
+        timer = window.setTimeout(find, 220);
+      }
+    };
+
+    timer = window.setTimeout(find, 220);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   /* Ghost word: a small drift opposite the mouse (desktop, motion allowed). */
   useEffect(() => {
@@ -610,123 +1132,22 @@ export default function SiteFooter() {
     <footer
       ref={root}
       data-env="footer"
-      className="relative flex min-h-[75svh] flex-col overflow-hidden border-t border-line px-gutter pt-[clamp(3.5rem,9svh,7rem)]"
+      className="relative overflow-hidden border-t border-line px-gutter py-[clamp(3rem,5.5vw,4rem)]"
       style={{ backgroundColor: FOOTER.bg }}
     >
       <style>{FOOTER_STYLE}</style>
       <style>{envCss("footer")}</style>
 
-      <div className="relative z-[2] mx-auto flex w-full max-w-[1500px] flex-1 flex-col">
-        {/* ---------- band 1: the closing statement ---------- */}
-        <div data-f-head className="relative">
-          <h2 className="display text-[clamp(2rem,8.2vw,8.5rem)] leading-[0.9]">
-            <span data-f-h1 className="block w-fit text-ink">
-              {footer.headline[0]}
-            </span>
-            <span data-f-h2 className="block w-fit text-red">
-              {footer.headline[1]}
-            </span>
-          </h2>
-
-          <div className="mt-6 flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
-            <p
-              data-f-script
-              className="font-script -rotate-2 text-[clamp(1.15rem,2.6vw,2rem)] leading-tight text-ink/80"
-            >
-              {footer.script}
-            </p>
-
-            <a
-              data-f-cta
-              href="#contact"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToId("contact");
-              }}
-              className={`group relative inline-flex w-fit shrink-0 rounded-[2px] ${focusRing}`}
-            >
-              <span className="relative block transition-transform duration-150 group-hover:-translate-y-0.5 group-active:translate-y-1">
-                <span
-                  data-f-cta-bg
-                  className="absolute inset-0 rounded-[2px] bg-linear-to-b from-[#e0303d] to-[#a8121e] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-3px_0_rgba(0,0,0,0.25),0_6px_0_#6a0a12,0_16px_26px_rgba(0,0,0,0.6)]"
-                />
-                <span className="relative inline-flex items-center gap-8 px-6 py-[min(1.1rem,2svh)] font-medium text-white">
-                  <span data-f-cta-text>{footer.cta}</span>
-                  <span data-f-cta-arrow aria-hidden="true" className="inline-block">
-                    ↗
-                  </span>
-                </span>
-              </span>
-            </a>
-          </div>
-        </div>
-
-        {/* ---------- band 2: the proof strip ---------- */}
-        <div
-          data-f-stats
-          className="mt-[clamp(3.5rem,8svh,6.5rem)] border-y border-white/12"
-        >
-          <div className="grid grid-cols-2 sm:grid-cols-4">
-            {content.hero.stats.map((stat) => (
-              <div
-                key={stat.label}
-                data-f-stat
-                className="flex flex-col gap-2 py-5 pr-4 sm:border-l sm:border-white/15 sm:px-6 sm:first:border-l-0 sm:first:pl-0"
-              >
-                <span
-                  data-f-stat-num
-                  data-to={stat.value}
-                  className="display text-[clamp(2rem,4.2vw,3.6rem)] leading-none tabular-nums text-red"
-                >
-                  {stat.value}
-                </span>
-                <span
-                  data-f-stat-label
-                  className="label text-[0.62rem] tracking-[0.16em]"
-                >
-                  {stat.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ---------- band 3: three quick-read columns ---------- */}
-        <div
-          data-f-columns
-          className="mt-[clamp(3.5rem,8svh,6.5rem)] grid gap-10 sm:grid-cols-2 lg:grid-cols-3 lg:gap-14"
-        >
-          {/* quick facts */}
-          <div data-f-col>
+      <div className="relative z-[2] mx-auto w-full max-w-[1400px]">
+        <div className="grid items-center gap-x-10 gap-y-10 md:grid-cols-[minmax(0,0.85fr)_minmax(0,2fr)_minmax(0,0.85fr)] md:gap-x-12">
+          {/* left: explore links */}
+          <div
+            data-f-explore
+            className="order-2 w-full md:order-1 md:max-w-[14rem]"
+          >
             <h3
               data-f-col-title
-              className="label mb-5 inline-flex w-fit items-center gap-2.5 text-[0.66rem] tracking-[0.2em] text-ink/55"
-            >
-              <span aria-hidden="true" className="size-1 rounded-full bg-red" />
-              Quick facts
-            </h3>
-            <ul className="flex flex-col gap-2.5">
-              {footer.facts.map((fact) => (
-                <li
-                  key={fact}
-                  data-f-line
-                  className="flex items-start gap-3 text-[0.9rem] leading-snug text-ink/75"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="mt-[0.42rem] size-1 shrink-0 rounded-full bg-red"
-                  />
-                  <span>{fact}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* explore */}
-          <div data-f-col>
-            <h3
-              data-f-col-title
-              className="label mb-5 inline-flex w-fit items-center gap-2.5 text-[0.66rem] tracking-[0.2em] text-ink/55"
+              className="label mb-3 inline-flex w-fit items-center gap-2.5 text-[0.64rem] tracking-[0.2em] text-ink/55"
             >
               <span aria-hidden="true" className="size-1 rounded-full bg-red" />
               Explore
@@ -735,85 +1156,88 @@ export default function SiteFooter() {
               {content.nav.map((item) => (
                 <a
                   key={item.id}
-                  data-f-line
+                  data-f-nav
                   href={`#${item.id}`}
                   onClick={(e) => {
                     e.preventDefault();
                     scrollToId(item.id);
                   }}
-                  className={`footer-link flex items-center justify-between gap-3 border-b border-white/10 py-2.5 text-[0.92rem] text-ink/75 transition-colors hover:text-red ${focusRing}`}
+                  className={`footer-link flex items-center justify-between gap-3 border-b border-white/10 py-2 text-[0.86rem] text-ink/75 ${focusRing}`}
                 >
                   <span>{item.label}</span>
-                  <span
-                    aria-hidden="true"
-                    className="footer-link-arrow text-red"
-                  >
+                  <span aria-hidden="true" className="footer-link-arrow text-red">
                     ↗
                   </span>
                 </a>
               ))}
               <a
-                data-f-line
+                data-f-resume
                 href={RESUME}
                 download
-                className={`footer-link mt-4 inline-flex w-fit items-center gap-2.5 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-ink transition-colors hover:text-red ${focusRing}`}
+                className={`footer-link mt-4 inline-flex w-fit items-center gap-2.5 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-ink ${focusRing}`}
               >
                 <span>Download CV</span>
-                <span
-                  aria-hidden="true"
-                  className="footer-link-arrow text-red"
-                >
+                <span aria-hidden="true" className="footer-link-arrow text-red">
                   ↓
                 </span>
               </a>
             </nav>
           </div>
 
-          {/* connect */}
-          <div data-f-col className="sm:col-span-2 lg:col-span-1">
-            <h3
-              data-f-col-title
-              className="label mb-5 inline-flex w-fit items-center gap-2.5 text-[0.66rem] tracking-[0.2em] text-ink/55"
+          {/* center: the closing line */}
+          <div data-f-head className="order-1 text-center md:order-2">
+            <h2 className="display mx-auto whitespace-nowrap text-[clamp(1.3rem,4vw,3.6rem)] leading-[0.92] tracking-[-0.015em]">
+              <span data-f-h1 className="inline-block text-ink">
+                THANKS FOR
+              </span>{" "}
+              <span data-f-h2 className="inline-block text-red">
+                WATCHING.
+              </span>
+            </h2>
+            <p
+              data-f-continue
+              className="mt-2 font-script text-[clamp(1rem,1.7vw,1.35rem)] leading-tight text-ink/70"
             >
-              <span aria-hidden="true" className="size-1 rounded-full bg-red" />
-              Let’s connect
-            </h3>
+              Keep scrolling, endlessly.
+            </p>
+          </div>
 
-            <div data-f-line className="flex flex-wrap items-center gap-3">
-              <a
-                href={`mailto:${content.email}`}
-                className={`break-all text-[clamp(1rem,2.1vw,1.45rem)] font-medium leading-tight text-ink transition-colors hover:text-red ${focusRing}`}
-              >
-                {content.email}
-              </a>
-              <button
-                type="button"
-                onClick={copyEmail}
-                aria-label="Copy email address"
-                className={`rounded-full border px-3 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.16em] transition-colors ${focusRing} ${
-                  copied
-                    ? "border-red/60 text-red"
-                    : "border-white/20 text-ink/60 hover:border-white/40 hover:text-ink"
-                }`}
-              >
-                <span aria-live="polite">{copied ? "Copied ✓" : "Copy"}</span>
-              </button>
-            </div>
+          {/* right: copy, email, phone and socials */}
+          <div
+            data-f-contact
+            className="order-3 w-full md:max-w-[17rem] md:justify-self-end md:text-right"
+          >
+            <button
+              type="button"
+              data-f-copy
+              onClick={copyEmail}
+              aria-label="Copy email address"
+              className={`footer-copy inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[0.58rem] font-semibold uppercase tracking-[0.16em] ${focusRing} ${
+                copied ? "border-red/60 text-red" : "border-white/20 text-ink/65"
+              }`}
+            >
+              <span aria-hidden="true" className="size-[5px] rounded-full bg-current" />
+              <span aria-live="polite">{copied ? "Copied ✓" : "Copy email"}</span>
+            </button>
 
             <a
-              data-f-line
-              href={`tel:${footer.phone}`}
-              className={`mt-4 inline-flex items-center gap-2.5 text-[0.92rem] text-ink/75 transition-colors hover:text-red ${focusRing}`}
+              data-f-email
+              href={`mailto:${content.email}`}
+              className={`mt-3 block break-all text-[clamp(0.74rem,1.1vw,0.88rem)] leading-relaxed text-ink/80 transition-colors hover:text-red ${focusRing}`}
             >
-              <span className="label text-[0.58rem] tracking-[0.2em] text-red">
-                Phone
-              </span>
+              {content.email}
+            </a>
+            <a
+              data-f-phone
+              href={`tel:${footer.phone}`}
+              className={`mt-1.5 inline-block text-[0.74rem] text-ink/55 transition-colors hover:text-red ${focusRing}`}
+            >
               {footer.phone}
             </a>
 
             <div
               data-f-socials
-              className="mt-7 flex flex-wrap items-center gap-[7px]"
+              className="mt-4 flex flex-wrap items-center gap-3.5 md:justify-end"
             >
               {SOCIALS.map((social) => {
                 const href =
@@ -834,7 +1258,7 @@ export default function SiteFooter() {
                     }
                     aria-label={social.label}
                     style={{ "--brand": social.brand }}
-                    className={`footer-social relative grid size-[52px] place-items-center rounded-full border border-white/35 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_10px_24px_-14px_rgba(0,0,0,0.9)] backdrop-blur-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/60`}
+                    className={`footer-social relative grid size-7 place-items-center ${focusRing}`}
                   >
                     <span aria-hidden="true" className="footer-social-tip">
                       {social.label}
@@ -847,42 +1271,44 @@ export default function SiteFooter() {
           </div>
         </div>
 
-        {/* ---------- band 5: the bottom bar ---------- */}
+        {/* the big name, sitting just above the divider */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none relative mt-[clamp(2.5rem,5vw,3.5rem)] mb-4 -mx-[var(--spacing-gutter)] h-[0.78em] select-none overflow-hidden text-[clamp(2.4rem,9vw,7rem)]"
+        >
+          <div
+            ref={ghost}
+            className="absolute inset-x-0 bottom-[-0.04em] flex justify-center will-change-transform"
+          >
+            <span className="footer-ghost-word display block whitespace-nowrap text-[1em] leading-[0.8]">
+              {content.brand}.
+            </span>
+          </div>
+        </div>
+
+        {/* bottom bar */}
         <div
           data-f-bar
-          className="mt-[clamp(3rem,7svh,5.5rem)] flex flex-col gap-2.5 border-t border-white/12 pt-5 text-[0.68rem] leading-relaxed text-ink/50 md:grid md:grid-cols-3 md:items-center md:gap-6"
+          className="flex flex-col gap-4 border-t border-white/12 pt-4 text-[0.68rem] leading-relaxed text-ink/50 sm:flex-row sm:items-start sm:justify-between sm:gap-6"
         >
           <p>
             © {new Date().getFullYear()} {footer.name}. {footer.rights}
           </p>
-          <p className="md:text-center">{footer.credit}</p>
-          <div className="md:text-right">
+          <div className="flex flex-col items-start gap-1.5 sm:items-end">
             <button
               type="button"
-              onClick={() => scrollToId("home")}
-              className={`footer-top inline-flex items-center gap-2 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-ink/70 transition-colors hover:text-ink ${focusRing}`}
+              onClick={triggerExit}
+              className={`footer-top inline-flex shrink-0 items-center gap-2 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-ink/70 ${focusRing}`}
             >
+              Back to top{" "}
               <span aria-hidden="true" className="footer-top-arrow text-red">
                 ↑
               </span>
-              Back to top
             </button>
+            <span className="cursor-default select-none text-[0.58rem] tracking-[0.12em] text-ink/35">
+              Continue scrolling ↓
+            </span>
           </div>
-        </div>
-      </div>
-
-      {/* ---------- band 4: the ghost word ---------- */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none relative mt-5 -mx-[var(--spacing-gutter)] h-[0.7em] select-none overflow-hidden text-[min(22vw,38svh)]"
-      >
-        <div
-          ref={ghost}
-          className="absolute inset-x-0 bottom-[-0.06em] flex justify-center will-change-transform"
-        >
-          <span className="footer-ghost-word display block whitespace-nowrap text-[1em] leading-[0.8]">
-            {content.brand}.
-          </span>
         </div>
       </div>
     </footer>

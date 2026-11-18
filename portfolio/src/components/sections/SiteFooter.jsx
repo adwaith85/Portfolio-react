@@ -607,7 +607,7 @@ export default function SiteFooter() {
     let wheelDelta = 0;
     let wheelRaf = 0;
     let heroNode = null;
-    let restartTimer = 0;
+    let restarted = false;
 
     const hardRestart = () => {
       try {
@@ -616,7 +616,13 @@ export default function SiteFooter() {
         /* not available in every browser */
       }
       window.scrollTo(0, 0);
-      window.location.reload();
+      window.location.replace(window.location.pathname + window.location.search);
+    };
+
+    const maybeRestart = () => {
+      if (restarted) return;
+      restarted = true;
+      hardRestart();
     };
 
     const atEnd = () =>
@@ -738,8 +744,11 @@ export default function SiteFooter() {
       state.progress = next;
       applyProgress();
       if (next <= 0) snapBack();
-      else if (next >= 1) release();
-      else scheduleIdle();
+      else {
+        if (next >= 0.9) maybeRestart();
+        if (next >= 1) release();
+        else scheduleIdle();
+      }
     };
 
     /* Finish: lift the rest of the way, then hand the tree back to React. */
@@ -754,6 +763,11 @@ export default function SiteFooter() {
         duration: 0.9,
         ease: "power2.inOut",
         overwrite: "auto",
+        onUpdate: () => {
+          if (-Number(gsap.getProperty(el, "y")) / window.innerHeight >= 0.9) {
+            maybeRestart();
+          }
+        },
         onComplete: () => {
           state.releaseTween = null;
           if (alive) complete();
@@ -792,9 +806,9 @@ export default function SiteFooter() {
 
     const complete = () => {
       if (!alive) return;
-      // The curtain is fully off-screen. Keep everything locked and reload
-      // from the top after a brief beat, so the next load starts completely fresh.
-      restartTimer = window.setTimeout(hardRestart, 150);
+      // Safety net: if the early restart threshold was missed, restart once
+      // after the curtain has fully cleared.
+      maybeRestart();
     };
 
     const engage = (mode = "wheel") => {
@@ -966,7 +980,6 @@ export default function SiteFooter() {
       clearIdle();
       if (wheelRaf) cancelAnimationFrame(wheelRaf);
       if (state.wheelIdle) window.clearTimeout(state.wheelIdle);
-      if (restartTimer) window.clearTimeout(restartTimer);
       if (state.releaseTween) state.releaseTween.kill();
       gsap.killTweensOf(el);
       window.removeEventListener("wheel", onWheel);

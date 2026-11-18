@@ -1396,9 +1396,8 @@ export default function Contact() {
           <p className="label mb-1.5 block w-fit">
             <span data-contact-label className="inline-block">
               <span className="text-red">
-                <Words text={section.num} />
               </span>{" "}
-              / <Words text={section.label} />
+               <Words text={section.label} />
             </span>
           </p>
           <h3 className="display flex flex-wrap items-baseline gap-x-4 text-[min(5.8vw,9.5svh)] max-lg:text-[clamp(2.4rem,9.5vw,3.6rem)]">

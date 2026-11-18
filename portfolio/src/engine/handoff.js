@@ -10,6 +10,7 @@
   - handoff.end(id, tl)      a group finished and gives its lease back
   - handoff.release(tl)      forget a timeline completely
   - handoff.isActive(id)     does this section still have running groups?
+  - handoff.reset()          clear all ownership before a fresh mount
 
   Groups inside one section use disjoint agent indices. Different sections
   reuse those indices, so if two sections overlap the cursors are shared; both
@@ -85,5 +86,11 @@ export const handoff = {
 
   getSection() {
     return sectionId;
+  },
+
+  reset() {
+    legacy = null;
+    sectionId = null;
+    active.clear();
   },
 };

@@ -652,9 +652,7 @@ export default function Experience() {
               <p className="label mb-1 block w-fit">
                 <span data-flow-label className="inline-block">
                   <span className="text-red">
-                    <Words text={sg.num} />
                   </span>{" "}
-                  / <Words text={sg.label} />
                 </span>
               </p>
               <h3 className="display flex flex-wrap items-baseline gap-x-3 text-[clamp(1.7rem,min(4.6vw,7.2svh),3.2rem)] leading-none max-lg:text-[clamp(1.5rem,7vw,2.4rem)]">
@@ -690,14 +688,13 @@ export default function Experience() {
             className="grid grid-cols-1 items-start gap-x-[clamp(2rem,5vw,5rem)] gap-y-[clamp(2.25rem,4vw,2.75rem)] lg:grid-cols-[minmax(0,38fr)_minmax(0,62fr)]"
           >
             {/* left: sticky heading (the grid wrapper is the trigger, never this) */}
-            <div className="min-w-0 lg:sticky lg:top-[100px] lg:self-start">
+            <div className="min-w-0 lg:sticky lg:top-[50px] lg:self-start">
               <header data-exp-head>
                 <p className="label mb-2 block w-fit">
                   <span data-exp-label className="inline-block">
                     <span className="text-red">
-                      <Words text="02" />
                     </span>{" "}
-                    / <Words text="EXPERIENCE" />
+                    <Words text="Skills From" />
                   </span>
                 </p>
                 <h3 className="display flex flex-wrap items-baseline gap-x-4 text-[clamp(2.2rem,4.6vw,4.2rem)] leading-none max-lg:text-[clamp(2rem,9vw,3.4rem)]">

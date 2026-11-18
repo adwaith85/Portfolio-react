@@ -23,14 +23,12 @@ import {
   cursorType,
 } from "../../engine/viewport";
 import useAgentsEnabled from "../../engine/useAgentsEnabled";
-import { handoff } from "../../engine/handoff";
 import { swarm } from "../cursors/swarmApi";
 
 gsap.registerPlugin(ScrollTrigger);
 
 const FOOTER = ENVS.footer;
 const RESUME = "/Adwaith_A_Kumar_Resume.pdf";
-const INK = "#f2efeb";
 
 /* Exactly the 20 build cursors: every one gets a small footer job. */
 const AG = {
@@ -102,9 +100,8 @@ const FOOTER_STYLE = `
     bottom: calc(100% + 10px);
     left: 50%;
     z-index: 40;
-    translate: -50% 5px;
+    transform: translate(-50%, 5px);
     opacity: 0;
-    visibility: hidden;
     pointer-events: none;
     white-space: nowrap;
     border: 1px solid rgba(242, 239, 235, 0.14);
@@ -121,41 +118,34 @@ const FOOTER_STYLE = `
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
     transition:
       opacity 160ms ease,
-      translate 200ms cubic-bezier(0.22, 1, 0.36, 1),
-      visibility 0s linear 200ms;
+      transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   .footer-social-tip::after {
     content: "";
     position: absolute;
     top: 100%;
     left: 50%;
-    translate: -50% 0;
+    transform: translateX(-50%);
     border: 4px solid transparent;
     border-top-color: rgba(17, 16, 18, 0.9);
   }
   .footer-social:last-child .footer-social-tip {
     right: 0;
     left: auto;
-    translate: 0 5px;
+    transform: translate(0, 5px);
   }
   .footer-social:last-child .footer-social-tip::after {
     right: 8px;
     left: auto;
-    translate: 0 0;
-  }
-  .footer-social:last-child:hover .footer-social-tip,
-  .footer-social:last-child:focus-visible .footer-social-tip {
-    translate: 0 0;
+    transform: translate(0, 0);
   }
   .footer-social:focus-visible .footer-social-tip,
   .footer-social:last-child:focus-visible .footer-social-tip {
-    translate: -50% 0;
+    transform: translate(-50%, 0);
     opacity: 1;
-    visibility: visible;
-    transition-delay: 0s;
   }
   .footer-social:last-child:focus-visible .footer-social-tip {
-    translate: 0 0;
+    transform: translate(0, 0);
   }
 
   /* link: sliding underline + tiny lift + colour shift */
@@ -196,12 +186,20 @@ const FOOTER_STYLE = `
   .footer-copy {
     transition:
       color 200ms ease,
-      border-color 200ms ease,
       transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   .footer-copy:focus-visible {
     color: #d61a29;
-    border-color: rgba(214, 26, 41, 0.55);
+    transform: translateY(-1px);
+  }
+
+  .footer-contact-link {
+    transition:
+      color 200ms ease,
+      transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .footer-contact-link:focus-visible {
+    color: #d61a29;
     transform: translateY(-1px);
   }
 
@@ -228,13 +226,11 @@ const FOOTER_STYLE = `
       transform: scale(1.16) translateY(-1px);
     }
     .footer-social:hover .footer-social-tip {
-      translate: -50% 0;
+      transform: translate(-50%, 0);
       opacity: 1;
-      visibility: visible;
-      transition-delay: 0s;
     }
     .footer-social:last-child:hover .footer-social-tip {
-      translate: 0 0;
+      transform: translate(0, 0);
     }
     .footer-link:hover {
       color: #d61a29;
@@ -248,7 +244,10 @@ const FOOTER_STYLE = `
     }
     .footer-copy:hover {
       color: #d61a29;
-      border-color: rgba(214, 26, 41, 0.55);
+      transform: translateY(-1px);
+    }
+    .footer-contact-link:hover {
+      color: #d61a29;
       transform: translateY(-1px);
     }
     .footer-top:hover {
@@ -260,6 +259,17 @@ const FOOTER_STYLE = `
     }
   }
 
+  @media (max-width: 640px) {
+    .footer-social-tip {
+      font-size: 0.5rem;
+      letter-spacing: 0.08em;
+    }
+    .footer-link {
+      padding-top: 0.6rem;
+      padding-bottom: 0.6rem;
+    }
+  }
+
   .footer-curtain {
     position: fixed !important;
     margin: 0 !important;
@@ -268,29 +278,32 @@ const FOOTER_STYLE = `
 
   @media (prefers-reduced-motion: reduce) {
     .footer-social svg,
+    .footer-social-tip,
     .footer-link,
     .footer-link::after,
     .footer-link-arrow,
     .footer-copy,
+    .footer-contact-link,
     .footer-top,
     .footer-top-arrow {
       transition: none;
     }
     .footer-social:focus-visible svg,
+    .footer-social:focus-visible .footer-social-tip,
     .footer-link:focus-visible,
     .footer-copy:focus-visible,
+    .footer-contact-link:focus-visible,
     .footer-top:focus-visible {
       transform: none;
     }
   }
 `;
 
+let removedCursors = null;
+
+/* exactly the 20 build cursors: never the pointer-follow hover cursor */
 function agentIds() {
-  const ids = [];
-  for (let i = 0; i < 64; i++) {
-    if (swarm.els([i]).length) ids.push(i);
-  }
-  return ids;
+  return AGENTS.filter((i) => swarm.els([i]).length);
 }
 
 /* every cursor leaves with the footer build */
@@ -299,67 +312,14 @@ function hideAllCursors() {
   swarm.hoverEnd();
 }
 
-/* put the hero back into its pre-build state before its timeline is replayed */
-function resetHero(hero) {
-  const all = (s) => [...hero.querySelectorAll(s)];
-
-  gsap.set(
-    all(
-      "[data-role],[data-hello],[data-line],[data-title],[data-gl],[data-loc],[data-logo],[data-row-inner],[data-stat-label],[data-plus],[data-rule-handle],[data-sel],[data-caret],[data-pen],[data-glow],[data-btn-arrow],[data-dl-label],[data-dl-icon]"
-    ),
-    { autoAlpha: 0 }
-  );
-  gsap.set(all("[data-ch]"), { opacity: 0 });
-  gsap.set(all("[data-gl]"), {
-    yPercent: 45,
-    scaleY: 1.3,
-    transformOrigin: "50% 100%",
-  });
-  gsap.set(all("[data-dot]"), { scale: 0 });
-  gsap.set(all("[data-period],[data-title]"), { color: INK });
-  gsap.set(all("[data-rule]"), { clipPath: "inset(0 100% 0 0)" });
-  gsap.set(all("[data-btn-bg]"), { scaleX: 0, transformOrigin: "0% 50%" });
-  gsap.set(all("[data-sketch]"), { clipPath: "inset(0% 0% 100% 0%)" });
-  gsap.set(all("[data-real]"), { clipPath: "inset(0% -60% 100% -60%)" });
-  all("[data-stat-num]").forEach((n) => {
-    n.textContent = "0";
-  });
-}
-
-/* find the intro timeline by the hero targets it owns */
-function findHeroTimeline(hero) {
-  const timelines = gsap.globalTimeline.getChildren(false, false, true);
-  for (const tl of timelines) {
-    if (!tl || tl.duration() < 2) continue;
-    const children = tl.getChildren(true, true, true);
-    for (const child of children) {
-      const targets = child.targets ? child.targets() : [];
-      if (targets.some((t) => t instanceof Element && hero.contains(t))) {
-        return tl;
-      }
-    }
-  }
-  return null;
-}
-
-function replayHeroIntro(known) {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const hero = document.getElementById("home");
-  if (!hero) return;
-
-  // Resolve the intro before touching the hero. If it cannot be replayed the
-  // finished hero must be left exactly as it is, never blanked.
-  const intro = known || findHeroTimeline(hero);
-  if (!intro) return;
-
-  resetHero(hero);
-  agentIds().forEach((i) => swarm.show(i));
-  swarm.showAll();
-
-  handoff.claim(intro);
-  // No invalidate(): restarting rewinds to the values recorded on the first
-  // play, so counters, typing and drag boxes replay exactly as before.
-  intro.timeScale(1.35).restart();
+/* the build is finished: take all 20 cursor nodes out of the DOM */
+function dropCursors() {
+  if (removedCursors) return;
+  const nodes = swarm.els(AGENTS).filter((node) => node && node.isConnected);
+  if (!nodes.length) return;
+  hideAllCursors();
+  removedCursors = nodes.map((node) => ({ node, parent: node.parentNode }));
+  nodes.forEach((node) => node.remove());
 }
 
 /* ---------- one fast build for the whole footer ---------- */
@@ -500,11 +460,8 @@ function buildFooter(root, ghost) {
   }
 
   const end = arriveBar + 0.36;
-  cursorOutro(tl, AGENTS, { at: end, duration: 0.16 });
-  tl.add(() => {
-    AGENTS.forEach((i) => swarm.hide(i));
-    hideAllCursors();
-  }, end + 0.18);
+  cursorOutro(tl, AGENTS, { at: end, duration: 0.12 });
+  tl.add(dropCursors, end + 0.14);
 
   return tl;
 }
@@ -546,15 +503,9 @@ export default function SiteFooter() {
   const copyTimer = useRef(0);
   const exitLocked = useRef(false);
   const stopReveal = useRef(null);
-  const exitApi = useRef(null);
-  const heroTl = useRef(null);
   const [copied, setCopied] = useState(false);
   const enabled = useAgentsEnabled();
   const footer = content.footer;
-
-  const triggerExit = useCallback(() => {
-    exitApi.current?.trigger();
-  }, []);
 
   useLayoutEffect(() => {
     const el = root.current;
@@ -592,8 +543,8 @@ export default function SiteFooter() {
       enabled,
       reduced,
       start: "top 92%",
-      speed: 2.05,
-      back: 2.4,
+      speed: 2.8,
+      back: 3.2,
       groups: [
         {
           element: el,
@@ -613,57 +564,66 @@ export default function SiteFooter() {
 
   /*
     Scroll-driven curtain exit.
-    The page stays put at the footer end until a deliberate extra wheel / touch
-    crosses the resistance threshold. From there progress is scrubbed by the
-    same gesture; stopping or releasing early snaps the curtain back down.
+    The footer is pinned over the hero at the document end. Wheel notches are
+    consumed one clamped step per frame; each step adds a rate-capped amount of
+    travel so a single burst can never lift the curtain in milliseconds. Touch
+    drags map 1:1 to travel. Reaching the document end hard-stops all input
+    briefly so Lenis coasting cannot count.
   */
   useEffect(() => {
     const el = root.current;
     if (!el) return;
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) {
-      exitApi.current = {
-        trigger() {
-          window.scrollTo(0, 0);
-          ScrollTrigger.refresh();
-        },
-      };
-      return () => {
-        exitApi.current = null;
-      };
-    }
+    if (reduced) return;
 
-    const THRESHOLD = 140;
-    const MAX_STEP = 280;
-    const IDLE = 260;
-    const RESISTANCE = 0.9;
+    const MAX_STEP = 40;
+    const RESISTANCE = 1;
+    const TOUCH_STEP = 60;
+    const THRESHOLD = 120;
+    const IDLE = 450;
 
     const state = {
       acc: 0,
+      progress: 0,
+      travel: 0,
       engaged: false,
       completing: false,
-      heroStarted: false,
-      progress: 0,
-      mode: "",
-      vh: 0,
-      travel: 300,
-      yTo: null,
-      tween: null,
-      idle: 0,
-      wheelRaf: 0,
-      wheelDelta: 0,
-      touchStart: 0,
+      mode: null,
+      lastT: 0,
+      lastWheel: 0,
+      arrivedAt: -Infinity,
+      wasAtEnd: false,
       touchLast: 0,
+      scrollY: 0,
+      spacer: null,
+      main: null,
+      mainY: 0,
+      idle: 0,
+      wheelIdle: 0,
+      releaseTween: null,
     };
     let alive = true;
+    let wheelDelta = 0;
+    let wheelRaf = 0;
+    let heroNode = null;
+    let restartTimer = 0;
+
+    const hardRestart = () => {
+      try {
+        history.scrollRestoration = "manual";
+      } catch {
+        /* not available in every browser */
+      }
+      window.scrollTo(0, 0);
+      window.location.reload();
+    };
 
     const atEnd = () =>
       Math.ceil(window.scrollY + window.innerHeight) >=
       document.documentElement.scrollHeight - 3;
 
-    const bottom = () =>
-      Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const justArrived = () => performance.now() - state.arrivedAt < 700;
 
     const clearIdle = () => {
       if (state.idle) {
@@ -694,377 +654,338 @@ export default function SiteFooter() {
       }
     };
 
+    // The curtain only exists when the footer is the section at the very end.
+    const canAct = () => {
+      if (!alive || state.completing) {
+        return false;
+      }
+      if (state.engaged) return true;
+      if (!atEnd()) return false;
+      const r = el.getBoundingClientRect();
+      return r.bottom <= window.innerHeight + 4 && r.top < window.innerHeight;
+    };
+
     const stripCurtain = () => {
       el.classList.remove("footer-curtain");
-      [
-        "top",
-        "left",
-        "width",
-        "height",
-        "padding-top",
-        "z-index",
-        "margin",
-        "will-change",
-      ].forEach((prop) => el.style.removeProperty(prop));
+      ["top", "left", "width", "height", "z-index", "margin", "will-change"].forEach(
+        (prop) => el.style.removeProperty(prop)
+      );
       gsap.set(el, { clearProps: "transform" });
-      state.yTo = null;
-    };
-
-    const startHero = () => {
-      if (state.heroStarted) return;
-      state.heroStarted = true;
-      replayHeroIntro(heroTl.current);
-    };
-
-    const COMPLETE_HOLD = 420;
-
-    const setAnchor = (off) => {
-      if (off) {
-        document.documentElement.style.overflowAnchor = "none";
-      } else {
-        document.documentElement.style.removeProperty("overflow-anchor");
+      if (state.spacer) {
+        state.spacer.remove();
+        state.spacer = null;
       }
     };
 
-    const complete = () => {
-      if (!alive || state.completing) return;
-      state.completing = true;
-      clearIdle();
-      if (state.wheelRaf) {
-        cancelAnimationFrame(state.wheelRaf);
-        state.wheelRaf = 0;
-      }
-      state.wheelDelta = 0;
-      if (state.tween) {
-        state.tween.kill();
-        state.tween = null;
-      }
-      gsap.killTweensOf(el);
-      gsap.set(el, { y: -state.vh });
-      startHero();
-
-      // The hero is already running behind the finished curtain. Put the page
-      // geometry back at the top without a smooth journey.
-      stripCurtain();
-      window.scrollTo(0, 0);
-
-      // Hold the lock for a beat so the rest of the same flick cannot scroll
-      // the freshly replayed hero, then unlock exactly at the top.
-      window.setTimeout(() => {
-        if (!alive) return;
-        window.scrollTo(0, 0);
-        // Keep Lenis's internal target in sync with the instant jump.
-        scrollToId("home");
-        if (exitLocked.current) {
-          unlockScroll();
-          exitLocked.current = false;
-        }
-        ScrollTrigger.refresh();
-        ScrollTrigger.update();
-
-        requestAnimationFrame(() => {
-          if (!alive) return;
-          window.scrollTo(0, 0);
-          ScrollTrigger.update();
-          setAnchor(false);
-          state.engaged = false;
-          state.completing = false;
-          state.progress = 0;
-          state.acc = 0;
-          state.mode = "";
-          state.heroStarted = false;
-        });
-      }, COMPLETE_HOLD);
+    const restoreMain = () => {
+      if (!state.main) return;
+      gsap.set(state.main, { y: state.mainY });
+      state.main = null;
     };
 
-    const restoreSnap = () => {
+    const reset = () => {
+      state.acc = 0;
+      state.progress = 0;
+      state.travel = 0;
+      state.engaged = false;
+      state.completing = false;
+      state.mode = null;
+      state.lastT = 0;
+      state.touchLast = 0;
+      wheelDelta = 0;
+      if (state.wheelIdle) {
+        window.clearTimeout(state.wheelIdle);
+        state.wheelIdle = 0;
+      }
+    };
+
+    const disengage = () => {
       if (!alive) return;
+      clearIdle();
       stripCurtain();
+      restoreMain();
       if (exitLocked.current) {
         unlockScroll();
         exitLocked.current = false;
       }
+      window.scrollTo(0, state.scrollY);
+      reset();
       ScrollTrigger.refresh();
-      window.scrollTo(0, bottom());
       ScrollTrigger.update();
-
-      requestAnimationFrame(() => {
-        if (!alive) return;
-        window.scrollTo(0, bottom());
-        ScrollTrigger.update();
-        setAnchor(false);
-        state.engaged = false;
-        state.completing = false;
-        state.progress = 0;
-        state.acc = 0;
-        state.mode = "";
-        state.heroStarted = false;
-      });
     };
 
-    const snapBack = () => {
-      if (!alive || !state.engaged || state.completing) return;
-      state.completing = true;
-      clearIdle();
-      if (state.tween) {
-        state.tween.kill();
-        state.tween = null;
-      }
-      gsap.killTweensOf(el);
-      state.yTo = null;
-      gsap.to(el, {
-        y: 0,
-        duration: 0.42,
-        ease: "power3.out",
-        onComplete: restoreSnap,
-      });
+    /* The user backed out: reveal the hero again and restore the page. */
+    const restoreSnap = () => {
+      if (!alive) return;
+      if (heroNode) heroNode.style.visibility = "";
+      disengage();
     };
 
     const applyProgress = () => {
-      if (!alive || !state.engaged) return;
-      const p = Math.max(0, Math.min(1, state.progress));
-      state.progress = p;
-      if (state.yTo) state.yTo(-p * state.vh);
-      if (p >= 0.55) startHero();
-      if (p >= 1) complete();
+      gsap.set(el, { y: -state.progress * state.travel });
+    };
+
+    /* Wheel increases are rate capped; decreases run uncapped. */
+    const changeProgress = (step, capped) => {
+      const now = performance.now();
+      const dt = Math.min(0.05, Math.max(0, (now - state.lastT) / 1000));
+      state.lastT = now;
+      let next = state.progress + step / state.travel;
+      if (capped && next > state.progress) {
+        next = Math.min(next, state.progress + 0.6 * dt);
+      }
+      next = Math.max(0, Math.min(1, next));
+      state.progress = next;
+      applyProgress();
+      if (next <= 0) snapBack();
+      else if (next >= 1) release();
+      else scheduleIdle();
+    };
+
+    /* Finish: lift the rest of the way, then hand the tree back to React. */
+    const release = () => {
+      if (!alive || state.completing) return;
+      state.completing = true;
+      clearIdle();
+      if (state.releaseTween) state.releaseTween.kill();
+      gsap.killTweensOf(el);
+      state.releaseTween = gsap.to(el, {
+        y: -window.innerHeight,
+        duration: 0.9,
+        ease: "power2.inOut",
+        overwrite: "auto",
+        onComplete: () => {
+          state.releaseTween = null;
+          if (alive) complete();
+        },
+      });
+    };
+
+    /* Back out: settle at zero, then restore the untouched page. */
+    const snapBack = () => {
+      if (!alive || state.completing) return;
+      state.completing = true;
+      clearIdle();
+      if (state.releaseTween) state.releaseTween.kill();
+      gsap.killTweensOf(el);
+      state.releaseTween = gsap.to(el, {
+        y: 0,
+        duration: 0.5,
+        ease: "power3.out",
+        overwrite: "auto",
+        onComplete: () => {
+          state.releaseTween = null;
+          if (alive) restoreSnap();
+        },
+      });
     };
 
     const scheduleIdle = () => {
       clearIdle();
       state.idle = window.setTimeout(() => {
         state.idle = 0;
-        if (state.engaged && !state.completing && state.progress < 1) snapBack();
+        if (!state.engaged || state.completing) return;
+        if (state.progress < 0.5) snapBack();
+        else release();
       }, IDLE);
     };
 
-    const engage = (mode) => {
-      if (!alive || state.engaged || state.completing) return;
+    const complete = () => {
+      if (!alive) return;
+      // The curtain is fully off-screen. Keep everything locked and reload
+      // from the top after a brief beat, so the next load starts completely fresh.
+      restartTimer = window.setTimeout(hardRestart, 150);
+    };
 
-      hideAllCursors();
+    const engage = (mode = "wheel") => {
+      if (!alive || state.engaged || state.completing) {
+        return;
+      }
+
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
 
-      const rect = el.getBoundingClientRect();
-      const padTop = parseFloat(getComputedStyle(el).paddingTop) || 0;
-      state.vh = window.innerHeight;
-      state.travel = Math.max(240, Math.min(360, state.vh * 0.34));
-      state.engaged = true;
-      state.completing = false;
-      state.heroStarted = false;
-      state.progress = 0;
-      state.acc = THRESHOLD;
+      const vh = window.innerHeight;
       state.mode = mode;
+      state.travel =
+        mode === "touch" ? vh * 0.8 : Math.max(700, Math.min(1100, vh * 1.1));
 
-      // Stop the footer's own reveal trigger from reversing as the page jumps
-      // to the top behind the fixed curtain.
+      const rect = el.getBoundingClientRect();
+      const scrollY = window.scrollY;
+      state.scrollY = scrollY;
       finalFooter();
       stopReveal.current?.();
+
+      // Hold the document height while the footer leaves the flow.
+      state.spacer = document.createElement("div");
+      state.spacer.setAttribute("aria-hidden", "true");
+      state.spacer.style.height = `${rect.height}px`;
+      state.spacer.style.pointerEvents = "none";
+      el.parentNode.insertBefore(state.spacer, el);
+
+      el.classList.add("footer-curtain");
+      el.style.top = `${rect.top}px`;
+      el.style.left = "0";
+      el.style.width = "100%";
+      el.style.height = `${rect.height}px`;
+      el.style.zIndex = "10000";
+      el.style.margin = "0";
+      el.style.willChange = "transform";
+      gsap.set(el, { y: 0 });
+
+      // Bring the hero under the curtain without scrolling the page.
+      state.main = document.querySelector("main");
+      if (state.main) {
+        state.mainY = Number(gsap.getProperty(state.main, "y")) || 0;
+        gsap.set(state.main, { y: state.mainY + scrollY });
+      }
 
       lockScroll();
       exitLocked.current = true;
 
-      el.classList.add("footer-curtain");
-      el.style.top = "0";
-      el.style.left = "0";
-      el.style.width = "100%";
-      el.style.height = `${state.vh}px`;
-      // Keep the content exactly where the user saw it while the background
-      // becomes a full-viewport curtain.
-      el.style.paddingTop = `${Math.max(0, rect.top + padTop)}px`;
-      el.style.zIndex = "10000";
-      el.style.margin = "0";
-      el.style.willChange = "transform";
+      // Blank the hero while the curtain still hides it, before any movement.
+      heroNode = document.getElementById("home");
+      if (heroNode) heroNode.style.visibility = "hidden";
 
-      window.scrollTo(0, 0);
-      ScrollTrigger.update();
-
-      if (mode === "button") {
-        state.tween = gsap.to(el, {
-          y: -state.vh,
-          duration: 0.72,
-          ease: "power3.inOut",
-          overwrite: true,
-          onUpdate() {
-            if (this.progress() > state.progress) state.progress = this.progress();
-            if (state.progress >= 0.55) startHero();
-          },
-          onComplete: complete,
-        });
-      } else {
-        state.yTo = gsap.quickTo(el, "y", {
-          duration: 0.2,
-          ease: "power2.out",
-        });
-        state.yTo(0);
-        scheduleIdle();
-      }
+      state.engaged = true;
+      state.acc = 0;
+      state.progress = 0;
+      state.lastT = performance.now();
     };
 
-    const handleWheelDelta = (delta) => {
-      if (!alive || !delta || state.completing) return;
+    /* One clamped rAF step: pre-engage feeds the threshold, engaged feeds travel. */
+    const handleWheelDelta = (raw) => {
+      if (!canAct() || justArrived()) return;
 
-      if (state.engaged) {
-        if (state.mode !== "scroll") return;
-        state.acc += delta;
-        const next = (state.acc - THRESHOLD) / state.travel;
-        if (delta < 0 && next <= 0) {
-          snapBack();
-          return;
-        }
-        state.progress = Math.max(0, Math.min(1, next));
-        applyProgress();
-        if (state.progress < 1) scheduleIdle();
+      if (!state.engaged) {
+        const step = Math.max(-MAX_STEP, Math.min(MAX_STEP, raw)) * RESISTANCE;
+        if (!step) return;
+        state.acc += step;
+        if (state.acc < 0) state.acc = 0;
+        if (state.acc >= THRESHOLD) engage("wheel");
         return;
       }
 
-      if (!atEnd()) {
-        if (delta < 0) state.acc = 0;
+      const step = Math.max(-MAX_STEP, Math.min(MAX_STEP, raw)) * RESISTANCE;
+      if (!step) return;
+      changeProgress(step, true);
+    };
+
+    const processWheel = () => {
+      wheelRaf = 0;
+      if (!alive || !canAct() || justArrived()) {
+        wheelDelta = 0;
         return;
       }
-      if (delta <= 0) {
-        state.acc = 0;
-        return;
+      const raw = Math.max(-MAX_STEP, Math.min(MAX_STEP, wheelDelta));
+      wheelDelta -= raw;
+      if (raw) handleWheelDelta(raw);
+      if (Math.abs(wheelDelta) > 0.5 && canAct() && !justArrived()) {
+        wheelRaf = requestAnimationFrame(processWheel);
+      } else {
+        wheelDelta = 0;
       }
-      state.acc += Math.min(delta, MAX_STEP) * RESISTANCE;
-      if (state.acc >= THRESHOLD) engage("scroll");
     };
 
     const onWheel = (e) => {
-      if (!alive || state.completing) return;
-      if (state.engaged) {
-        state.wheelDelta += e.deltaY;
-      } else if (atEnd() && e.deltaY > 0) {
-        state.wheelDelta += e.deltaY;
-      } else {
-        if (e.deltaY < 0) {
-          state.acc = 0;
-          state.wheelDelta = 0;
-        }
-        return;
+      if (!canAct()) return;
+      e.preventDefault();
+      state.lastWheel = performance.now();
+      if (state.wheelIdle) window.clearTimeout(state.wheelIdle);
+      // A gap in wheel input before engaging means the old burst is stale.
+      state.wheelIdle = window.setTimeout(() => {
+        state.wheelIdle = 0;
+        if (!state.engaged) state.acc = 0;
+      }, 350);
+      wheelDelta += e.deltaY;
+      if (!wheelRaf) wheelRaf = requestAnimationFrame(processWheel);
+    };
+
+    // Record the instant the document end is reached; all input is ignored for
+    // 700ms afterwards so Lenis coasting cannot lift the curtain.
+    const onScroll = () => {
+      const end = atEnd();
+      if (end && !state.wasAtEnd) {
+        state.arrivedAt = performance.now();
+        state.acc = 0;
       }
-      if (!state.wheelRaf) {
-        state.wheelRaf = requestAnimationFrame(() => {
-          state.wheelRaf = 0;
-          const delta = state.wheelDelta;
-          state.wheelDelta = 0;
-          handleWheelDelta(delta);
-        });
-      }
+      state.wasAtEnd = end;
     };
 
     const onTouchStart = (e) => {
-      if (!alive) return;
-      state.touchStart = e.touches[0]?.clientY ?? 0;
-      state.touchLast = 0;
+      if (!canAct()) return;
+      state.touchLast = e.touches[0]?.clientY ?? 0;
     };
 
     const onTouchMove = (e) => {
-      if (!alive || state.completing) return;
-      const y = e.touches[0]?.clientY ?? 0;
-      const up = state.touchStart - y; // moving up = scrolling down
-      const delta = up - state.touchLast;
-      state.touchLast = up;
-
-      if (state.engaged) {
-        if (state.mode !== "scroll") return;
-        state.acc += delta;
-        const next = (state.acc - THRESHOLD) / state.travel;
-        if (delta < 0 && next <= 0) {
-          snapBack();
-          return;
-        }
-        state.progress = Math.max(0, Math.min(1, next));
-        applyProgress();
+      if (!canAct() || justArrived()) return;
+      e.preventDefault();
+      const y = e.touches[0]?.clientY ?? state.touchLast;
+      const raw = state.touchLast - y;
+      state.touchLast = y;
+      const step = Math.max(-TOUCH_STEP, Math.min(TOUCH_STEP, raw)) * RESISTANCE;
+      if (!step) return;
+      if (!state.engaged) {
+        state.acc += step;
+        if (state.acc < 0) state.acc = 0;
+        if (state.acc >= THRESHOLD) engage("touch");
         return;
       }
-
-      if (!atEnd()) {
-        if (delta < 0) state.acc = 0;
-        return;
-      }
-      if (delta <= 0) {
-        state.acc = 0;
-        return;
-      }
-      state.acc += Math.min(delta, 120);
-      if (state.acc >= THRESHOLD) engage("scroll");
+      changeProgress(step, false);
     };
 
     const onTouchEnd = () => {
-      if (!alive || !state.engaged || state.completing) return;
-      if (state.progress < 1) snapBack();
-      else complete();
+      if (!state.engaged || state.completing) return;
+      scheduleIdle();
     };
 
-    exitApi.current = {
-      trigger() {
-        if (!alive || state.completing) return;
-        if (!state.engaged) {
-          engage("button");
-          return;
-        }
-        // Already scrubbing: finish the lift from wherever it is.
-        state.mode = "button";
-        clearIdle();
-        state.yTo = null;
-        if (state.tween) state.tween.kill();
-        state.tween = gsap.to(el, {
-          y: -state.vh,
-          duration: 0.55,
-          ease: "power2.inOut",
-          overwrite: true,
-          onUpdate() {
-            if (this.progress() > state.progress) state.progress = this.progress();
-            if (state.progress >= 0.55) startHero();
-          },
-          onComplete: complete,
-        });
-      },
+    const onKeyDown = (e) => {
+      const forward =
+        e.key === "PageDown" ||
+        e.key === "ArrowDown" ||
+        e.key === " " ||
+        e.key === "Spacebar";
+      const back = e.key === "PageUp" || e.key === "ArrowUp";
+      if ((!forward && !back) || !canAct()) return;
+      e.preventDefault();
+      state.lastWheel = performance.now();
+      handleWheelDelta(forward ? MAX_STEP : -MAX_STEP);
     };
 
-    window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("touchstart", onTouchStart, { passive: true });
-    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
     window.addEventListener("touchend", onTouchEnd, { passive: true });
     window.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    window.addEventListener("keydown", onKeyDown);
 
     return () => {
       alive = false;
       clearIdle();
-      if (state.wheelRaf) cancelAnimationFrame(state.wheelRaf);
-      if (state.tween) state.tween.kill();
+      if (wheelRaf) cancelAnimationFrame(wheelRaf);
+      if (state.wheelIdle) window.clearTimeout(state.wheelIdle);
+      if (restartTimer) window.clearTimeout(restartTimer);
+      if (state.releaseTween) state.releaseTween.kill();
       gsap.killTweensOf(el);
       window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("scroll", onScroll);
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("touchcancel", onTouchEnd);
+      window.removeEventListener("keydown", onKeyDown);
+      if (heroNode) heroNode.style.visibility = "";
+      heroNode = null;
       stripCurtain();
+      restoreMain();
       if (exitLocked.current) {
         unlockScroll();
         exitLocked.current = false;
       }
-      exitApi.current = null;
+      reset();
     };
-  }, []);
-
-  /* keep a handle on the hero timeline before GSAP removes it when it ends */
-  useEffect(() => {
-    const started = performance.now();
-    let timer = 0;
-
-    const find = () => {
-      if (heroTl.current) return;
-      const hero = document.getElementById("home");
-      if (hero) heroTl.current = findHeroTimeline(hero);
-      if (!heroTl.current && performance.now() - started < 12000) {
-        timer = window.setTimeout(find, 220);
-      }
-    };
-
-    timer = window.setTimeout(find, 220);
-    return () => window.clearTimeout(timer);
   }, []);
 
   /* Ghost word: a small drift opposite the mouse (desktop, motion allowed). */
@@ -1143,7 +1064,7 @@ export default function SiteFooter() {
           {/* left: explore links */}
           <div
             data-f-explore
-            className="order-2 w-full md:order-1 md:max-w-[14rem]"
+            className="order-2 w-full min-w-0 md:order-1 md:max-w-[14rem]"
           >
             <h3
               data-f-col-title
@@ -1185,8 +1106,8 @@ export default function SiteFooter() {
           </div>
 
           {/* center: the closing line */}
-          <div data-f-head className="order-1 text-center md:order-2">
-            <h2 className="display mx-auto whitespace-nowrap text-[clamp(1.3rem,4vw,3.6rem)] leading-[0.92] tracking-[-0.015em]">
+          <div data-f-head className="order-1 min-w-0 text-center md:order-2">
+            <h2 className="display mx-auto text-balance text-[clamp(1.15rem,4vw,3.6rem)] leading-[0.92] tracking-[-0.015em] sm:whitespace-nowrap">
               <span data-f-h1 className="inline-block text-ink">
                 THANKS FOR
               </span>{" "}
@@ -1205,7 +1126,7 @@ export default function SiteFooter() {
           {/* right: copy, email, phone and socials */}
           <div
             data-f-contact
-            className="order-3 w-full md:max-w-[17rem] md:justify-self-end md:text-right"
+            className="order-3 w-full min-w-0 md:max-w-[17rem] md:justify-self-end md:text-right"
           >
             <button
               type="button"
@@ -1223,14 +1144,14 @@ export default function SiteFooter() {
             <a
               data-f-email
               href={`mailto:${content.email}`}
-              className={`mt-3 block break-all text-[clamp(0.74rem,1.1vw,0.88rem)] leading-relaxed text-ink/80 transition-colors hover:text-red ${focusRing}`}
+              className={`footer-contact-link mt-3 block break-all text-[clamp(0.74rem,1.1vw,0.88rem)] leading-relaxed text-ink/80 ${focusRing}`}
             >
               {content.email}
             </a>
             <a
               data-f-phone
               href={`tel:${footer.phone}`}
-              className={`mt-1.5 inline-block text-[0.74rem] text-ink/55 transition-colors hover:text-red ${focusRing}`}
+              className={`footer-contact-link mt-1.5 inline-block text-[0.74rem] text-ink/55 ${focusRing}`}
             >
               {footer.phone}
             </a>
@@ -1271,33 +1192,35 @@ export default function SiteFooter() {
           </div>
         </div>
 
-        {/* the big name, sitting just above the divider */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none relative mt-[clamp(2.5rem,5vw,3.5rem)] mb-4 -mx-[var(--spacing-gutter)] h-[0.78em] select-none overflow-hidden text-[clamp(2.4rem,9vw,7rem)]"
-        >
+        {/* divider, with the big name sitting just below it */}
+        <div className="mt-[clamp(1.25rem,2.5vw,2rem)] border-t border-white/12 pt-[clamp(0.75rem,1.5vw,1.25rem)]">
           <div
-            ref={ghost}
-            className="absolute inset-x-0 bottom-[-0.04em] flex justify-center will-change-transform"
+            aria-hidden="true"
+            className="pointer-events-none relative -mx-[var(--spacing-gutter)] h-[0.78em] select-none overflow-hidden text-[clamp(2rem,9vw,7rem)]"
           >
-            <span className="footer-ghost-word display block whitespace-nowrap text-[1em] leading-[0.8]">
-              {content.brand}.
-            </span>
+            <div
+              ref={ghost}
+              className="absolute inset-x-0 bottom-[-0.04em] flex justify-center will-change-transform"
+            >
+              <span className="footer-ghost-word display block whitespace-nowrap text-[1em] leading-[0.8]">
+                {content.brand}.
+              </span>
+            </div>
           </div>
         </div>
 
         {/* bottom bar */}
         <div
           data-f-bar
-          className="flex flex-col gap-4 border-t border-white/12 pt-4 text-[0.68rem] leading-relaxed text-ink/50 sm:flex-row sm:items-start sm:justify-between sm:gap-6"
+          className="flex flex-col gap-4 pt-4 text-[0.68rem] leading-relaxed text-ink/50 sm:flex-row sm:items-start sm:justify-between sm:gap-6"
         >
           <p>
             © {new Date().getFullYear()} {footer.name}. {footer.rights}
           </p>
           <div className="flex flex-col items-start gap-1.5 sm:items-end">
             <button
+              onClick={() => scrollToId("home")}
               type="button"
-              onClick={triggerExit}
               className={`footer-top inline-flex shrink-0 items-center gap-2 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-ink/70 ${focusRing}`}
             >
               Back to top{" "}

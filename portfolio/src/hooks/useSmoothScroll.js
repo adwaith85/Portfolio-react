@@ -8,6 +8,17 @@ gsap.registerPlugin(ScrollTrigger);
 let lenisInstance = null;
 let locked = false;
 
+export function scrollToTop() {
+  if (lenisInstance) {
+    lenisInstance.scrollTo(0, {
+      duration: 1.8,
+      easing: (t) => 1 - Math.pow(1 - t, 4),
+    });
+  } else {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
 export function lockScroll() {
   locked = true;
   document.documentElement.style.overflow = "hidden";

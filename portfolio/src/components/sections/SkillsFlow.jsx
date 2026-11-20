@@ -509,189 +509,286 @@ const SKILLS_STYLE = `
   border-color: rgba(214,26,41,.7);
 }
 
-/* ---------- tablet + mobile: one column, centered to fill the stage ---------- */
+/* ---------- tablet + mobile: two compact slots with ALL content visible ----------
+   Top slot: the complete user set (and later the complete live set).
+   Lower slot: the complete active category. Nothing is hidden to make room;
+   the space is divided by the viewport instead. */
 @media (max-width: 1023px) {
   /* shorter pinned runway on touch screens: same story, less empty scrolling */
   .sk-wrap {
     height: calc(100svh + var(--sk-stops, 8) * 82svh);
   }
   .sk-inner {
-    gap: clamp(4px, 1svh, 10px);
-    padding: clamp(8px, 1.5svh, 16px) clamp(12px, 4vw, 28px);
+    gap: clamp(3px, .8svh, 8px);
+    padding: clamp(6px, 1.2svh, 12px) clamp(10px, 3vw, 24px);
   }
-  .sk-fixed { min-height: 0; padding-block: 0; }
-  .sk-fixed-slide {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
+  .sk-head-slot { min-width: 0; }
+  .sk-head-slot header p.label { margin-bottom: 2px; }
+  .sk-head-slot header p[data-flow-intro] { margin-top: 4px; }
+  .sk-head-slot header [data-flow-rule] { margin-top: 5px; }
+
+  /* explicit row allocation: complete top, arrow, then all remaining room
+     goes to the changing lower set */
+  .sk-scene {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    align-content: stretch;
   }
-  .sk-fixed .sk-left { display: block; }
-  .sk-fixed .sk-desc-row { display: none; }
-  .sk-fixed .sk-h1 {
-    font-size: clamp(1.4rem, 5.6vw, 1.9rem);
+  .sk-fixed {
+    min-height: 0;
+    align-items: start;
+    padding-block: 0;
+  }
+  .sk-fixed .sk-fixed-slide,
+  .sk-live-top .sk-fixed-slide {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: start;
+    align-content: start;
+    gap: clamp(4px, .9svh, 8px);
+    width: 100%;
+  }
+  .sk-fixed .sk-left,
+  .sk-live-top .sk-left { display: block; min-width: 0; }
+  .sk-fixed .sk-h1,
+  .sk-live-top .sk-h1 {
+    font-size: clamp(1.35rem, 5.6vw, 1.9rem);
     line-height: 1;
-    white-space: nowrap;
+    white-space: normal;
   }
-  .sk-fixed .sk-user { gap: 8px; }
-  .sk-fixed .sk-user-glyph { width: clamp(34px, 8.5vw, 44px); }
-  .sk-fixed .sk-user-body {
-    flex-direction: row;
+  .sk-fixed .sk-desc-row,
+  .sk-live-top .sk-desc-row {
+    display: block;
+    margin-top: clamp(3px, .7svh, 6px);
+  }
+  .sk-fixed .sk-desc,
+  .sk-live-top .sk-desc {
+    max-width: none;
+    font-size: clamp(.74rem, 2.9vw, .88rem);
+    line-height: 1.38;
+  }
+
+  /* user set: small glyph beside the tags and the complete 4-chip grid */
+  .sk-fixed .sk-right { width: 100%; }
+  .sk-fixed .sk-user {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 6px;
+    gap: clamp(6px, 2vw, 10px);
   }
-  .sk-fixed .sk-user-tags { gap: 4px; }
+  .sk-fixed .sk-user-glyph { width: clamp(34px, 9vw, 48px); }
+  .sk-fixed .sk-user-body {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: clamp(3px, .7svh, 6px);
+  }
+  .sk-fixed .sk-user-tags { flex-wrap: wrap; gap: 4px; }
   .sk-fixed .sk-user-tag {
-    padding: .28rem .5rem;
-    font-size: .85rem;
+    padding: .2rem .48rem;
+    font-size: clamp(.65rem, 2.5vw, .78rem);
     letter-spacing: .04em;
   }
-  .sk-fixed .sk-skills--user { display: none; }
+  .sk-fixed .sk-skills--user {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3px 4px;
+    align-content: start;
+  }
 
-  .sk-arrow { height: 18px; }
+  .sk-arrow { height: clamp(14px, 2.4svh, 20px); }
   .sk-arrow svg { width: 18px; height: 18px; }
 
+  /* lower slot: heading, full description and the complete icon grid */
+  .sk-lower { min-height: 0; }
   .sk-slide {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto;
     align-content: center;
-    align-items: center;
-    gap: clamp(8px, 1.5svh, 14px);
+    align-items: start;
+    gap: clamp(5px, 1.2svh, 10px);
+    padding-block: 0;
   }
   .sk-left { justify-content: flex-start; }
   .sk-h1 {
-    font-size: clamp(2rem, 8.2vw, 2.7rem);
+    font-size: clamp(1.8rem, 7.4vw, 2.5rem);
     line-height: .98;
   }
-  .sk-desc-row { margin-top: 6px; }
+  .sk-desc-row { margin-top: clamp(3px, .7svh, 6px); }
   .sk-desc {
     max-width: none;
-    font-size: clamp(.9rem, 3.6vw, 1.02rem);
-    line-height: 1.5;
+    font-size: clamp(.78rem, 3.1vw, .95rem);
+    line-height: 1.42;
   }
-  .sk-right { align-items: center; width: 100%; }
+  .sk-right { align-items: start; width: 100%; }
   .sk-skills {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 5px;
-    align-content: center;
+    gap: 3px 4px;
+    align-content: start;
   }
   .sk-skills--user { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sk-item {
-    padding: 6px 7px;
-    gap: 6px;
-    min-height: 34px;
+    min-width: 0;
+    min-height: 0;
+    padding: 3px 5px;
+    gap: 4px;
+    border-radius: 8px;
   }
+  .sk-logo {
+    width: clamp(16px, 5vw, 20px);
+    height: clamp(16px, 5vw, 20px);
+  }
+  .sk-badge { font-size: .68rem; }
   .sk-item-name {
-    font-size: .85rem;
-    line-height: 1.15;
-    letter-spacing: .015em;
+    font-size: clamp(.68rem, 2.8vw, .8rem);
+    line-height: 1.12;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
   }
-  .sk-logo { width: 22px; height: 22px; }
 
-  .sk-live { gap: 10px; }
-  .sk-live-badge { font-size: .9rem; }
-  .sk-live-note { font-size: 1rem; line-height: 1.5; }
-  .sk-live-top { height: var(--sk-top-h, 40px); }
+  /* live set: same compact top layout, with every piece of content intact */
+  .sk-live {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(4px, .9svh, 8px);
+  }
+  .sk-live-badge {
+    gap: .45rem;
+    font-size: clamp(.75rem, 2.9vw, .9rem);
+  }
+  .sk-live-pulse {
+    width: 9px;
+    height: 9px;
+    box-shadow: 0 0 0 3px rgba(214,26,41,.16), 0 0 12px rgba(214,26,41,.8);
+  }
+  .sk-live-note {
+    max-width: none;
+    font-size: clamp(.74rem, 2.9vw, .88rem);
+    line-height: 1.38;
+  }
+  /* let the rising live layer grow with its content if needed; the lift
+     still starts at the scene top, so the slide stays perfectly aligned */
+  .sk-live-top {
+    height: auto;
+    min-height: var(--sk-top-h, 0px);
+    align-items: start;
+  }
+  .sk-live-top .sk-fixed-slide { align-content: start; }
 
-  /* the live set compacts into the top slot exactly like the user set does */
-  .sk-live-top .sk-fixed-slide {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
+  .sk-explore-links { gap: 6px; }
+  .sk-explore-link {
+    padding: 8px 10px;
+    font-size: clamp(.8rem, 3vw, .95rem);
   }
-  .sk-live-top .sk-left { display: block; }
-  .sk-live-top .sk-desc-row { display: none; }
-  .sk-live-top .sk-h1 {
-    font-size: clamp(1.4rem, 5.6vw, 1.9rem);
-    line-height: 1;
-    white-space: nowrap;
-  }
-  .sk-live-top .sk-live {
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-  }
-  .sk-live-top .sk-live-note { display: none; }
-  .sk-live-top .sk-live-badge { font-size: .85rem; }
-  .sk-live-top .sk-live-pulse { width: 9px; height: 9px; }
-
-  .sk-explore-links { gap: 8px; }
-  .sk-explore-link { padding: 11px 13px; font-size: .95rem; }
 }
 
 @media (max-width: 420px) {
-  .sk-inner { padding-inline: 12px; }
-  .sk-h1 { font-size: clamp(1.9rem, 9vw, 2.4rem); }
-  .sk-item { padding: 5px 6px; gap: 5px; }
-  .sk-item-name { font-size: .85rem; letter-spacing: 0; }
-  .sk-logo { width: 21px; height: 21px; }
-  .sk-user-tag { padding: .26rem .46rem; }
+  .sk-inner { padding-inline: 10px; }
+  .sk-h1 { font-size: clamp(1.7rem, 8.6vw, 2.2rem); }
+  .sk-item { padding: 2px 4px; gap: 3px; }
+  .sk-item-name { font-size: clamp(.64rem, 2.7vw, .74rem); letter-spacing: 0; }
+  .sk-logo { width: 16px; height: 16px; }
+  .sk-user-tag { padding: .18rem .42rem; }
 }
 
-/* short phones: compact the fixed user set first, never the body text */
-@media (max-width: 1023px) and (max-height: 740px) {
-  .sk-inner { gap: 4px; padding-block: 8px; }
-  .sk-fixed .sk-h1 { font-size: clamp(1.25rem, 5.4vw, 1.6rem); }
-  .sk-fixed .sk-user-glyph { width: clamp(30px, 7.5vw, 36px); }
-  .sk-fixed .sk-user-tag { padding: .22rem .42rem; }
-  .sk-arrow { height: 16px; }
-  .sk-arrow svg { width: 16px; height: 16px; }
-  .sk-h1 { font-size: clamp(1.75rem, 7.2vw, 2.2rem); }
-  .sk-desc-row { margin-top: 5px; }
-  .sk-desc { font-size: .9rem; line-height: 1.45; }
-  .sk-skills { gap: 4px 5px; }
-  .sk-item { padding: 4px 5px; gap: 5px; min-height: 30px; }
+/* tablets: use the extra width for more chip columns instead of empty rows */
+@media (min-width: 600px) and (max-width: 1023px) {
+  .sk-skills { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 6px; }
+  .sk-fixed .sk-skills--user { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .sk-item { padding: 4px 7px; gap: 6px; }
   .sk-logo { width: 20px; height: 20px; }
+  .sk-item-name { font-size: .82rem; }
+  .sk-desc { font-size: clamp(.82rem, 2.2vw, .95rem); }
+  .sk-fixed .sk-desc,
+  .sk-live-top .sk-desc,
+  .sk-live-note { font-size: clamp(.78rem, 2vw, .88rem); }
 }
 
-@media (max-width: 1023px) and (max-height: 700px) {
-  .sk-fixed .sk-right { display: none; }
-  .sk-fixed .sk-h1 { font-size: clamp(1.15rem, 4.8vw, 1.4rem); }
-  .sk-live-top .sk-right { display: none; }
-  .sk-live-top .sk-h1 { font-size: clamp(1.15rem, 4.8vw, 1.4rem); }
-  .sk-slide { gap: 6px; }
-  .sk-h1 { font-size: clamp(1.6rem, 6.6vw, 2rem); }
-  .sk-desc { font-size: .88rem; line-height: 1.4; }
-  .sk-skills { gap: 3px 4px; }
-  .sk-item { padding: 3px 4px; gap: 4px; min-height: 28px; }
-  .sk-item-name { font-size: .85rem; line-height: 1.1; letter-spacing: 0; }
-  .sk-logo { width: 18px; height: 18px; }
-}
-
-/* very short phones: the intro and the paragraph give the sets room */
-@media (max-width: 1023px) and (max-height: 650px) {
-  .sk-head-slot [data-flow-intro] { display: none; }
-}
-@media (max-width: 1023px) and (max-height: 600px) and (orientation: portrait) {
-  .sk-slide .sk-desc-row { display: none; }
+/* short phones: tighten type and spacing, but never hide skills content */
+@media (max-width: 1023px) and (max-height: 740px) {
+  .sk-inner { gap: 3px; padding-block: 6px; }
+  .sk-fixed .sk-h1,
+  .sk-live-top .sk-h1 { font-size: clamp(1.25rem, 5.2vw, 1.6rem); }
+  .sk-fixed .sk-desc,
+  .sk-live-top .sk-desc,
+  .sk-live-note { font-size: clamp(.7rem, 2.7vw, .8rem); line-height: 1.32; }
+  .sk-fixed .sk-user-glyph { width: clamp(30px, 8vw, 40px); }
   .sk-arrow { height: 14px; }
+  .sk-arrow svg { width: 16px; height: 16px; }
+  .sk-h1 { font-size: clamp(1.6rem, 6.8vw, 2.2rem); }
+  .sk-desc { font-size: clamp(.74rem, 2.9vw, .86rem); line-height: 1.36; }
+  .sk-skills { gap: 2px 3px; }
+  .sk-item { padding: 2px 4px; gap: 3px; }
+  .sk-logo { width: 16px; height: 16px; }
+  .sk-item-name { font-size: clamp(.64rem, 2.6vw, .74rem); line-height: 1.1; }
+}
+
+@media (max-width: 1023px) and (max-height: 650px) {
+  .sk-inner { gap: 2px; padding-block: 5px; }
+  .sk-head-slot header p[data-flow-intro] {
+    font-size: .68rem;
+    line-height: 1.3;
+    margin-top: 2px;
+  }
+  .sk-head-slot header [data-flow-rule] { margin-top: 3px; }
+  .sk-fixed .sk-h1,
+  .sk-live-top .sk-h1 { font-size: clamp(1.15rem, 4.8vw, 1.45rem); }
+  .sk-fixed .sk-desc,
+  .sk-live-top .sk-desc,
+  .sk-live-note { font-size: clamp(.66rem, 2.5vw, .74rem); line-height: 1.28; }
+  .sk-fixed .sk-user-glyph { width: 30px; }
+  .sk-fixed .sk-user-tag { padding: .16rem .4rem; font-size: .64rem; }
+  .sk-h1 { font-size: clamp(1.45rem, 6vw, 1.9rem); }
+  .sk-desc { font-size: clamp(.7rem, 2.7vw, .8rem); line-height: 1.32; }
+  .sk-item { padding: 2px 3px; gap: 2px; }
+  .sk-logo { width: 15px; height: 15px; }
+  .sk-item-name { font-size: clamp(.62rem, 2.4vw, .7rem); }
+}
+
+/* very short phones: still no hidden skills content, only tighter rhythm */
+@media (max-width: 1023px) and (max-height: 600px) and (orientation: portrait) {
+  .sk-fixed .sk-desc,
+  .sk-live-top .sk-desc,
+  .sk-desc,
+  .sk-live-note { line-height: 1.24; }
+  .sk-h1 { font-size: clamp(1.35rem, 5.8vw, 1.7rem); }
+  .sk-arrow { height: 12px; }
   .sk-arrow svg { width: 15px; height: 15px; }
 }
 
-/* landscape phones: text and chips side by side, five compact chip columns */
+/* landscape phones: both slots stay visible, side by side internally */
 @media (max-width: 1023px) and (orientation: landscape) and (max-height: 600px) {
-  .sk-inner { gap: 4px; padding-block: 6px; }
-  .sk-fixed { min-height: 0; }
-  .sk-fixed .sk-right { display: none; }
-  .sk-fixed .sk-h1 { font-size: clamp(1.1rem, 4.6vh, 1.5rem); }
-  .sk-live-top .sk-right { display: none; }
-  .sk-live-top .sk-h1 { font-size: clamp(1.1rem, 4.6vh, 1.5rem); }
-  .sk-arrow { height: 14px; }
+  .sk-inner { gap: 3px; padding-block: 5px; }
+  .sk-head-slot header p[data-flow-intro] { display: none; }
+  .sk-fixed .sk-fixed-slide,
+  .sk-live-top .sk-fixed-slide {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+    grid-template-rows: auto;
+    align-items: center;
+    gap: 12px;
+  }
+  .sk-fixed .sk-user { gap: 8px; }
+  .sk-fixed .sk-h1,
+  .sk-live-top .sk-h1 { font-size: clamp(1.1rem, 4vh, 1.5rem); }
+  .sk-fixed .sk-desc,
+  .sk-live-top .sk-desc,
+  .sk-live-note { font-size: clamp(.66rem, 2.1vh, .8rem); line-height: 1.3; }
+  .sk-arrow { height: 12px; }
   .sk-arrow svg { width: 15px; height: 15px; }
   .sk-slide {
-    grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
-    grid-template-rows: 1fr;
-    align-content: center;
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+    grid-template-rows: auto;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
   }
-  .sk-h1 { font-size: clamp(1.5rem, 5.4vh, 2.1rem); }
-  .sk-desc { font-size: .9rem; line-height: 1.4; }
+  .sk-h1 { font-size: clamp(1.3rem, 4.5vh, 1.8rem); }
   .sk-skills {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 3px;
-    align-content: center;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2px 3px;
+    align-content: start;
   }
-  .sk-item { padding: 2px 3px; gap: 2px; min-height: 0; }
-  .sk-item-name { font-size: .85rem; line-height: 1.1; letter-spacing: 0; }
-  .sk-logo { width: 16px; height: 16px; }
+  .sk-live { gap: 4px; }
   .sk-explore-links { flex-direction: row; }
 }
 

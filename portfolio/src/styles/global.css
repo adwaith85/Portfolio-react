@@ -35,21 +35,6 @@
   color: var(--color-muted);
 }
 
-/* giant background word: pure red at the top fading into the page black */
-@utility ghost-emboss {
-  background: linear-gradient(
-    180deg,
-    #c4131f 0%,
-    #8e0c16 38%,
-    #3a060b 72%,
-    #090909 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6));
-}
-
 @layer base {
   html {
     color-scheme: dark;
@@ -74,6 +59,30 @@
   main section {
     overflow-x: clip;
   }
+}
+
+/* Stale build overlays must never create a horizontal scrollbar on the hero. */
+#home {
+  overflow-x: clip;
+}
+
+/* ---------- hero first paint: blank until the build takes over ---------- */
+/* The section ships with `intro-prep`; GSAP sets the same elements inline and
+   the class is removed in the same layout effect, so a refresh never flashes
+   the finished layout. */
+.intro-prep :is(
+  [data-role], [data-status-text], [data-dot], [data-hello], [data-line], [data-period],
+  [data-title], [data-sub], [data-loc], [data-gl], [data-glow], [data-sketch], [data-real],
+  [data-pen], [data-stat-num], [data-stat-label], [data-stat-text],
+  [data-plus], [data-rule], [data-rule-handle], [data-row-inner], [data-sel], [data-caret],
+  [data-dl], [data-dl-icon], [data-dl-label], [data-social], [data-social-icon], [data-social-label]
+) {
+  visibility: hidden;
+}
+
+#home [data-real],
+#home [data-glow] {
+  transition: transform 350ms cubic-bezier(.2,.7,.2,1);
 }
 
 /* Lenis smooth scroll */
@@ -171,6 +180,101 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .atom-spin {
     animation: none;
+  }
+}
+
+/* ---------- hero hover feedback: fine pointers only ---------- */
+@media (hover: hover) and (pointer: fine) {
+  #home [data-status-text],
+  #home [data-hello] {
+    color: var(--color-ink);
+  }
+  /* the role label is red at rest; only a hover may lift it */
+  #home [data-role]:hover { color: var(--color-ink); }
+  #home [data-name]:hover [data-line] { color: var(--color-ink) !important; }
+  #home [data-period]:hover { color: #ff5560 !important; }
+  #home [data-title]:hover { color: var(--color-ink) !important; }
+  #home [data-sub]:hover { color: var(--color-ink); }
+  #home [data-loc]:hover { color: var(--color-ink); }
+  #home [data-loc]:hover svg { transform: translateY(-4px); }
+  #home [data-photo-hover]:hover [data-real] { transform: scale(1.015); }
+  #home [data-photo-hover]:hover [data-glow] { transform: scale(1.06); }
+}
+
+/* ---------- hero buttons: red wipe from the left, lift + soft red glow ----------
+   GSAP only animates the wrapper spans' opacity/scale; hover transforms live on
+   the inner SVG and the anchor's `translate`, so nothing fights over transform. */
+#home [data-dl],
+#home [data-social] {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+  padding: 0.55rem 0.25rem;
+  background: transparent;
+  color: var(--color-ink);
+  transition: color 250ms cubic-bezier(.2,.7,.2,1), border-color 250ms cubic-bezier(.2,.7,.2,1),
+    box-shadow 250ms cubic-bezier(.2,.7,.2,1), translate 250ms cubic-bezier(.2,.7,.2,1);
+}
+#home [data-wipe] {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--color-red);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 250ms cubic-bezier(.2,.7,.2,1);
+  pointer-events: none;
+}
+@media (min-width: 1024px) {
+  #home [data-dl],
+  #home [data-social] {
+    padding: 0.55rem 1.1rem;
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  #home [data-dl]:hover,
+  #home [data-social]:hover {
+    color: #fff;
+    border-color: var(--color-red);
+    translate: 0 -2px;
+    box-shadow: 0 8px 20px rgba(214, 26, 41, 0.35);
+  }
+  #home [data-dl]:hover [data-wipe],
+  #home [data-social]:hover [data-wipe] {
+    transform: scaleX(1);
+  }
+  #home [data-dl]:hover svg {
+    transform: translateY(3px);
+    stroke: #fff;
+  }
+  #home [data-social]:hover svg {
+    transform: scale(1.1);
+  }
+}
+#home [data-dl]:active,
+#home [data-social]:active {
+  translate: 0 1px;
+  box-shadow: none;
+}
+#home [data-dl]:focus-visible,
+#home [data-social]:focus-visible {
+  outline: 2px solid var(--color-red);
+  outline-offset: 2px;
+  color: #fff;
+}
+@media (prefers-reduced-motion: reduce) {
+  #home [data-dl],
+  #home [data-social],
+  #home [data-wipe] {
+    transition-duration: 0.01ms;
+  }
+  #home [data-dl]:hover,
+  #home [data-social]:hover,
+  #home [data-dl]:active,
+  #home [data-social]:active {
+    translate: none;
   }
 }
 

@@ -7,11 +7,12 @@ import { swarm } from "../components/cursors/swarmApi";
    - agent: index of a cursor that follows the typing edge */
 export function typeReveal(
   el,
-  { duration = 0.7, smooth = false, caret = null, agent = null } = {}
+  { duration = 0.7, smooth = false, caret = null, agent = null, rect: rectOpt = null } = {}
 ) {
   const tl = gsap.timeline();
   if (!el) return tl;
   const n = Math.max(4, (el.textContent || "").length);
+  let rect = rectOpt;
 
   tl.set(el, { autoAlpha: 1 });
   tl.fromTo(
@@ -22,12 +23,16 @@ export function typeReveal(
       duration,
       ease: smooth ? "power2.out" : `steps(${n})`,
       onStart() {
+        if (!rect) {
+          const r = el.getBoundingClientRect();
+          rect = { left: r.left, top: r.top, width: r.width, height: r.height };
+        }
         if (caret) gsap.set(caret, { autoAlpha: 1 });
       },
       onUpdate() {
         const r = this.ratio;
         if (caret) caret.style.left = `${r * 100}%`;
-        if (agent !== null) swarm.placeAt(agent, el, r, 0.8, 4, 0);
+        if (agent !== null && rect) swarm.placeAtRect(agent, rect, r, 0.8, 4, 0);
       },
       onComplete() {
         if (caret) gsap.set(caret, { autoAlpha: 0 });

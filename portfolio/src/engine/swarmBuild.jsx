@@ -26,7 +26,7 @@ export function makeOverlay(host) {
   const o = document.createElement("span");
   o.setAttribute("data-ov", "");
   o.className = "pointer-events-none absolute z-30 border border-dashed";
-  o.style.cssText = `left:0;top:0;width:0;height:0;opacity:0;visibility:hidden;border-color:${BLUE};background:rgba(76,141,255,0.08)`;
+  o.style.cssText = `left:0;top:0;width:0;height:0;opacity:0;visibility:hidden;transform-origin:0 0;border-color:${BLUE};background:rgba(76,141,255,0.08)`;
   const tag = document.createElement("b");
   tag.className =
     "absolute -top-5 left-0 whitespace-nowrap rounded-sm px-1.5 py-[2px] text-[9px] font-semibold leading-none text-white";
@@ -49,51 +49,65 @@ export function dragBox(
   el,
   host,
   at,
-  { tag = "", dur = 0.35, pad = 3 } = {}
+  {
+    tag = "",
+    dur = 0.35,
+    pad = 3,
+    travel = 0.12,
+    rect = null,
+    hostRect = null,
+    withCursor = true,
+  } = {}
 ) {
   if (!el || !ov) return at;
   const p = { v: 0 };
-  const box = { w: 0, h: 0 };
+  let trackedRect = null;
 
-  tl.add(
-    swarm.moveTo(ag, el, {
-      duration: 0.12,
-      offset: { x: 0, y: 0 },
-      dx: -pad,
-      dy: -pad,
-    }),
-    at
-  );
+  if (withCursor) {
+    tl.add(
+      swarm.moveTo(ag, el, {
+        duration: travel,
+        offset: { x: 0, y: 0 },
+        dx: -pad,
+        dy: -pad,
+        ease: "power3.out",
+        rect: rect || undefined,
+      }),
+      at
+    );
+  }
   tl.add(() => {
-    const r = el.getBoundingClientRect();
-    const b = host.getBoundingClientRect();
-    box.w = r.width + pad * 2;
-    box.h = r.height + pad * 2;
+    const r = rect || el.getBoundingClientRect();
+    const b = hostRect || host.getBoundingClientRect();
+    trackedRect = { left: r.left, top: r.top, width: r.width, height: r.height };
+
+    // Position and size are written once; the drag only scales the overlay.
     ov.o.style.left = `${r.left - b.left - pad}px`;
     ov.o.style.top = `${r.top - b.top - pad}px`;
-    ov.o.style.width = "0px";
-    ov.o.style.height = "0px";
+    ov.o.style.width = `${r.width + pad * 2}px`;
+    ov.o.style.height = `${r.height + pad * 2}px`;
+    ov.o.style.transformOrigin = "0 0";
     ov.tag.textContent = tag;
-    gsap.set(ov.o, { autoAlpha: 1 });
-    swarm.click(ag);
-  }, at + 0.25);
+    gsap.set(ov.o, { autoAlpha: 1, scaleX: 0, scaleY: 0 });
+    if (withCursor) swarm.click(ag);
+  }, at + travel);
   tl.fromTo(
     p,
     { v: 0 },
     {
       v: 1,
       duration: dur,
-      ease: "power2.out",
+      ease: "power3.out",
+      autoRound: false,
       onUpdate() {
-        ov.o.style.width = `${p.v * box.w}px`;
-        ov.o.style.height = `${p.v * box.h}px`;
-        swarm.placeAt(ag, el, p.v, p.v, pad, pad);
+        gsap.set(ov.o, { scaleX: p.v, scaleY: p.v });
+        if (withCursor && trackedRect) swarm.placeAtRect(ag, trackedRect, p.v, p.v, pad, pad);
       },
     },
-    at + 0.27
+    at + travel
   );
-  tl.to(ov.o, { autoAlpha: 0, duration: 0.15 }, at + 0.27 + dur + 0.04);
-  return at + 0.27 + dur;
+  tl.to(ov.o, { autoAlpha: 0, duration: 0.05 }, at + travel + dur + 0.01);
+  return at + travel + dur + 0.06;
 }
 
 /* cursor writes the words of an element one by one and follows the writing edge */

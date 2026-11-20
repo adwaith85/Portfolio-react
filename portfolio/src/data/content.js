@@ -37,12 +37,12 @@ export const content = {
   ],
 
   hero: {
-    role: ["WEB DEVELOPER / MERN STACK", "REACT · NODE · MONGODB"],
+    role: ["ADWAITH A KUMAR / MERN DEVELOPER", "REACT · NODE · MONGODB"],
     availability: "OPEN TO JUNIOR MERN ROLES",
     name: "ADWAITH A KUMAR",
-    titleLines: ["I BUILD", "WEB APPS."],
+    titleLines: ["I BUILD", "DIGITAL EXPERIENCES."],
     tagline:
-      "Entry-level web developer who turns ideas into responsive, full-stack apps, from the first div to the live deploy.",
+      "I develop responsive web applications using React.js and the MERN stack, turning ideas into functional products with clean interfaces and practical backend integrations.",
     stats: [
       { value: "6", label: "Projects built" },
       { value: "5", label: "Live demos" },

@@ -360,7 +360,9 @@ export function createPhotoDissolve({
 
   const st = ScrollTrigger.create({
     trigger,
-    start: "top top-=15",
+    // sprinkle only after the first quarter of the section has scrolled away
+    start: () => "top top-=" + trigger.offsetHeight * 0.25,
+    invalidateOnRefresh: true,
     onEnter: () => startDissolve(),
     onLeaveBack: () => resetToRest(),
     onRefresh: () => {
@@ -368,7 +370,7 @@ export function createPhotoDissolve({
       P = null;
       buf = null;
       const top = trigger.getBoundingClientRect().top;
-      if (top < -20) {
+      if (top < -trigger.offsetHeight * 0.25) {
         gone();
         isDissolved = true;
       } else {

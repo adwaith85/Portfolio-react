@@ -5,6 +5,8 @@ const agents = []; // { wrap, ripple, arrow, tween, claimed }
 const waiting = new Set();
 let ready = false;
 let hoverIdx = -1;
+let introDone = false; // the first-section build has finished (including disabled cases)
+let building = false;
 const PAD = 48;
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -105,6 +107,31 @@ export const swarm = {
     return () => waiting.delete(cb);
   },
 
+  // kill and fully hide every build agent. The dedicated hover cursor is left
+  // alone so pointer feedback keeps working. Claimed agents stay claimed so a
+  // remount or a visibilitychange cannot bring them back by roaming.
+  hideAll() {
+    agents.forEach((a) => {
+      if (!a || a.hoverOnly) return;
+      if (a.tween) {
+        a.tween.kill();
+        a.tween = null;
+      }
+      gsap.killTweensOf([a.wrap, a.arrow, a.ripple].filter(Boolean));
+      gsap.set(a.wrap, { opacity: 0, visibility: "hidden" });
+      a.claimed = true;
+    });
+  },
+
+  // remembered across CursorSwarm remounts (e.g. resizing across 768px)
+  setIntroDone(v) {
+    introDone = Boolean(v);
+  },
+
+  isIntroDone() {
+    return introDone;
+  },
+
   stopAll() {
     agents.forEach((a) => a.tween && a.tween.kill());
   },
@@ -135,6 +162,7 @@ export const swarm = {
     if (document.hidden) return;
     agents.forEach((a, i) => {
       if (!a || a.hoverOnly || a.claimed) return;
+      gsap.set(a.wrap, { visibility: "visible" });
       gsap.to(a.wrap, { opacity: 1, duration: 0.18, overwrite: "auto" });
       swarm.roam(i);
     });
@@ -148,6 +176,7 @@ export const swarm = {
     a.claimed = true;
     if (a.tween) a.tween.kill();
     a.tween = null;
+    if (a.wrap) gsap.set(a.wrap, { visibility: "visible", opacity: 1 });
   },
 
   // pointer hover: the dedicated hover agent (not leased by any build) chases
@@ -220,7 +249,7 @@ export const swarm = {
   click(i) {
     const a = agents[i];
     if (!a) return gsap.timeline();
-    agentStore.addActions(1);
+    if (!building) agentStore.addActions(1);
     return gsap
       .timeline()
       .to(a.arrow, { scale: 0.8, duration: 0.05, ease: "power2.out" })
@@ -233,18 +262,24 @@ export const swarm = {
       );
   },
 
+  setBuilding(v) {
+    building = Boolean(v);
+  },
+
   // Fly agent i to an element. The target is measured when this plays,
   // so it works even if the element moves or resizes before then.
+  // Pass `rect` ({left,top,width,height}) to avoid a layout read during the build.
   moveTo(
     i,
     target,
     {
       duration = 0.08,
       click = false,
-      ease = "power3.inOut",
+      ease = "power3.out",
       offset = { x: 0.5, y: 0.5 },
       dx = 0,
       dy = 0,
+      rect = null,
     } = {}
   ) {
     const a = agents[i];
@@ -252,14 +287,29 @@ export const swarm = {
     if (!a) return tl;
 
     const pos = (axis) => () => {
-      const p = pointOf(target, offset);
+      let p = null;
+      if (rect) {
+        p = {
+          x: rect.left + rect.width * offset.x,
+          y: rect.top + rect.height * offset.y,
+        };
+      } else {
+        p = pointOf(target, offset);
+      }
       return (p ? p[axis] : gsap.getProperty(a.wrap, axis)) + (axis === "x" ? dx : dy);
     };
 
     tl.add(() => {
       swarm.claim(i);
     });
-    tl.to(a.wrap, { x: pos("x"), y: pos("y"), duration, ease, force3D: true });
+    tl.to(a.wrap, {
+      x: pos("x"),
+      y: pos("y"),
+      duration,
+      ease,
+      force3D: true,
+      overwrite: "auto",
+    });
     if (click) {
       tl.add(() => {
         swarm.click(i);
@@ -268,11 +318,23 @@ export const swarm = {
     return tl;
   },
 
-  // instantly place agent i at a fraction of an element (used while typing)
+  // instantly place agent i at a fraction of an element (used by other sections)
   placeAt(i, target, fx, fy, dx = 0, dy = 0) {
     const a = agents[i];
     const p = pointOf(target, { x: fx, y: fy });
-    if (a && p) gsap.set(a.wrap, { x: p.x + dx, y: p.y + dy });
+    if (a && p) gsap.set(a.wrap, { x: p.x + dx, y: p.y + dy, force3D: true });
+  },
+
+  // same, but from a viewport rect captured once when the step starts. No
+  // layout read per frame. `rect` is a {left, top, width, height} object.
+  placeAtRect(i, rect, fx, fy, dx = 0, dy = 0) {
+    const a = agents[i];
+    if (!a || !rect) return;
+    gsap.set(a.wrap, {
+      x: rect.left + rect.width * fx + dx,
+      y: rect.top + rect.height * fy + dy,
+      force3D: true,
+    });
   },
 
   // wander forever: fast moves, random pauses, random clicks
@@ -323,6 +385,7 @@ export const swarm = {
     agents.forEach((a, i) => {
       if (a.hoverOnly) return;
       a.claimed = false;
+      gsap.set(a.wrap, { visibility: "visible" });
       gsap.to(a.wrap, { opacity: 1, duration: 0.3 });
       swarm.roam(i);
     });
@@ -374,6 +437,9 @@ export const swarm = {
   setVisible(v) {
     agents.forEach((a) => {
       if (a.hoverOnly) return;
+      // A claimed agent has finished its build (or belongs to another section).
+      // Never let a tab switch or remount bring it back.
+      if (v && a.claimed) return;
       a.wrap.style.visibility = v ? "visible" : "hidden";
     });
   },

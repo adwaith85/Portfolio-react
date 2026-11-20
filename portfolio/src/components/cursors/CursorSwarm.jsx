@@ -78,22 +78,47 @@ function Swarm() {
         }
       : null;
 
+    // A resize across the agents breakpoint remounts this component. Once the
+    // intro has finished, the cursors must stay gone instead of fading in and
+    // roaming again.
+    const done = swarm.isIntroDone();
+
     const ctx = gsap.context(() => {
-      list.forEach(({ wrap }, i) => {
-        // everyone starts as a cluster in the middle, then spreads out
-        gsap.set(wrap, {
-          x: window.innerWidth / 2 + rand(-60, 60),
-          y: window.innerHeight / 2 + rand(-40, 40),
+      if (!done) {
+        // Cluster in the middle so all cursors are visible from first paint;
+        // the intro build will claim and animate them.
+        list.forEach(({ wrap }) => {
+          gsap.set(wrap, {
+            x: window.innerWidth / 2 + rand(-60, 60),
+            y: window.innerHeight / 2 + rand(-40, 40),
+            opacity: 1,
+            visibility: "visible",
+          });
         });
-        gsap.to(wrap, { opacity: 1, duration: 0.3, delay: i * 0.06 });
-      });
+      }
 
       agentStore.set({ agents: list.length, status: "Scanning page..." });
-      gsap.delayedCall(0.4, () => swarm.roamAll());
     }, root);
 
-    // registering last: this is what lets a waiting build start
+      // registering last: this is what lets a waiting build start
     swarm.register(hoverEntry ? [...list, hoverEntry] : list);
+
+    // register() resets claimed=false, so re-apply the intended state afterwards
+    if (done) {
+      swarm.hideAll();
+    } else {
+      list.forEach((a) => {
+        if (a && a.wrap) {
+          a.claimed = true;
+          gsap.set(a.wrap, {
+            x: window.innerWidth / 2 + rand(-60, 60),
+            y: window.innerHeight / 2 + rand(-40, 40),
+            opacity: 1,
+            visibility: "visible",
+          });
+        }
+      });
+    }
 
     const onVisibility = () => {
       if (document.hidden) {
@@ -101,6 +126,8 @@ function Swarm() {
         swarm.hoverEnd();
         swarm.setVisible(false);
       } else {
+        // resumeIdle() only revives unclaimed agents, and setVisible() never
+        // changes opacity, so hidden/claimed cursors stay hidden here.
         swarm.setVisible(true);
         swarm.resumeIdle();
       }
@@ -177,8 +204,6 @@ function Swarm() {
 export default function CursorSwarm() {
   const enabled = useAgentsEnabled();
   const { ui } = useAgents();
-  const touchDevice =
-    typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
-  if (!enabled || ui === "closed" || touchDevice) return null;
+  if (!enabled || ui === "closed") return null;
   return <Swarm />;
 }

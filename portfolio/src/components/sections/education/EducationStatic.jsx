@@ -1,10 +1,7 @@
 import EduCard from "./EduCard";
 import CertFrame from "./CertFrame";
 
-/* prefers-reduced-motion: same content, no pin, no tilt, no cursors. */
-export default function EducationStatic({ head, cards, achievements, rows, activeIndex, onOpen }) {
-  const groups = rows?.length ? rows : [achievements.items];
-
+export default function EducationStatic({ head, cards, achievements, activeIndex, onOpen }) {
   return (
     <div className="edu-static">
       <header className="edu-static-head">
@@ -28,11 +25,10 @@ export default function EducationStatic({ head, cards, achievements, rows, activ
         </h2>
         <p className="edu-static-ach-tagline">{achievements.tagline}</p>
         <div className="edu-static-grid">
-          {groups.flat().map((item, i) => (
+          {achievements.items.map((item) => (
             <CertFrame
               key={item.index}
               item={item}
-              featured={(i % 3) === 1}
               active={activeIndex === item.index}
               onOpen={onOpen}
             />

@@ -362,6 +362,8 @@ export const content = {
 
   achievements: {
     title: "ACHIEVEMENTS",
+    cardTitle: "CERTIFICATES",
+    cardLine: "Achievements I gained from this journey",
     tagline: "After the classroom, this is what I earned, and what keeps me going for more.",
     items: [
       { title: "BCA Degree", caption: "Bachelor of Computer Applications, Srinivas University (2022 – 2025). My foundation in computing.", image: "certificates/bca.webp", w: 909, h: 1280 },

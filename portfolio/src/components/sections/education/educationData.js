@@ -41,19 +41,11 @@ export function buildEducationData(content) {
 
   const achievements = {
     title: content.achievements.title,
+    cardTitle: content.achievements.cardTitle,
+    cardLine: content.achievements.cardLine,
     tagline: content.achievements.tagline,
     items: content.achievements.items.map((item, index) => ({ ...item, index })),
   };
 
-  // The mini grid is simply the nine certificates in their natural 0..8 order.
-  const miniItems = [...achievements.items].sort((a, b) => a.index - b.index);
-
-  // Zero-based indexes: top/dimmed, centre/focused, bottom/dimmed.
-  const rows = [
-    [3, 4, 5],
-    [0, 1, 2],
-    [6, 7, 8],
-  ].map((group) => group.map((i) => achievements.items[i]));
-
-  return { head, cards, achievements, rows, miniItems };
+  return { head, cards, achievements };
 }

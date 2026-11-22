@@ -98,7 +98,6 @@ export function dragBox(
       v: 1,
       duration: dur,
       ease: "power3.out",
-      autoRound: false,
       onUpdate() {
         gsap.set(ov.o, { scaleX: p.v, scaleY: p.v });
         if (withCursor && trackedRect) swarm.placeAtRect(ag, trackedRect, p.v, p.v, pad, pad);

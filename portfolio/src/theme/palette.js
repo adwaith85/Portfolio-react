@@ -1,7 +1,5 @@
 /*
-  Colour plan for the whole portfolio, the single source of truth.
-  - The wall (components/ui/Wall.jsx) reads `bg` for each section.
-  - Content reads the rest through CSS variables (see ENV_CSS).
+  Colour plan for the sections that still scope their own CSS variables.
   The reasoning is in src/README.md.
 
   bg    : the plain wall colour behind that section (from the dark fabric palette)
@@ -15,39 +13,6 @@
 const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 
 export const ENVS = {
-  // Jet Black. Red 70, old gold 10, deep green 10, white 10.
-  hero: {
-    name: "Jet Black",
-    bg: "#0a0a0c",
-    main: "#d61a29",
-    gold: "#b08d4d",
-    deep: "#21402d",
-    ink: "#f2efeb",
-    tint: "rgba(92,18,32,0.34)",
-    tintHot: "rgba(176,141,77,0.16)",
-  },
-  // the thin stack strip is a bridge: it keeps the hero colours and has no wall colour of its own
-  stack: {
-    name: "Bridge",
-    bg: "#0a0a0c",
-    main: "#d61a29",
-    gold: "#b08d4d",
-    deep: "#21402d",
-    ink: "#f2efeb",
-    tint: "rgba(92,18,32,0.34)",
-    tintHot: "rgba(176,141,77,0.16)",
-  },
-  // Midnight. Burgundy 70, camel 10, chocolate 10, cream 10.
-  "what-i-do": {
-    name: "Midnight",
-    bg: "#0f1524",
-    main: "#b8344a",
-    gold: "#c4a068",
-    deep: "#5a3a2c",
-    ink: "#efe8da",
-    tint: "rgba(96,20,42,0.38)",
-    tintHot: "rgba(196,160,104,0.18)",
-  },
   // Obsidian. Eucalyptus 70, mist 10, moss 10, plaster 10, soot for the glass.
   projects: {
     name: "Obsidian",
@@ -58,27 +23,6 @@ export const ENVS = {
     ink: "#f2efe2",
     tint: "rgba(45,53,54,0.62)",
     tintHot: "rgba(179,201,214,0.14)",
-  },
-  // later sections, ready for the next steps
-  about: {
-    name: "Charcoal",
-    bg: "#211a1d",
-    main: "#c9a25a",
-    gold: "#efe8da",
-    deep: "#5a3a2c",
-    ink: "#efe8da",
-    tint: "rgba(120,80,40,0.32)",
-    tintHot: "rgba(239,232,218,0.14)",
-  },
-  education: {
-    name: "Slate",
-    bg: "#2f3544",
-    main: "#b3c9d6",
-    gold: "#98aa9d",
-    deep: "#697c70",
-    ink: "#f2efe2",
-    tint: "rgba(60,72,92,0.5)",
-    tintHot: "rgba(152,170,157,0.16)",
   },
   experience: {
     name: "Carbon",
@@ -119,8 +63,7 @@ const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 const rgb = (c) => c.join(" ");
 const rgba = (c, a) => `rgba(${c.join(",")},${a})`;
 
-/* One section's CSS variables. Experience renders this locally with envCss()
-   so it gets its Carbon palette without mounting the global Wall. */
+/* One section's CSS variables, rendered locally by the sections that opt in. */
 const envRule = (id, e) => {
   const main = hex(e.main);
   const gold = hex(e.gold);
@@ -147,12 +90,5 @@ const envRule = (id, e) => {
   );
 };
 
-/* CSS variables per section. Tailwind classes such as text-red, text-gold, bg-deep,
-   text-ink and border-line read these, so each section recolours itself without
-   changing its markup. */
-export const ENV_CSS = Object.entries(ENVS)
-  .map(([id, e]) => envRule(id, e))
-  .join("\n");
-
-/* Scoped version for a single section. */
+/* Scoped CSS variables for the sections that opt in. */
 export const envCss = (id) => (ENVS[id] ? envRule(id, ENVS[id]) : "");

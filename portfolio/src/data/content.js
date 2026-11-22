@@ -54,10 +54,10 @@ export const content = {
   sections: [
     { id: "what-i-do", headline: ["FROM IDEA.", "TO LIVE."] },
     { id: "projects", headline: ["THE WORK.", "THE PROOF."] },
-    { id: "about", num: "04", label: "ABOUT ME", headline: ["THE PERSON.", "BEHIND THE CODE."], note: "Build comes in Step 6" },
-    { id: "education", num: "05", label: "EDUCATION", headline: ["EDUCATION", "THE ROUTE SO FAR"], note: "Build comes in Step 7" },
+    { id: "about", num: "04", label: "ABOUT ME", headline: ["THE PERSON.", "BEHIND THE CODE."] },
+    { id: "education", num: "05", label: "EDUCATION", headline: ["EDUCATION", "THE ROUTE SO FAR"] },
     { id: "experience", num: "06", label: "EXPERIENCE", headline: ["EXPERIENCE", "& INTERNSHIP"] },
-    { id: "contact", num: "07", label: "CONTACT", headline: ["LET'S WORK", "TOGETHER."], note: "Build comes in Step 9" },
+    { id: "contact", num: "07", label: "CONTACT", headline: ["LET'S WORK", "TOGETHER."] },
   ],
 
   about: {
@@ -135,14 +135,6 @@ export const content = {
       image: "genmise.png",
     },
   ],
-
-  skills: {
-    Languages: ["HTML5", "CSS", "JavaScript (ES6+)", "TypeScript", "SQL"],
-    Frontend: ["React.js", "React Native", "Next.js", "Bootstrap", "Tailwind CSS", "Flutter"],
-    Backend: ["Node.js", "Express.js", "REST APIs", "Authentication", "Socket.IO"],
-    Databases: ["MongoDB", "MySQL"],
-    Tools: ["Git", "GitHub", "VS Code", "Postman", "AWS", "Docker", "Android Studio"],
-  },
 
   /*
     The request path from the first click to the live URL.
@@ -289,9 +281,6 @@ export const content = {
       period: "Before 2022",
       year: "SCHOOL",
       status: "Completed",
-      duration: "",
-      grade: "",
-      certificate: "",
       story: "It started with curiosity.",
       studied: "School education, and my first steps into computers and technology.",
       learned: [
@@ -309,12 +298,8 @@ export const content = {
       place: "Srinivas College of Computer and Information Science, Srinivas University",
       period: "2022 – 2025",
       year: "2022",
-      yearLabel: "2022 – 2025",
       yearTag: "DEGREE",
       status: "Graduated 2025",
-      duration: "3 years",
-      grade: "",
-      certificate: "",
       story: "Then the foundations got real.",
       studied: "Computer applications: programming, databases and web fundamentals.",
       learned: [
@@ -332,12 +317,8 @@ export const content = {
       place: "GTEC Institute, Kannur",
       period: "Jul 2025 – Feb 2026",
       year: "2025",
-      yearLabel: "2025",
       yearTag: "SKILL COURSE",
       status: "Completed",
-      duration: "6 months training + 2 months internship",
-      grade: "",
-      certificate: "",
       story: "Then I started building for real.",
       studied: "Full-stack web development with the MERN stack, then two months of internship on real applications.",
       learned: [
@@ -355,12 +336,8 @@ export const content = {
       place: "Open to junior MERN roles",
       period: "Today",
       year: "NOW",
-      yearLabel: "ONGOING",
       yearTag: "NOW",
       status: "You are here",
-      duration: "",
-      grade: "",
-      certificate: "",
       story: "And this is where the road leads today.",
       studied: "Still learning every day: new tools, cleaner code, better products.",
       learned: [
@@ -382,15 +359,20 @@ export const content = {
     },
   ],
   educationTagline: "From a school desk to deployed apps.",
+
   achievements: {
     title: "ACHIEVEMENTS",
     tagline: "After the classroom, this is what I earned, and what keeps me going for more.",
     items: [
-      { title: "BCA Degree", caption: "Bachelor of Computer Applications, Srinivas University (2022 – 2025). My foundation in computing.", image: "" },
-      { title: "MERN Stack Certification", caption: "Full-stack training at GTEC Institute, Kannur. React, Node.js, Express and MongoDB.", image: "" },
-      { title: "Internship Certificate", caption: "Two months as a web developer intern at GTEC, Kannur, working on real applications.", image: "" },
-      { title: "Certificate 04", caption: "Add what this certificate defines.", image: "" },
-      { title: "Certificate 05", caption: "Add what this certificate defines.", image: "" }
+      { title: "BCA Degree", caption: "Bachelor of Computer Applications, Srinivas University (2022 – 2025). My foundation in computing.", image: "certificates/bca.webp", w: 909, h: 1280 },
+      { title: "MERN Stack Certification", caption: "Full-stack training at GTEC Institute, Kannur. React, Node.js, Express and MongoDB.", image: "certificates/mern.webp", w: 899, h: 1280 },
+      { title: "Internship Certificate", caption: "Two months as a web developer intern at GTEC, Kannur, working on real applications.", image: "certificates/internship-1.webp", w: 931, h: 1280 },
+      { title: "Internship Certificate", caption: "Five months as a web development intern at Cognitive Solutions.", image: "certificates/internship-2.webp", w: 919, h: 1280 },
+      { title: "Internship Certificate", caption: "Three months as an artificial intelligence intern at Skillvertex.", image: "certificates/internship-3.webp", w: 910, h: 1280 },
+      { title: "Certificate", caption: "NSS Certificate", image: "certificates/certificate-1.webp", w: 954, h: 1280 },
+      { title: "Certificate", caption: "Certificate of Consistent Attendance, GTEC", image: "certificates/certificate-2.webp", w: 907, h: 1280, rotate: 90 },
+      { title: "Certificate", caption: "Certificate of Commitment, Central Vigilance Commission", image: "certificates/certificate-3.webp", w: 1280, h: 905 },
+      { title: "Certificate", caption: "Introduction to Python, Infosys Springboard", image: "certificates/certificate-4.webp", w: 992, h: 710 }
     ]
   },
 

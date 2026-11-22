@@ -95,7 +95,7 @@ function usePhotoKind() {
       }
     };
     img.onerror = () => setKind("missing");
-    img.src = "/photo.png";
+    img.src = "/photo.webp";
   }, []);
 
   return kind;
@@ -132,17 +132,16 @@ function typeChars(container, { duration = 0.8, agent = null, rects: preRects = 
     n: chars.length,
     duration,
     ease: "none",
-    autoRound: false,
     onStart() {
       if (!rects) rects = chars.map((c) => c.getBoundingClientRect());
     },
     onUpdate() {
       const k = Math.floor(st.n);
       if (k !== last) {
-        for (let i = Math.max(0, last + 1); i < chars.length && i < k; i++) {
+        for (let i = Math.max(0, last); i < chars.length && i < k; i++) {
           chars[i].style.opacity = "1";
         }
-        for (let i = Math.max(0, k); i <= last; i++) {
+        for (let i = Math.max(0, k); i < last; i++) {
           chars[i].style.opacity = "0";
         }
         last = k;
@@ -150,6 +149,11 @@ function typeChars(container, { duration = 0.8, agent = null, rects: preRects = 
       if (agent !== null && k > 0 && rects && rects[k - 1]) {
         swarm.placeAtRect(agent, rects[k - 1], 1, 0.85, 3, 0);
       }
+    },
+    onComplete() {
+      chars.forEach((c) => {
+        c.style.opacity = "1";
+      });
     },
   });
   return tl;
@@ -293,14 +297,14 @@ function Photo({ kind }) {
     <div data-stack className="relative h-full" style={opaque ? OPAQUE_MASK : undefined}>
       <img
         data-real
-        src="/photo.png"
+        src="/photo.webp"
         alt="Adwaith A Kumar"
         className="relative block h-full w-auto max-w-none opacity-100"
         style={opaque ? undefined : { filter: PHOTO_GLOW }}
       />
       <img
         data-sketch
-        src="/photo.png"
+        src="/photo.webp"
         alt=""
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 size-full max-w-none"
@@ -863,7 +867,7 @@ function buildIntro(root, cursors = true, pre = {}) {
           onUpdate() {
             const k = Math.floor(st.n);
             if (k !== last) {
-              for (let i = Math.max(0, last + 1); i < k && i < gchars.length; i++) {
+              for (let i = Math.max(0, last); i < k && i < gchars.length; i++) {
                 gchars[i].style.opacity = "1";
               }
               last = k;
@@ -871,6 +875,11 @@ function buildIntro(root, cursors = true, pre = {}) {
             if (cursors && k > 0 && grects[gi][k - 1]) {
               swarm.placeAtRect(ag, grects[gi][k - 1], 1, 0.85, 3, 0);
             }
+          },
+          onComplete() {
+            gchars.forEach((c) => {
+              c.style.opacity = "1";
+            });
           },
         },
         t + HOP

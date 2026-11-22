@@ -9,25 +9,11 @@ import Education from "./components/sections/Education";
 import ToolsStrip from "./components/sections/ToolsStrip";
 import Experience from "./components/sections/Experience";
 import Contact from "./components/sections/Contact";
-import SectionShell from "./components/sections/SectionShell";
 import SiteFooter from "./components/sections/SiteFooter";
 import CursorSwarm from "./components/cursors/CursorSwarm";
-import { content } from "./data/content";
 
 export default function App() {
   useSmoothScroll();
-
-  const rest = content.sections.filter(
-    (s) =>
-      ![
-        "what-i-do",
-        "projects",
-        "about",
-        "education",
-        "experience",
-        "contact",
-      ].includes(s.id)
-  );
 
   return (
     <>
@@ -41,10 +27,6 @@ export default function App() {
         <ToolsStrip />
         <Experience />
         <Contact />
-
-        {rest.map((s) => (
-          <SectionShell key={s.id} {...s} />
-        ))}
       </main>
 
       <SiteFooter />

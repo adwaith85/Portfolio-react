@@ -64,6 +64,7 @@ export function createPhotoDissolve({
   getImg,
   mode, // "alpha" | "opaque" | "missing"
 }) {
+  const bottomEdge = () => trigger.offsetHeight - (window.scrollY || window.pageYOffset || 0);
   const ctx = canvas.getContext("2d");
   const sprW = makeSprite("255,255,255");
   const sprR = makeSprite("255,76,88");
@@ -219,7 +220,7 @@ export function createPhotoDissolve({
   const render = (p) => {
     if (p <= 0.001) return rest();
 
-    const hb = trigger.getBoundingClientRect().bottom;
+    const hb = bottomEdge();
     if (p >= END || hb <= 0) return gone();
 
     const img = getImg();
@@ -369,8 +370,8 @@ export function createPhotoDissolve({
       fit();
       P = null;
       buf = null;
-      const top = trigger.getBoundingClientRect().top;
-      if (top < -trigger.offsetHeight * 0.25) {
+      const y = window.scrollY || window.pageYOffset || 0;
+      if (y > trigger.offsetHeight * 0.25) {
         gone();
         isDissolved = true;
       } else {

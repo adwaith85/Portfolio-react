@@ -46,7 +46,6 @@ const HIDE_SEL = [
   "[data-stat-text]",
   "[data-plus]",
   "[data-rule-handle]",
-  "[data-sel]",
   "[data-caret]",
   "[data-pen]",
   "[data-glow]",
@@ -62,7 +61,7 @@ const HIDE_SEL = [
   never to an opaque photo, so the hair is always shown exactly as in the file.
 */
 const PHOTO_GLOW =
-  "drop-shadow(26px 0 34px rgba(214,26,41,0.6)) drop-shadow(-22px 0 34px rgba(50,110,255,0.45))";
+  "drop-shadow(14px 0 24px rgba(214,26,41,0.3)) drop-shadow(-12px 0 24px rgba(50,110,255,0.22))";
 
 // opaque photos only: a short side/bottom edge blend, never near the hair (top stays fully opaque)
 const OPAQUE_MASK = {
@@ -318,36 +317,6 @@ function Photo({ kind }) {
   );
 }
 
-/* dashed selection box with corner handles and a tag, like a design tool */
-function SelBox({ tag, className = "" }) {
-  const corners = [
-    "-left-1 -top-1",
-    "-right-1 -top-1",
-    "-bottom-1 -left-1",
-    "-bottom-1 -right-1",
-  ];
-  return (
-    <span
-      data-sel
-      className={`pointer-events-none absolute -left-3 -top-3 z-[3] border border-dashed border-[#4c8dff] ${className}`}
-    >
-      {corners.map((c) => (
-        <i
-          key={c}
-          data-handle
-          className={`absolute size-2 border border-[#4c8dff] bg-white ${c}`}
-        />
-      ))}
-      <b
-        data-tag
-        className="absolute -top-6 left-0 whitespace-nowrap rounded-sm bg-[#4c8dff] px-1.5 py-[3px] text-[10px] font-semibold leading-none text-white"
-      >
-        {tag}
-      </b>
-    </span>
-  );
-}
-
 const rand = (a, b) => a + Math.random() * (b - a);
 
 function edgePositions(n) {
@@ -472,8 +441,6 @@ function applyHidden(el) {
   gsap.set(all("[data-rule]"), { clipPath: "inset(0 100% 0 0)" });
   gsap.set(all("[data-sketch]"), { clipPath: "inset(0% 0% 100% 0%)" });
   gsap.set(all("[data-real]"), { clipPath: "inset(0% -60% 100% -60%)" });
-  // keep JSX selection boxes CSS-controlled (not part of built content)
-  gsap.set(all("[data-sel]"), { clearProps: "opacity,visibility,autoAlpha" });
   all("[data-stat-num]").forEach((n) => {
     if (n.dataset.kind === "count") n.textContent = "00";
   });
@@ -1176,7 +1143,7 @@ function buildIntro(root, cursors = true, pre = {}) {
     gsap.set(all("[data-period]"), { autoAlpha: 1, scale: 1, color: RED });
     gsap.set(all("[data-title],[data-title-line]"), { color: RED });
     gsap.set(all("[data-rule]"), { clearProps: "clipPath,opacity,visibility" });
-    gsap.set(all("[data-rule-handle],[data-pen]"), { autoAlpha: 0 });
+    gsap.set(all("[data-rule-handle],[data-pen],[data-caret]"), { autoAlpha: 0 });
     gsap.set(all("[data-sketch]"), { autoAlpha: 0, clearProps: "clipPath,filter" });
     gsap.set(all("[data-real]"), { autoAlpha: 1, clearProps: "clipPath" });
     gsap.set(all("[data-glow]"), { autoAlpha: 1 });
@@ -1185,8 +1152,6 @@ function buildIntro(root, cursors = true, pre = {}) {
         n.textContent = String(Number(n.dataset.to) || 0).padStart(2, "0");
       }
     });
-    // restore JSX selection boxes to their CSS/default state
-    all("[data-sel]").forEach((el) => gsap.set(el, { clearProps: "opacity,visibility,autoAlpha" }));
     swarm.stopAll();
     swarm.hideAll();
     swarm.setIntroDone(true);
@@ -1302,7 +1267,7 @@ export default function Intro() {
         l.style.color = RED;
       });
       gsap.set(allSel("[data-rule]"), { clearProps: "clipPath" });
-      gsap.set(allSel("[data-rule-handle],[data-pen]"), { autoAlpha: 0 });
+      gsap.set(allSel("[data-rule-handle],[data-pen],[data-caret]"), { autoAlpha: 0 });
       gsap.set(allSel("[data-sketch]"), { autoAlpha: 0, clearProps: "clipPath,filter,willChange" });
       gsap.set(allSel("[data-real]"), { autoAlpha: 1, clearProps: "clipPath,willChange" });
       gsap.set(allSel("[data-glow]"), { autoAlpha: 1, clearProps: "willChange" });
@@ -1561,9 +1526,8 @@ export default function Intro() {
 
     const actuallyLeft = () => {
       if (!el) return true;
-      const r = el.getBoundingClientRect();
-      const vh = window.innerHeight || document.documentElement.clientHeight;
-      return r.bottom <= 0 || r.top >= vh;
+      const y = window.scrollY || window.pageYOffset || 0;
+      return y >= el.offsetHeight - 1;
     };
 
     const guardedHide = () => {
@@ -1602,7 +1566,7 @@ export default function Intro() {
     <section
       id="home"
       ref={root}
-      className="intro-prep relative flex h-svh flex-col gap-[1.2svh] overflow-x-clip overflow-y-hidden px-gutter py-[2svh] lg:gap-0 lg:py-[4svh]"
+      className="intro-prep sticky top-0 flex h-svh flex-col gap-[1.2svh] overflow-x-clip overflow-y-hidden px-gutter py-[2svh] lg:gap-0 lg:py-[4svh]"
     >
       <Filters />
 
@@ -1625,7 +1589,7 @@ export default function Intro() {
             </span>
             <i
               data-caret="role"
-              className="pointer-events-none absolute left-0 top-[10%] h-[80%] w-[2px] bg-ink"
+              className="pointer-events-none invisible absolute left-0 top-[10%] h-[80%] w-[2px] bg-ink"
             />
           </span>
         </p>
@@ -1647,7 +1611,7 @@ export default function Intro() {
       {/* GHOST: one solid Anton word, fully visible, centered behind the photo and all content */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[6svh] z-0 flex justify-center lg:top-[12svh]">
         <div ref={ghost}>
-          <span data-ghost className="block select-none whitespace-nowrap font-display text-[min(24vw,17svh)] leading-[0.85] lg:text-[min(18vw,32svh)]">
+          <span data-ghost className="block select-none whitespace-nowrap font-display text-[min(24vw,17svh)] leading-[0.85] lg:text-[calc(min(20vw,35svh)+6px)]">
             {"PORTFOLIO".split("").map((ch, i) => (
               <span key={i} data-gl className="inline-block bg-[linear-gradient(180deg,#c4131f_0%,#8e0c16_38%,#3a060b_72%,#090909_100%)] bg-clip-text text-transparent">{ch}</span>
             ))}
@@ -1678,10 +1642,6 @@ export default function Intro() {
                     .
                   </span>
                 </span>
-                <SelBox
-                  tag="h1.name"
-                  className="group-hover/name:visible! group-hover/name:opacity-100!"
-                />
               </span>
             </h1>
 
@@ -1743,7 +1703,7 @@ export default function Intro() {
               <div ref={glowWrap} className="absolute inset-0 will-change-transform">
                 <i
                   data-glow
-                  className="absolute -inset-[8%] bg-[radial-gradient(ellipse_at_66%_55%,rgba(214,26,41,0.28),transparent_58%),radial-gradient(ellipse_at_34%_55%,rgba(50,110,255,0.22),transparent_52%)] blur-2xl"
+                  className="absolute -inset-[8%] bg-[radial-gradient(ellipse_at_66%_55%,rgba(214,26,41,0.14),transparent_58%),radial-gradient(ellipse_at_34%_55%,rgba(50,110,255,0.11),transparent_52%)] blur-2xl"
                 />
               </div>
               {/* extra side padding so the glow is never cut off */}

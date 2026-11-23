@@ -19,14 +19,16 @@ export default function App() {
     <>
       <main>
         <Intro />
-        <StackStrip />
-        <WhatIDo />
-        <Projects />
-        <About />
-        <Education />
-        <ToolsStrip />
-        <Experience />
-        <Contact />
+        <div className="relative z-10 bg-bg">
+          <StackStrip />
+          <WhatIDo />
+          <Projects />
+          <About />
+          <Education />
+          <ToolsStrip />
+          <Experience />
+          <Contact />
+        </div>
       </main>
 
       <SiteFooter />

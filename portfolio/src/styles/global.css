@@ -307,3 +307,15 @@ body::after {
     display: none;
   }
 }
+@media (min-width: 1024px) {
+  #home [data-ghost] [data-gl] {
+    text-shadow:
+      1px 1px 0 #7a0f19, 2px 2px 0 #720e17,
+      3px 3px 0 #6a0d15, 4px 4px 0 #620c14,
+      5px 5px 0 #5a0b12, 6px 6px 0 #520a10,
+      7px 7px 0 #4a090e, 8px 8px 0 #42080d,
+      9px 9px 0 #3a070b, 10px 10px 0 #32060a,
+      11px 11px 0 #2a0508, 12px 12px 0 #220407,
+      6px 10px 14px rgba(0,0,0,0.55);
+  }
+}

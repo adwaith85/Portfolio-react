@@ -172,7 +172,9 @@ function FlightCard({ project, n, interactive, onOpen, cardRef }) {
         data-lift
         className="h-full w-full transition-transform duration-300 ease-out group-hover/card:-translate-y-[10px]"
       >
-        <CardFace project={project} n={n} />
+        <div data-flip className="h-full w-full">
+          <CardFace project={project} n={n} />
+        </div>
       </div>
     </article>
   );
@@ -476,6 +478,7 @@ export default function Projects() {
 
   const applyRef = useRef(null);
   const lastProgressRef = useRef(0);
+  const spinResetRef = useRef(null);
   const openTlRef = useRef(null);
   const autoTlRef = useRef(null);
   const autoDoneRef = useRef(false);
@@ -797,10 +800,173 @@ export default function Projects() {
     };
   }, [mode]);
 
+  useEffect(() => {
+    const cards = cardRefs.current.slice(0, projects.length).filter(Boolean);
+    const wrappers = cards.map((card) => card.querySelector("[data-flip]"));
+    if (!wrappers.length || wrappers.some((wrapper) => !wrapper)) {
+      spinResetRef.current = null;
+      return;
+    }
+
+    gsap.set(wrappers, {
+      transformPerspective: 900,
+      backfaceVisibility: "visible",
+      transformOrigin: "50% 50%",
+      transformStyle: "preserve-3d",
+      rotationY: 0,
+    });
+
+    let disposed = false;
+    let paused = false;
+    let pendingResume = false;
+    let spinning = -1;
+    let last = -1;
+    let current = null;
+    const hovered = new Set();
+    const tweens = wrappers.map(() => null);
+    const snaps = wrappers.map(() => null);
+
+    const reset = () => {
+      disposed = true;
+      paused = false;
+      pendingResume = false;
+      spinning = -1;
+      last = -1;
+      current = null;
+      tweens.forEach((tween, i) => {
+        if (tween) tweens[i] = null;
+        if (snaps[i]) snaps[i] = null;
+        gsap.killTweensOf(wrappers[i]);
+        gsap.set(wrappers[i], { rotationY: 0 });
+      });
+      hovered.clear();
+    };
+
+    reset();
+    disposed = false;
+    spinResetRef.current = reset;
+
+    const begin = () => {
+      if (disposed || paused || current || spinning >= 0) return;
+      const choices = [];
+      wrappers.forEach((_, i) => {
+        if (i !== last && !hovered.has(i)) choices.push(i);
+      });
+      if (!choices.length) return;
+      const i = choices[Math.floor(Math.random() * choices.length)];
+      last = i;
+      spinning = i;
+      const value = Number(gsap.getProperty(wrappers[i], "rotationY")) || 0;
+      const base = Math.round(value / 360) * 360;
+      gsap.set(wrappers[i], { rotationY: base });
+      const tween = gsap.to(wrappers[i], {
+        rotationY: base + 360,
+        duration: 0.9,
+        ease: "power2.inOut",
+        onComplete: () => {
+          if (tweens[i] === tween) tweens[i] = null;
+          if (current === tween) current = null;
+          spinning = -1;
+          gsap.set(wrappers[i], { rotationY: 0 });
+          if (!disposed && !paused) begin();
+        },
+      });
+      tweens[i] = tween;
+      current = tween;
+    };
+
+    const resume = () => {
+      if (disposed || !paused) return;
+      if (snaps.some(Boolean) || hovered.size) {
+        pendingResume = true;
+        return;
+      }
+      paused = false;
+      pendingResume = false;
+      begin();
+    };
+
+    const snapFront = (i) => {
+      const wrapper = wrappers[i];
+      const tween = tweens[i];
+      if (tween) {
+        tween.kill();
+        tweens[i] = null;
+      }
+      if (current === tween) current = null;
+      if (snaps[i]) {
+        snaps[i].kill();
+        snaps[i] = null;
+      }
+      gsap.killTweensOf(wrapper);
+      if (spinning === i) spinning = -1;
+      const value = Number(gsap.getProperty(wrapper, "rotationY")) || 0;
+      const front = Math.round(value / 360) * 360;
+      snaps[i] = gsap.to(wrapper, {
+        rotationY: front,
+        duration: 0.25,
+        ease: "power2.out",
+        overwrite: true,
+        onComplete: () => {
+          snaps[i] = null;
+          if (pendingResume && !snaps.some(Boolean) && !hovered.size) resume();
+        },
+      });
+    };
+
+    const pauseFor = (i) => {
+      paused = true;
+      if (current) current.kill();
+      current = null;
+      if (spinning >= 0) {
+        const j = spinning;
+        if (tweens[j]) tweens[j] = null;
+        spinning = -1;
+        if (j !== i) snapFront(j);
+      }
+      snapFront(i);
+    };
+
+    if (mode === "reduced" || !ready || active) {
+      return () => {
+        if (spinResetRef.current === reset) spinResetRef.current = null;
+      };
+    }
+
+    const listeners = cards.map((card, i) => {
+      const enter = () => {
+        hovered.add(i);
+        pauseFor(i);
+      };
+      const leave = () => {
+        hovered.delete(i);
+        resume();
+      };
+      const down = () => pauseFor(i);
+      card.addEventListener("pointerenter", enter);
+      card.addEventListener("pointerleave", leave);
+      card.addEventListener("pointerdown", down);
+      return () => {
+        card.removeEventListener("pointerenter", enter);
+        card.removeEventListener("pointerleave", leave);
+        card.removeEventListener("pointerdown", down);
+      };
+    });
+
+    begin();
+
+    return () => {
+      listeners.forEach((remove) => remove());
+      if (spinResetRef.current === reset) spinResetRef.current = null;
+      reset();
+    };
+  }, [ready, active, mode, projects.length]);
+
   const openProject = useCallback(
     (index) => {
       if (mode === "desktop" && !readyRef.current) return;
       if (activeRef.current) return;
+      spinResetRef.current?.();
       const el = cardRefs.current[index];
       if (!el) return;
       lastFocusRef.current = el;

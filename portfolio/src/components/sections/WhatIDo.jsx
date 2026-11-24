@@ -226,41 +226,6 @@ function buildHeading(rootEl) {
   return tl;
 }
 
-function buildNow(card, host) {
-  const [a, b] = AG.now;
-  const ov = makeOverlay(host);
-  const tl = gsap.timeline();
-  cursorIntro(tl, AG.now, 0);
-
-  // a drags the card frame out
-  const base = drawFrame(tl, card, a, 0.1);
-
-  // b selects the live status line, pops the dot and writes the label
-  const head = card.querySelector("[data-now-head]");
-  const dot = card.querySelector("[data-now-dot]");
-  const headText = card.querySelector("[data-now-text]");
-  let t = dragBox(tl, ov, b, head, host, 0.2, { tag: "p.status", dur: 0.25 });
-  if (dot) t = popIn(tl, b, dot, t, { travel: 0.2, from: { scale: 0 } });
-  t = typeWords(tl, headText, b, t, 0.04);
-
-  // each row is selected, then both cursors write its label and value
-  const rows = [...card.querySelectorAll("[data-now-row]")];
-  rows.forEach((row, i) => {
-    const at = Math.max(base, t) + 0.1 + i * 0.6;
-    const te = dragBox(tl, ov, b, row, host, at, {
-      tag: "div.row",
-      dur: 0.2,
-      pad: 2,
-    });
-    tl.to(row, { borderTopColor: "rgba(255,255,255,0.1)", duration: 0.3 }, te - 0.05);
-    typeWords(tl, row.querySelector("[data-now-k]"), b, te, 0.03);
-    t = typeWords(tl, row.querySelector("[data-now-v]"), a, te + 0.1, 0.025);
-  });
-
-  cursorOutro(tl, AG.now, { at: t + 0.4 });
-  return tl;
-}
-
 function buildCapability(card, i, host) {
   const [A, B, C] = AG.caps[i];
   const ov = { [A]: makeOverlay(host), [B]: makeOverlay(host), [C]: makeOverlay(host) };
@@ -290,6 +255,16 @@ function buildCapability(card, i, host) {
   });
   tc = typeWords(tl, desc, C, tc, 0.022);
 
+  const detail = card.querySelector("[data-detail]");
+  const detailDot = card.querySelector("[data-detail-dot]");
+  const detailText = card.querySelector("[data-detail-text]");
+  let td = tc;
+  if (detail) {
+    td = dragBox(tl, ov[C], C, detail, host, tc + 0.1, { tag: "p.detail", dur: 0.25, pad: 2 });
+    if (detailDot) td = popIn(tl, C, detailDot, td, { travel: 0.2, from: { scale: 0 } });
+    td = typeWords(tl, detailText, C, td, 0.025);
+  }
+
   // A and B build the tool chips, two at a time
   let chipsEnd = base;
   [...card.querySelectorAll("[data-chip]")].forEach((chip, k) => {
@@ -302,9 +277,9 @@ function buildCapability(card, i, host) {
   });
 
   // C draws the proof line box, pops its dot and writes it
-  let tp = tc;
+  let tp = td;
   if (proof) {
-    tp = dragBox(tl, ov[C], C, proof, host, tc + 0.1, { tag: "p.proof", dur: 0.25, pad: 2 });
+    tp = dragBox(tl, ov[C], C, proof, host, td + 0.1, { tag: "p.proof", dur: 0.25, pad: 2 });
     if (proofDot) tp = popIn(tl, C, proofDot, tp, { travel: 0.2, from: { scale: 0 } });
     tp = typeWords(tl, proofText, C, tp, 0.025);
   }
@@ -396,7 +371,7 @@ export default function WhatIDo() {
         ),
         { autoAlpha: 0 }
       );
-      gsap.set(all("[data-now-dot],[data-proof-dot]"), { scale: 0 });
+      gsap.set(all("[data-now-dot],[data-proof-dot],[data-detail-dot]"), { scale: 0 });
       gsap.set(all("[data-now-row]"), { borderTopColor: "rgba(255,255,255,0.02)" });
       gsap.set(all("[data-handle]"), { scale: 0 });
       gsap.set(all("[data-bar]"), { scaleX: 0 });
@@ -410,18 +385,12 @@ export default function WhatIDo() {
     }, root);
 
     const headingEl = el.querySelector("header");
-    const nowEl = el.querySelector("[data-now]");
 
     const groups = [
       headingEl && {
         element: headingEl,
         agents: AG.head,
         build: () => buildHeading(el),
-      },
-      nowEl && {
-        element: nowEl,
-        agents: AG.now,
-        build: (card) => buildNow(card, el),
       },
       ...all("[data-cap]").map((card, i) => ({
         element: card,
@@ -485,7 +454,8 @@ export default function WhatIDo() {
           data-now=""
           tag="div.now"
           colors={HOT}
-          className="w-full shrink-0 lg:w-[min(27rem,34vw)]"
+          aria-hidden="true"
+          className="invisible pointer-events-none select-none max-lg:hidden w-full shrink-0 lg:w-[min(27rem,34vw)]"
         >
           <div className="relative p-4 lg:p-[min(1.2rem,2.2svh)]">
             <p data-now-head className="label flex w-fit items-center gap-2.5">
@@ -534,7 +504,7 @@ export default function WhatIDo() {
             <Shell
               data-cap=""
               tag={`div.${c.slug}`}
-              colors={c.hot ? HOT : NORMAL}
+              colors={NORMAL}
               className="min-h-[13rem] w-full flex-1"
             >
               <div className="relative flex h-full flex-col p-4 lg:p-[min(1.3rem,2.4svh)]">
@@ -553,6 +523,19 @@ export default function WhatIDo() {
                   className="mt-[0.9svh] block text-[min(0.88rem,1.9svh)] leading-snug text-ink/65 transition-colors duration-300 group-hover/card:text-ink/90"
                 >
                   <Words text={c.line} />
+                </p>
+
+                <p
+                  data-detail
+                  className="mt-[0.9svh] flex items-start gap-2 text-[min(0.8rem,1.7svh)] leading-snug text-ink/65 transition-colors duration-300 group-hover/card:text-ink/90"
+                >
+                  <i
+                    data-detail-dot
+                    className="mt-[0.45em] size-1.5 shrink-0 rounded-full bg-red transition-[scale] duration-300 group-hover/card:scale-[1.8]"
+                  />
+                  <span data-detail-text>
+                    <Words text={c.detail} />
+                  </span>
                 </p>
 
                 <ul className="mt-[1.5svh] flex flex-wrap gap-1.5">

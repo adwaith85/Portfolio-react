@@ -20,6 +20,7 @@ export const whatIDo = {
       title: "Frontend",
       line: "Responsive React interfaces that work on every screen size.",
       tools: ["React", "Next.js", "Tailwind CSS", "Bootstrap"],
+      detail: "Reusable components with mobile-first styling",
       proof: "Used in all 4 live demos",
     },
     {
@@ -27,6 +28,7 @@ export const whatIDo = {
       title: "Backend",
       line: "REST APIs with Node and Express, authentication and real-time sockets.",
       tools: ["Node.js", "Express.js", "Socket.IO", "Postman"],
+      detail: "Clean route structure and API testing with Postman",
       proof: "Behind all 5 projects",
     },
     {
@@ -34,6 +36,7 @@ export const whatIDo = {
       title: "Data and cloud",
       line: "MongoDB and MySQL databases, deployed on AWS and packaged with Docker.",
       tools: ["MongoDB", "MySQL", "AWS", "Docker"],
+      detail: "Schema design, queries and containerized deployments",
       proof: "MongoDB in 4 projects, MySQL in 1",
     },
     {
@@ -41,8 +44,8 @@ export const whatIDo = {
       title: "Mobile",
       line: "Cross-platform apps with React Native and Flutter.",
       tools: ["React Native", "Flutter", "Dart", "Android Studio"],
+      detail: "One codebase for Android and iOS",
       proof: "Talkies chat app, built in React Native",
-      hot: true,
     },
   ],
 

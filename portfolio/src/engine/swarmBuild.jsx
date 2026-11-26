@@ -3,8 +3,9 @@ import { Fragment } from "react";
 import gsap from "gsap";
 import { swarm } from "../components/cursors/swarmApi";
 import { typeReveal } from "./buildKit";
+import { themeColor } from "../theme/theme";
 
-export const BLUE = "#4c8dff";
+export const BLUE = "rgb(var(--build-rgb))";
 
 /* every word is its own element so a cursor can write them one by one */
 export function Words({ text }) {
@@ -26,10 +27,10 @@ export function makeOverlay(host) {
   const o = document.createElement("span");
   o.setAttribute("data-ov", "");
   o.className = "pointer-events-none absolute z-30 border border-dashed";
-  o.style.cssText = `left:0;top:0;width:0;height:0;opacity:0;visibility:hidden;transform-origin:0 0;border-color:${BLUE};background:rgba(76,141,255,0.08)`;
+  o.style.cssText = `left:0;top:0;width:0;height:0;opacity:0;visibility:hidden;transform-origin:0 0;border-color:${BLUE};background:rgb(var(--build-rgb) / 0.08)`;
   const tag = document.createElement("b");
   tag.className =
-    "absolute -top-5 left-0 whitespace-nowrap rounded-sm px-1.5 py-[2px] text-[9px] font-semibold leading-none text-white";
+    "absolute -top-5 left-0 whitespace-nowrap rounded-sm px-1.5 py-[2px] text-[9px] font-semibold leading-none text-[rgb(var(--cursor-rgb))]";
   tag.style.background = BLUE;
   o.appendChild(tag);
   host.appendChild(o);
@@ -189,7 +190,10 @@ export function tiltTiles(root, selector, { max = 6 } = {}) {
 }
 
 /* the red spotlight layer used inside tiles (style it with --mx / --my) */
-export const SPOTLIGHT_STYLE = {
-  background:
-    "radial-gradient(520px circle at var(--mx, 50%) var(--my, 50%), rgba(214,26,41,0.14), transparent 60%)",
+export const getSpotlightStyle = () => {
+  const hex = themeColor("accent").replace("#", "");
+  const rgb = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(" ");
+  return {
+    background: `radial-gradient(520px circle at var(--mx, 50%) var(--my, 50%), rgb(${rgb} / 0.14), transparent 60%)`,
+  };
 };

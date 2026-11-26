@@ -25,13 +25,13 @@ function Agent({ name, color, label, hoverOnly = false, innerRef }) {
         width="18"
         height="22"
         viewBox="0 0 18 22"
-        className="block drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]"
+        className="block drop-shadow-[0_2px_3px_rgb(var(--shadow-rgb) / 0.6)]"
         style={{ transformOrigin: "2px 2px" }}
       >
         <path
           d="M2 2 L2 17.5 L6.3 13.4 L9.1 19.6 L11.7 18.4 L8.9 12.3 L14.6 12.1 Z"
           fill={color}
-          stroke="#090909"
+          stroke="rgb(var(--cursor-stroke-rgb))"
           strokeWidth="1.2"
           strokeLinejoin="round"
         />
@@ -196,7 +196,7 @@ function Swarm() {
         <Agent key={a.name} {...a} />
       ))}
       {/* pointer-follow cursor: hidden until the pointer is over a marked element */}
-      <Agent name="Pointer" color="#ffffff" hoverOnly innerRef={hoverCursor} />
+      <Agent name="Pointer" color="rgb(var(--cursor-rgb))" hoverOnly innerRef={hoverCursor} />
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { content } from "../../data/content";
-import { ENVS, envCss } from "../../theme/palette";
 import {
   createViewportReveal,
   cursorClick,
@@ -20,6 +19,7 @@ import {
   typeWords,
 } from "../../engine/swarmBuild";
 import { swarm } from "../cursors/swarmApi";
+import { getTheme, themeColor } from "../../theme/theme";
 
 /* ============================================================
    FORM ENDPOINT: ADD YOUR URL HERE LATER
@@ -33,8 +33,6 @@ const FORM_ENDPOINT = "";
    Add it here if your service requires it, otherwise leave it empty.
    Example: { access_key: "YOUR_KEY" } */
 const FORM_EXTRA_FIELDS = {};
-
-const CONTACT = ENVS.contact;
 
 /* Disjoint cursor leases: heading [0,1], form [2,3,4]. */
 const AGENTS = [0, 1, 2, 3, 4];
@@ -261,7 +259,7 @@ const CONTACT_STYLE = `
   height: 72%;
   transform: translate(-50%, -50%);
   border-radius: 9999px;
-  background: radial-gradient(ellipse at center, rgba(214, 26, 41, 0.2), rgba(214, 26, 41, 0.06) 48%, transparent 72%);
+  background: radial-gradient(ellipse at center, rgb(var(--accent-rgb) / 0.2), rgb(var(--accent-rgb) / 0.06) 48%, transparent 72%);
   filter: blur(30px);
   pointer-events: none;
   z-index: 0;
@@ -275,20 +273,20 @@ const CONTACT_STYLE = `
 .contact-field {
   width: 100%;
   min-height: 48px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid rgb(var(--fg-rgb) / 0.16);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgb(var(--fg-rgb) / 0.05);
   padding: 0.8rem 1rem;
   font-family: inherit;
   font-size: clamp(0.95rem, 1vw, 1.05rem);
   line-height: 1.42;
-  color: #f8f5f1;
+  color: var(--t-hover-ink);
   outline: none;
   animation: contactFloat 7.4s ease-in-out infinite;
   box-shadow:
-    0 20px 40px -20px #000,
-    inset 0 1px 0 rgba(255, 255, 255, 0.055),
-    inset 0 8px 20px rgba(0, 0, 0, 0.28);
+    0 20px 40px -20px rgb(var(--shadow-rgb)),
+    inset 0 1px 0 rgb(var(--fg-rgb) / 0.055),
+    inset 0 8px 20px rgb(var(--shadow-rgb) / 0.28);
   transition:
     border-color 240ms cubic-bezier(.2, .7, .2, 1),
     box-shadow 240ms cubic-bezier(.2, .7, .2, 1),
@@ -297,34 +295,34 @@ const CONTACT_STYLE = `
 .contact-form-pad [data-field]:nth-child(1) .contact-field { animation-delay: -0.35s; }
 .contact-form-pad [data-field]:nth-child(2) .contact-field { animation-delay: -1.45s; }
 .contact-form-pad [data-field]:nth-child(3) .contact-field { animation-delay: -2.55s; }
-.contact-field::placeholder { color: rgba(242, 239, 235, 0.45); }
-.contact-field:hover { border-color: rgba(255, 255, 255, 0.3); }
+.contact-field::placeholder { color: rgb(var(--t-ink-rgb) / 0.45); }
+.contact-field:hover { border-color: rgb(var(--fg-rgb) / 0.3); }
 .contact-field:focus {
-  border-color: rgba(214, 26, 41, 0.92);
-  background: rgba(255, 255, 255, 0.072);
+  border-color: rgb(var(--accent-rgb) / 0.92);
+  background: rgb(var(--fg-rgb) / 0.072);
   animation-play-state: paused;
   box-shadow:
-    0 20px 40px -20px #000,
-    inset 3px 0 0 0 #d61a29,
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 0 0 3px rgba(214, 26, 41, 0.17),
-    0 0 26px rgba(214, 26, 41, 0.26);
+    0 20px 40px -20px rgb(var(--shadow-rgb)),
+    inset 3px 0 0 0 var(--t-accent),
+    inset 0 1px 0 rgb(var(--fg-rgb) / 0.07),
+    0 0 0 3px rgb(var(--accent-rgb) / 0.17),
+    0 0 26px rgb(var(--accent-rgb) / 0.26);
 }
 .contact-field[aria-invalid="true"] {
-  border-color: #ff5964;
-  background: rgba(214, 26, 41, 0.075);
+  border-color: var(--t-accent-hover);
+  background: rgb(var(--accent-rgb) / 0.075);
   box-shadow:
-    0 20px 40px -20px #000,
-    inset 3px 0 0 0 #ff5964,
-    0 0 0 3px rgba(214, 26, 41, 0.14),
-    0 0 22px rgba(214, 26, 41, 0.18);
+    0 20px 40px -20px rgb(var(--shadow-rgb)),
+    inset 3px 0 0 0 var(--t-accent-hover),
+    0 0 0 3px rgb(var(--accent-rgb) / 0.14),
+    0 0 22px rgb(var(--accent-rgb) / 0.18);
 }
 .contact-field[aria-invalid="true"]:focus {
   box-shadow:
-    0 20px 40px -20px #000,
-    inset 3px 0 0 0 #ff5964,
-    0 0 0 3px rgba(214, 26, 41, 0.2),
-    0 0 28px rgba(214, 26, 41, 0.3);
+    0 20px 40px -20px rgb(var(--shadow-rgb)),
+    inset 3px 0 0 0 var(--t-accent-hover),
+    0 0 0 3px rgb(var(--accent-rgb) / 0.2),
+    0 0 28px rgb(var(--accent-rgb) / 0.3);
 }
 [data-sending="1"] .contact-field { animation-play-state: paused; }
 .contact-field:disabled { opacity: 0.72; cursor: progress; }
@@ -332,32 +330,32 @@ const CONTACT_STYLE = `
   display: block;
   margin-bottom: 0.38rem;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: var(--t-fw-semibold);
   line-height: 1.2;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(242, 239, 235, 0.74);
+  color: rgb(var(--t-ink-rgb) / 0.74);
   counter-increment: contact-field;
 }
 .contact-label::before {
   content: counter(contact-field, decimal-leading-zero) " /";
   margin-right: 0.55em;
-  color: #ff5964;
+  color: var(--t-accent-hover);
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 12px rgba(214, 26, 41, 0.55);
+  text-shadow: 0 0 12px rgb(var(--accent-rgb) / 0.55);
 }
 @media (hover: none) {
   .contact-field,
   .contact-send { min-height: 48px; }
 }
 .contact-liquid {
-  border-color: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgb(var(--fg-rgb) / 0.18) !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(0, 0, 0, 0.28)) !important;
+    linear-gradient(180deg, rgb(var(--fg-rgb) / 0.055), rgb(var(--shadow-rgb) / 0.28)) !important;
   box-shadow:
-    0 20px 40px -20px #000,
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 10px 26px -18px rgba(214, 26, 41, 0.9) !important;
+    0 20px 40px -20px rgb(var(--shadow-rgb)),
+    inset 0 1px 0 rgb(var(--fg-rgb) / 0.08),
+    0 10px 26px -18px rgb(var(--accent-rgb) / 0.9) !important;
 }
 .contact-wave-anim {
   display: block;
@@ -370,11 +368,11 @@ const CONTACT_STYLE = `
   100% { transform: translateX(-50%); }
 }
 .contact-send {
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgb(var(--fg-rgb) / 0.2);
   background: transparent;
-  color: #fff;
+  color: rgb(var(--fg-rgb));
   overflow: hidden;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 4px rgb(var(--shadow-rgb) / 0.5);
   transition:
     translate 240ms cubic-bezier(.2, .7, .2, 1),
     scale 180ms cubic-bezier(.2, .7, .2, 1),
@@ -389,7 +387,7 @@ const CONTACT_STYLE = `
   bottom: -20%;
   left: 0;
   width: 42%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  background: linear-gradient(100deg, transparent, rgb(var(--fg-rgb) / 0.45), transparent);
   opacity: 0;
   pointer-events: none;
   transform: translateX(-180%) skewX(-18deg);
@@ -400,10 +398,10 @@ const CONTACT_STYLE = `
 @media (hover: hover) {
   .contact-send:hover:not(:disabled) {
     translate: 0 -2px;
-    border-color: rgba(255, 255, 255, 0.38);
+    border-color: rgb(var(--fg-rgb) / 0.38);
     box-shadow:
-      0 14px 34px -12px rgba(214, 26, 41, 0.72),
-      0 0 26px rgba(214, 26, 41, 0.32);
+      0 14px 34px -12px rgb(var(--accent-rgb) / 0.72),
+      0 0 26px rgb(var(--accent-rgb) / 0.32);
   }
   .contact-send:hover:not(:disabled)::after {
     opacity: 1;
@@ -415,20 +413,20 @@ const CONTACT_STYLE = `
   scale: 0.98;
 }
 .contact-send:focus-visible {
-  outline: 2px solid rgba(255, 89, 100, 0.95);
+  outline: 2px solid rgb(var(--t-accent-hover-rgb) / 0.95);
   outline-offset: 3px;
   box-shadow:
-    0 0 0 4px rgba(214, 26, 41, 0.2),
-    0 0 30px rgba(214, 26, 41, 0.4);
+    0 0 0 4px rgb(var(--accent-rgb) / 0.2),
+    0 0 30px rgb(var(--accent-rgb) / 0.4);
 }
 .contact-send:disabled { cursor: progress; }
 [data-sending="1"] .contact-send {
   background: transparent;
-  border-color: rgba(255, 89, 100, 0.72);
-  box-shadow: 0 0 22px rgba(214, 26, 41, 0.28);
+  border-color: rgb(var(--t-accent-hover-rgb) / 0.72);
+  box-shadow: 0 0 22px rgb(var(--accent-rgb) / 0.28);
 }
 [data-sending="1"] .contact-send::after { opacity: 0; }
-.contact-status { text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65); }
+.contact-status { text-shadow: 0 1px 8px rgb(var(--shadow-rgb) / 0.65); }
 
 /* ---------- section atmosphere ---------- */
 #contact { isolation: isolate; }
@@ -439,7 +437,7 @@ const CONTACT_STYLE = `
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(58% 52% at 54% 48%, rgba(214, 26, 41, 0.11), rgba(214, 26, 41, 0.035) 44%, transparent 72%);
+    radial-gradient(58% 52% at 54% 48%, rgb(var(--accent-rgb) / 0.11), rgb(var(--accent-rgb) / 0.035) 44%, transparent 72%);
 }
 #contact::after {
   content: "";
@@ -448,13 +446,14 @@ const CONTACT_STYLE = `
   z-index: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    linear-gradient(rgb(var(--fg-rgb) / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--fg-rgb) / 0.05) 1px, transparent 1px);
   background-size: 56px 56px, 56px 56px;
   opacity: 0.42;
-  -webkit-mask-image: radial-gradient(ellipse 72% 74% at 50% 52%, #000 0%, rgba(0, 0, 0, 0.62) 54%, transparent 84%);
-  mask-image: radial-gradient(ellipse 72% 74% at 50% 52%, #000 0%, rgba(0, 0, 0, 0.62) 54%, transparent 84%);
+  -webkit-mask-image: radial-gradient(ellipse 72% 74% at 50% 52%, rgb(var(--fg-rgb)) 0%, rgb(var(--shadow-rgb) / 0.62) 54%, transparent 84%);
+  mask-image: radial-gradient(ellipse 72% 74% at 50% 52%, rgb(var(--fg-rgb)) 0%, rgb(var(--shadow-rgb) / 0.62) 54%, transparent 84%);
 }
+:root[data-theme="dark"] #contact::after { display: none; }
 #contact > [data-contact-inner] { position: relative; z-index: 1; }
 #contact .label { font-size: 0.85rem; letter-spacing: 0.14em; }
 
@@ -462,20 +461,20 @@ const CONTACT_STYLE = `
 #contact-photo-slot {
   border: 1px solid transparent;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.72), rgba(214, 26, 41, 0.6)) left 15px top 15px / 20px 1px no-repeat,
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(214, 26, 41, 0.6)) left 15px top 15px / 1px 20px no-repeat,
-    linear-gradient(270deg, rgba(255, 255, 255, 0.72), rgba(214, 26, 41, 0.6)) right 15px top 15px / 20px 1px no-repeat,
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(214, 26, 41, 0.6)) right 15px top 15px / 1px 20px no-repeat,
-    linear-gradient(90deg, rgba(214, 26, 41, 0.6), rgba(255, 255, 255, 0.72)) left 15px bottom 15px / 20px 1px no-repeat,
-    linear-gradient(0deg, rgba(214, 26, 41, 0.6), rgba(255, 255, 255, 0.72)) left 15px bottom 15px / 1px 20px no-repeat,
-    linear-gradient(270deg, rgba(214, 26, 41, 0.6), rgba(255, 255, 255, 0.72)) right 15px bottom 15px / 20px 1px no-repeat,
-    linear-gradient(0deg, rgba(214, 26, 41, 0.6), rgba(255, 255, 255, 0.72)) right 15px bottom 15px / 1px 20px no-repeat,
-    linear-gradient(155deg, rgba(20, 11, 13, 0.94), rgba(9, 9, 11, 0.98)) padding-box,
-    linear-gradient(160deg, rgba(255, 255, 255, 0.52), rgba(214, 26, 41, 0.16) 42%, rgba(214, 26, 41, 0.72)) border-box;
+    linear-gradient(90deg, rgb(var(--fg-rgb) / 0.72), rgb(var(--accent-rgb) / 0.6)) left 15px top 15px / 20px 1px no-repeat,
+    linear-gradient(180deg, rgb(var(--fg-rgb) / 0.72), rgb(var(--accent-rgb) / 0.6)) left 15px top 15px / 1px 20px no-repeat,
+    linear-gradient(270deg, rgb(var(--fg-rgb) / 0.72), rgb(var(--accent-rgb) / 0.6)) right 15px top 15px / 20px 1px no-repeat,
+    linear-gradient(180deg, rgb(var(--fg-rgb) / 0.72), rgb(var(--accent-rgb) / 0.6)) right 15px top 15px / 1px 20px no-repeat,
+    linear-gradient(90deg, rgb(var(--accent-rgb) / 0.6), rgb(var(--fg-rgb) / 0.72)) left 15px bottom 15px / 20px 1px no-repeat,
+    linear-gradient(0deg, rgb(var(--accent-rgb) / 0.6), rgb(var(--fg-rgb) / 0.72)) left 15px bottom 15px / 1px 20px no-repeat,
+    linear-gradient(270deg, rgb(var(--accent-rgb) / 0.6), rgb(var(--fg-rgb) / 0.72)) right 15px bottom 15px / 20px 1px no-repeat,
+    linear-gradient(0deg, rgb(var(--accent-rgb) / 0.6), rgb(var(--fg-rgb) / 0.72)) right 15px bottom 15px / 1px 20px no-repeat,
+    linear-gradient(155deg, rgb(var(--shadow-rgb) / 0.94), rgb(var(--bg-rgb) / 0.98)) padding-box,
+    linear-gradient(160deg, rgb(var(--fg-rgb) / 0.52), rgb(var(--accent-rgb) / 0.16) 42%, rgb(var(--accent-rgb) / 0.72)) border-box;
   box-shadow:
-    inset 0 0 68px rgba(0, 0, 0, 0.72),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 20px 54px -36px rgba(0, 0, 0, 0.9);
+    inset 0 0 68px rgb(var(--shadow-rgb) / 0.72),
+    inset 0 1px 0 rgb(var(--fg-rgb) / 0.08),
+    0 20px 54px -36px rgb(var(--shadow-rgb) / 0.9);
 }
 #contact-photo-slot::before {
   content: "";
@@ -495,9 +494,9 @@ const CONTACT_STYLE = `
   border-radius: inherit;
   pointer-events: none;
   background:
-    radial-gradient(120% 74% at 50% 108%, rgba(0, 0, 0, 0.78), transparent 58%),
-    linear-gradient(180deg, rgba(214, 26, 41, 0.06), transparent 24%);
-  box-shadow: inset 0 0 0 1px rgba(214, 26, 41, 0.16);
+    radial-gradient(120% 74% at 50% 108%, rgb(var(--shadow-rgb) / 0.78), transparent 58%),
+    linear-gradient(180deg, rgb(var(--accent-rgb) / 0.06), transparent 24%);
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.16);
   z-index: 1;
 }
 @media (hover: hover) {
@@ -510,10 +509,10 @@ const CONTACT_STYLE = `
   #contact-photo-slot:hover {
     transform: perspective(1100px) rotateX(1.1deg) rotateY(-1.6deg) translateY(-3px);
     box-shadow:
-      inset 0 0 68px rgba(0, 0, 0, 0.66),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      0 24px 62px -34px rgba(214, 26, 41, 0.72),
-      0 0 0 1px rgba(214, 26, 41, 0.36);
+      inset 0 0 68px rgb(var(--shadow-rgb) / 0.66),
+      inset 0 1px 0 rgb(var(--fg-rgb) / 0.1),
+      0 24px 62px -34px rgb(var(--accent-rgb) / 0.72),
+      0 0 0 1px rgb(var(--accent-rgb) / 0.36);
   }
 }
 [data-sending="1"] .contact-float {
@@ -675,12 +674,16 @@ export default function Contact() {
   const startShimmer = useCallback(() => {
     stopShimmer();
     if (!shimmerRef.current || prefersReduced()) return;
+    const flatOpacity =
+      getTheme() === "light"
+        ? parseFloat(themeColor("contactShimmerFlatOpacity"))
+        : null;
     shimmerTweenRef.current = gsap.fromTo(
       shimmerRef.current,
-      { xPercent: -120, opacity: 0 },
+      { xPercent: -120, opacity: flatOpacity ?? 0 },
       {
         xPercent: 120,
-        opacity: 0.5,
+        opacity: flatOpacity ?? 0.5,
         duration: 1.15,
         repeat: -1,
         repeatDelay: 0.18,
@@ -912,7 +915,7 @@ export default function Contact() {
       const particle = document.createElement("i");
       const gold = i % 8 === 0;
       const size = gold ? 4 : 3 + Math.random() * 3.5;
-      const color = gold ? "#ffd24a" : i % 3 === 0 ? "#f2efeb" : "#d61a29";
+      const color = gold ? "var(--t-detail)" : i % 3 === 0 ? "var(--t-ink)" : "var(--t-accent)";
       particle.setAttribute("data-particle", "");
       particle.style.cssText = `position:absolute;left:0;top:0;width:${size}px;height:${size}px;border-radius:9999px;background:${color};opacity:0;pointer-events:none;`;
       burst.appendChild(particle);
@@ -1365,16 +1368,13 @@ export default function Contact() {
   return (
     <section
       id="contact"
-      data-env="contact"
       data-sending={sending ? "1" : undefined}
       aria-busy={sending}
       ref={root}
-      className="relative flex min-h-svh flex-col overflow-hidden border-t border-line px-gutter py-[8svh] lg:h-svh lg:min-h-0 lg:py-[2.8svh]"
-      style={{ backgroundColor: CONTACT.bg }}
+      className="relative flex min-h-svh flex-col overflow-hidden border-t border-line px-gutter py-[8svh] bg-bg lg:h-svh lg:min-h-0 lg:py-[2.8svh]"
     >
       <h2 className="sr-only">Contact</h2>
       <style>{CONTACT_STYLE}</style>
-      <style>{envCss("contact")}</style>
       <p className="sr-only" aria-live="polite">
         {liveText}
       </p>
@@ -1400,7 +1400,7 @@ export default function Contact() {
                <Words text={section.label} />
             </span>
           </p>
-          <h3 className="display flex flex-wrap items-baseline gap-x-4 text-[min(5.8vw,9.5svh)] max-lg:text-[clamp(2.4rem,9.5vw,3.6rem)]">
+          <h3 className="section-heading display flex flex-wrap items-baseline gap-x-4">
             <span data-contact-h1 className="block w-fit text-ink">
               <Words text={section.headline[0]} />
             </span>
@@ -1415,7 +1415,7 @@ export default function Contact() {
           <div
             id="contact-photo-slot"
             aria-hidden="true"
-            className="relative min-h-[20svh] w-full overflow-hidden rounded-[26px] border border-line/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.03),rgba(214,26,41,0.045))] lg:h-full lg:min-h-0 lg:w-[33%]"
+            className="relative min-h-[20svh] w-full overflow-hidden rounded-[var(--radius-contact)] border border-line/60 bg-[linear-gradient(145deg,rgb(var(--fg-rgb) / 0.03),rgb(var(--accent-rgb) / 0.045))] lg:h-full lg:min-h-0 lg:w-[33%]"
           >
             {/* PHOTO GOES HERE */}
           </div>
@@ -1542,7 +1542,7 @@ export default function Contact() {
                         <div className="relative h-[48px] w-[clamp(170px,15vw,200px)] shrink-0">
                           {/* Liquid fill container */}
                           <div
-                            className="contact-liquid pointer-events-none absolute inset-0 overflow-hidden rounded-full border border-white/15 bg-white/[0.04]"
+                            className="contact-liquid pointer-events-none absolute inset-0 overflow-hidden rounded-full border border-[rgb(var(--cursor-rgb)_/_0.15)] bg-[rgb(var(--cursor-rgb)_/_0.04)]"
                             aria-hidden="true"
                           >
                             <div
@@ -1551,7 +1551,7 @@ export default function Contact() {
                               style={{
                                 transform: "scaleY(0)",
                                 background:
-                                  "linear-gradient(to top, #8c0a14 0%, #b3121f 55%, #d61a29 100%)",
+                                  "linear-gradient(to top, var(--t-accent-deep) 0%, var(--t-accent-deep) 55%, var(--t-accent) 100%)",
                               }}
                             />
                             <div
@@ -1567,13 +1567,13 @@ export default function Contact() {
                               >
                                 <path
                                   d="M0 6 Q 15 0 30 6 T 60 6 T 90 6 T 120 6 V 12 H 0 Z"
-                                  fill="#e2333f"
+                                  fill="var(--t-accent-bright)"
                                   opacity="0.5"
                                 />
                                 <path
                                   d="M0 6 Q 15 0 30 6 T 60 6 T 90 6 T 120 6"
                                   fill="none"
-                                  stroke="#ffb4b8"
+                                  stroke="var(--t-accent-pale)"
                                   strokeWidth="1"
                                   opacity="0.8"
                                 />
@@ -1585,7 +1585,7 @@ export default function Contact() {
                               style={{
                                 opacity: 0,
                                 background:
-                                  "linear-gradient(100deg, transparent, rgba(255,255,255,0.32), transparent)",
+                                  "linear-gradient(100deg, transparent, rgb(var(--fg-rgb) / 0.32), transparent)",
                               }}
                             />
                           </div>
@@ -1594,7 +1594,7 @@ export default function Contact() {
                             ref={btnRef}
                             type="submit"
                             disabled={sending}
-                            className="contact-send absolute inset-0 z-10 rounded-full text-[0.85rem] font-semibold uppercase tracking-[0.18em] text-white"
+                            className="contact-send absolute inset-0 z-10 rounded-full text-[0.85rem] font-semibold uppercase tracking-[0.18em] text-[rgb(var(--cursor-rgb))]"
                           >
                             Send message
                           </button>
@@ -1608,7 +1608,7 @@ export default function Contact() {
                               <path
                                 d="M4 12.5 9.5 18 20 6.5"
                                 fill="none"
-                                stroke="#d61a29"
+                                stroke="var(--t-accent)"
                                 strokeWidth="3"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -1655,16 +1655,16 @@ export default function Contact() {
               >
                 <defs>
                   <linearGradient id="contact-line-front" x1="0" y1="0" x2="0.3" y2="1">
-                    <stop offset="0%" stopColor="#ff7a83" stopOpacity="0.98" />
-                    <stop offset="48%" stopColor="#d61a29" stopOpacity="0.9" />
-                    <stop offset="100%" stopColor="#d61a29" stopOpacity="0.9" />
+                    <stop offset="0%" stopColor="var(--t-accent-soft)" stopOpacity="0.98" />
+                    <stop offset="48%" stopColor="var(--t-accent)" stopOpacity="0.9" />
+                    <stop offset="100%" stopColor="var(--t-accent)" stopOpacity="0.9" />
                   </linearGradient>
                 </defs>
                 <g>
                   <path
                     data-track="0"
                     fill="none"
-                    stroke="#d61a29"
+                    stroke="var(--t-accent)"
                     strokeWidth="1"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -1681,13 +1681,13 @@ export default function Contact() {
                     opacity="0"
                     style={{
                       filter:
-                        "drop-shadow(0 0 5px rgba(214,26,41,0.85)) drop-shadow(0 0 13px rgba(214,26,41,0.34))",
+                        "drop-shadow(0 0 5px rgb(var(--accent-rgb) / 0.85)) drop-shadow(0 0 13px rgb(var(--accent-rgb) / 0.34))",
                     }}
                   />
                   <path
                     data-core="0"
                     fill="none"
-                    stroke="#ffffff"
+                    stroke="rgb(var(--fg-rgb))"
                     strokeWidth="1.3"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -1695,9 +1695,9 @@ export default function Contact() {
                   />
                 </g>
                 <g data-head-front opacity="0">
-                  <circle r="5.6" fill="#d61a29" opacity="0.42" />
-                  <circle r="2.4" fill="#ff5964" />
-                  <circle r="1.2" fill="#ffffff" />
+                  <circle r="5.6" fill="var(--t-accent)" opacity="0.42" />
+                  <circle r="2.4" fill="var(--t-accent-hover)" />
+                  <circle r="1.2" fill="rgb(var(--fg-rgb))" />
                 </g>
               </svg>
 
@@ -1709,7 +1709,7 @@ export default function Contact() {
               >
                 <span
                   data-shockwave
-                  className="absolute left-0 top-0 -ml-6 -mt-6 block size-12 rounded-full border-2 border-[#d61a29]"
+                  className="absolute left-0 top-0 -ml-6 -mt-6 block size-12 rounded-full border-2 border-[var(--t-accent)]"
                   style={{ opacity: 0 }}
                 />
               </div>

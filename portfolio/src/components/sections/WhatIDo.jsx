@@ -14,7 +14,7 @@ import useAgentsEnabled from "../../engine/useAgentsEnabled";
 import {
   BLUE,
   Words,
-  SPOTLIGHT_STYLE,
+  getSpotlightStyle,
   makeOverlay,
   clearOverlays,
   dragBox,
@@ -23,6 +23,7 @@ import {
   tiltTiles,
 } from "../../engine/swarmBuild";
 import Logo from "../ui/Logo";
+import { themeColor, useTheme } from "../../theme/theme";
 
 /* Cursor leases, all 20 agents: heading 2, "right now" card 2,
    four capability cards 3 each, four counters 1 each. */
@@ -38,14 +39,21 @@ const AG = {
   stats: [[16], [17], [18], [19]],
 };
 
-const NORMAL = { fill: "#121212", edge: "rgba(255,255,255,0.1)" };
-const HOT = { fill: "#2a0a0f", edge: "rgba(214,26,41,0.45)" };
+const NORMAL = () => ({
+  fill: themeColor("cardFill"),
+  edge: themeColor("cardEdge"),
+});
+const HOT = () => ({
+  fill: themeColor("cardFillHot"),
+  edge: themeColor("cardEdgeHot"),
+});
 
 const byName = Object.fromEntries(stack.map((s) => [s.name, s]));
 const toolItem = (n) => byName[n] || { name: n, abbr: n.slice(0, 2) };
 
 /* design-tool selection box that a cursor drags out over a frame */
 function SelBox({ tag }) {
+  useTheme();
   const corners = [
     "-left-1 -top-1",
     "-right-1 -top-1",
@@ -62,13 +70,13 @@ function SelBox({ tag }) {
         <i
           key={c}
           data-handle
-          className={`absolute size-2 border bg-white ${c}`}
+          className={`absolute size-2 border bg-[rgb(var(--cursor-rgb))] ${c}`}
           style={{ borderColor: BLUE }}
         />
       ))}
       <b
         data-tag
-        className="absolute -top-6 left-0 whitespace-nowrap rounded-sm px-1.5 py-[3px] text-[10px] font-semibold leading-none text-white"
+        className="absolute -top-6 left-0 whitespace-nowrap rounded-sm px-1.5 py-[3px] text-[10px] font-semibold leading-none text-[rgb(var(--cursor-rgb))]"
         style={{ background: BLUE }}
       >
         {tag}
@@ -78,14 +86,17 @@ function SelBox({ tag }) {
 }
 
 /* a frame: the colored box (drawn by a cursor), a red top bar, and its content */
-function Shell({ tag, colors = NORMAL, className = "", children, ...rest }) {
+function Shell({ tag, tone = "normal", className = "", children, ...rest }) {
+  useTheme();
+  const colors = tone === "hot" ? HOT() : NORMAL();
   return (
     <div data-frame {...rest} className={`relative ${className}`}>
       <span
         data-bg
+        data-tone={tone}
         data-fill={colors.fill}
         data-edge={colors.edge}
-        className="absolute inset-0 rounded-[3px] border transition-colors duration-300 group-hover/card:border-red/50!"
+        className="absolute inset-0 rounded-[var(--radius-card)] border transition-colors duration-300 group-hover/card:border-red/50!"
         style={{ backgroundColor: colors.fill, borderColor: colors.edge }}
       />
       <i data-bar className="absolute left-0 top-0 h-[2px] w-full origin-left bg-red" />
@@ -341,6 +352,7 @@ function buildStat(card, i, host) {
 }
 
 export default function WhatIDo() {
+  useTheme();
   const root = useRef(null);
   const enabled = useAgentsEnabled();
   const { headline } = content.sections.find((s) => s.id === "what-i-do");
@@ -372,17 +384,28 @@ export default function WhatIDo() {
         { autoAlpha: 0 }
       );
       gsap.set(all("[data-now-dot],[data-proof-dot],[data-detail-dot]"), { scale: 0 });
-      gsap.set(all("[data-now-row]"), { borderTopColor: "rgba(255,255,255,0.02)" });
+      gsap.set(all("[data-now-row]"), { borderTopColor: themeColor("rowLine") });
       gsap.set(all("[data-handle]"), { scale: 0 });
       gsap.set(all("[data-bar]"), { scaleX: 0 });
       gsap.set(all("[data-bg]"), {
         clipPath: "inset(0 100% 100% 0)",
-        backgroundColor: "rgba(255,255,255,0.05)",
-        borderColor: "rgba(255,255,255,0.12)",
+        backgroundColor: themeColor("frameFill"),
+        borderColor: themeColor("frameEdge"),
       });
       gsap.set(all("[data-sel]"), { width: "0%", height: "0%" });
       all("[data-num]").forEach((n) => (n.textContent = "0"));
     }, root);
+
+    const refreshColors = () => {
+      all("[data-bg]").forEach((bg) => {
+        const colors = bg.dataset.tone === "hot" ? HOT() : NORMAL();
+        bg.dataset.fill = colors.fill;
+        bg.dataset.edge = colors.edge;
+        gsap.set(bg, { backgroundColor: colors.fill, borderColor: colors.edge });
+      });
+      gsap.set(all("[data-now-row]"), { borderTopColor: themeColor("rowLine") });
+    };
+    window.addEventListener("themechange", refreshColors);
 
     const headingEl = el.querySelector("header");
 
@@ -417,6 +440,7 @@ export default function WhatIDo() {
     const stopTilt = tiltTiles(el, "[data-tile]");
 
     return () => {
+      window.removeEventListener("themechange", refreshColors);
       stopTilt();
       stop();
       clearOverlays(el);
@@ -433,7 +457,7 @@ export default function WhatIDo() {
       {/* heading + "right now" card */}
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
         <header className="min-w-0">
-          <h2 className="display flex flex-wrap gap-x-[0.28em] text-[min(5.2vw,9.5svh)] max-lg:text-[clamp(2.4rem,11vw,3.6rem)]">
+          <h2 className="section-heading display flex flex-wrap gap-x-[0.28em]">
             <span data-h1 className="block w-fit">
               <Words text={headline[0]} />
             </span>
@@ -453,7 +477,7 @@ export default function WhatIDo() {
         <Shell
           data-now=""
           tag="div.now"
-          colors={HOT}
+          tone="hot"
           aria-hidden="true"
           className="invisible pointer-events-none select-none max-lg:hidden w-full shrink-0 lg:w-[min(27rem,34vw)]"
         >
@@ -472,7 +496,7 @@ export default function WhatIDo() {
                 <div
                   key={r.k}
                   data-now-row
-                  className="group/row grid grid-cols-[5.4rem_1fr] gap-3 border-t border-white/10 py-[0.8svh] transition-colors duration-200 hover:bg-white/[0.04]"
+                  className="group/row grid grid-cols-[5.4rem_1fr] gap-3 border-t border-[rgb(var(--cursor-rgb)_/_0.1)] py-[0.8svh] transition-colors duration-200 hover:bg-[rgb(var(--cursor-rgb)_/_0.04)]"
                 >
                   <dt
                     data-now-k
@@ -499,12 +523,12 @@ export default function WhatIDo() {
           <div
             key={c.slug}
             data-tile
-            className="group/card relative flex rounded-[3px] transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_14px_40px_-14px_rgba(214,26,41,0.45)]"
+            className="group/card relative flex rounded-[var(--radius-card)] transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_14px_40px_-14px_rgb(var(--accent-rgb) / 0.45)]"
           >
             <Shell
               data-cap=""
               tag={`div.${c.slug}`}
-              colors={NORMAL}
+              tone="normal"
               className="min-h-[13rem] w-full flex-1"
             >
               <div className="relative flex h-full flex-col p-4 lg:p-[min(1.3rem,2.4svh)]">
@@ -543,7 +567,7 @@ export default function WhatIDo() {
                     <li
                       key={t}
                       data-chip
-                      className="group/chip flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] py-1 pl-1.5 pr-2.5 transition-[translate,border-color,background-color] duration-200 hover:-translate-y-0.5 hover:border-red/60 hover:bg-red/10"
+                      className="group/chip flex items-center gap-1.5 rounded-full border border-[rgb(var(--cursor-rgb)_/_0.1)] bg-[rgb(var(--cursor-rgb)_/_0.03)] py-1 pl-1.5 pr-2.5 transition-[translate,border-color,background-color] duration-200 hover:-translate-y-0.5 hover:border-red/60 hover:bg-red/10"
                     >
                       <span data-logo className="inline-flex">
                         <Logo item={toolItem(t)} className="size-4" badgeClass="text-[0.5rem]" />
@@ -560,7 +584,7 @@ export default function WhatIDo() {
 
                 <p
                   data-proof
-                  className="mt-auto flex items-center gap-2 border-t border-white/10 pt-[1.2svh] text-[0.74rem] text-ink/60 transition-colors duration-300 group-hover/card:text-ink/90"
+                  className="mt-auto flex items-center gap-2 border-t border-[rgb(var(--cursor-rgb)_/_0.1)] pt-[1.2svh] text-[0.74rem] text-ink/60 transition-colors duration-300 group-hover/card:text-ink/90"
                 >
                   <i
                     data-proof-dot
@@ -574,8 +598,8 @@ export default function WhatIDo() {
             </Shell>
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 z-[1] rounded-[3px] opacity-0 transition-opacity duration-300 group-hover/card:opacity-100"
-              style={SPOTLIGHT_STYLE}
+              className="pointer-events-none absolute inset-0 z-[1] rounded-[var(--radius-card)] opacity-0 transition-opacity duration-300 group-hover/card:opacity-100"
+              style={getSpotlightStyle()}
             />
           </div>
         ))}
@@ -589,7 +613,7 @@ export default function WhatIDo() {
             data-eff
             className="group relative overflow-hidden border border-line bg-panel px-4 py-[1.4svh] transition-[translate,border-color] duration-300 hover:-translate-y-1 hover:border-red/40"
           >
-            <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(214,26,41,0.12),transparent_70%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+            <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgb(var(--accent-rgb) / 0.12),transparent_70%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
             <i className="pointer-events-none absolute bottom-0 left-0 h-[2px] w-full origin-left scale-x-0 bg-red transition-transform duration-300 group-hover:scale-x-100" />
             <span className="relative block">
               <span className="display block origin-left text-[2.4rem] leading-none text-red transition-[scale] duration-300 group-hover:scale-110 lg:text-[min(3.2vw,5.8svh)]">

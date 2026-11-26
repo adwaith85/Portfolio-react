@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { content } from "../../data/content";
-import { ENVS, envCss } from "../../theme/palette";
 import { swarm } from "../cursors/swarmApi";
 import {
   createViewportReveal,
@@ -45,8 +44,6 @@ const OWN_SECTIONS = new Set(["experience-skills", "experience-internship"]);
 const SPEED = 3.2;
 const BACK = 3.5;
 
-const EXP = ENVS.experience;
-
 const EXP_STYLE = `
 [data-exp-timeline] {
   --tl-pad: clamp(22px, 3vw, 36px);
@@ -57,7 +54,7 @@ const EXP_STYLE = `
   left: 0;
   top: 0;
   bottom: 0;
-  width: 1px;
+  width: var(--t-timeline-line-width);
   background: linear-gradient(
     to bottom,
     var(--color-line) 0%,
@@ -70,12 +67,12 @@ const EXP_STYLE = `
   position: absolute;
   top: 0.3rem;
   left: calc(var(--tl-pad) * -1);
-  width: 7px;
-  height: 7px;
-  margin-left: -3.5px;
+  width: var(--t-timeline-dot-size);
+  height: var(--t-timeline-dot-size);
+  margin-left: calc(var(--t-timeline-dot-size) / -2);
   border-radius: 999px;
-  background: var(--color-red);
-  box-shadow: 0 0 10px rgb(var(--env-rgb) / 0.7);
+  background: var(--t-accent);
+  box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.7);
 }
 [data-int-point] [data-int-dash] {
   display: block;
@@ -635,14 +632,11 @@ export default function Experience() {
   return (
     <section
       id="experience"
-      data-env="experience"
       ref={root}
-      className="relative flex min-h-svh flex-col border-t border-line px-gutter py-[8svh]"
-      style={{ backgroundColor: EXP.bg }}
+      className="relative flex min-h-svh flex-col border-t border-line px-gutter py-[8svh] bg-bg"
     >
       <h2 className="sr-only">Experience</h2>
       <style>{EXP_STYLE}</style>
-      <style>{envCss("experience")}</style>
 
       <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-[clamp(4rem,9svh,7rem)]">
         {/* ---------- part 1: the skills request path ---------- */}
@@ -697,7 +691,7 @@ export default function Experience() {
                     <Words text="Skills From" />
                   </span>
                 </p>
-                <h3 className="display flex flex-wrap items-baseline gap-x-4 text-[clamp(2.2rem,4.6vw,4.2rem)] leading-none max-lg:text-[clamp(2rem,9vw,3.4rem)]">
+                <h3 className="section-heading display flex flex-wrap items-baseline gap-x-4 leading-none">
                   <span data-exp-h1 className="block w-fit text-ink">
                     <Words text="EXPERIENCE" />
                   </span>

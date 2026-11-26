@@ -14,6 +14,7 @@ import {
   typeWords,
 } from "../../engine/swarmBuild";
 import { swarm } from "../cursors/swarmApi";
+import { useTheme } from "../../theme/theme";
 
 const IMG1 = "/img1.webp";
 const IMG2 = "/photo.webp";
@@ -96,9 +97,12 @@ function buildIntro(block, host) {
 }
 
 /* ─── cursor-reveal image component ─── */
-const HIDDEN_MASK = "radial-gradient(circle 0.01px at 0px 0px, #000 0%, transparent 100%)";
+const HIDDEN_MASK = "radial-gradient(circle 0.01px at 0px 0px, rgb(var(--fg-rgb)) 0%, transparent 100%)";
 
 function RevealImage({ name }) {
+  const theme = useTheme();
+  const baseSrc = theme === "light" ? IMG2 : IMG1;
+  const hoverSrc = theme === "light" ? IMG1 : IMG2;
   const containerRef = useRef(null);
   const radiusRef = useRef(0);
   const rafRef = useRef(null);
@@ -118,8 +122,8 @@ function RevealImage({ name }) {
       base.style.webkitMaskImage = "none";
       return;
     }
-    const inside = `radial-gradient(circle ${r}px at ${x}px ${y}px, #000 0%, #000 60%, transparent 100%)`;
-    const outside = `radial-gradient(circle ${r}px at ${x}px ${y}px, transparent 0%, transparent 60%, #000 100%)`;
+    const inside = `radial-gradient(circle ${r}px at ${x}px ${y}px, rgb(var(--fg-rgb)) 0%, rgb(var(--fg-rgb)) 60%, transparent 100%)`;
+    const outside = `radial-gradient(circle ${r}px at ${x}px ${y}px, transparent 0%, transparent 60%, rgb(var(--fg-rgb)) 100%)`;
     top.style.maskImage = inside;
     top.style.webkitMaskImage = inside;
     base.style.maskImage = outside;
@@ -160,7 +164,7 @@ function RevealImage({ name }) {
   if (!imgOk) {
     return (
       <div className="relative flex h-full w-full items-center justify-center text-[0.72rem] text-muted/50">
-        public/img1.webp
+        {baseSrc}
       </div>
     );
   }
@@ -176,7 +180,7 @@ function RevealImage({ name }) {
       <img
         ref={baseLayerRef}
         data-pimg
-        src={IMG1}
+        src={baseSrc}
         alt={name}
         loading="lazy"
         draggable="false"
@@ -185,7 +189,7 @@ function RevealImage({ name }) {
       />
       <img
         ref={hoverLayerRef}
-        src={IMG2}
+        src={hoverSrc}
         alt=""
         aria-hidden="true"
         loading="lazy"
@@ -259,9 +263,8 @@ export default function About() {
   return (
     <section
       id="about"
-      data-env="about"
       ref={root}
-      className="relative isolate flex min-h-svh flex-col justify-center gap-[5svh] overflow-x-clip border-t border-line px-gutter py-[3.5svh]"
+      className="relative isolate flex min-h-svh flex-col justify-center gap-[var(--t-about-section-gap)] overflow-x-clip border-t border-line px-gutter py-[3.5svh]"
     >
       <style>{ABOUT_STYLE}</style>
 
@@ -275,7 +278,7 @@ export default function About() {
           >
             <Words text={` ${label}`} />
           </p>
-          <h2 className="about-heading display flex flex-wrap gap-x-[0.28em] text-[min(4.8vw,8.5svh)] max-lg:text-[clamp(1.9rem,8.6vw,3rem)]">
+          <h2 className="section-heading about-heading display flex flex-wrap gap-x-[0.28em]">
             <span
               data-h1
               data-cursor-hover
@@ -366,20 +369,20 @@ const ABOUT_STYLE = `
 /* ── text reveal: dim → bright on hover/focus ── */
 .about-reveal-word {
   display: inline;
-  color: rgba(242, 239, 235, 0.35);
+  color: var(--about-text-dim);
   transition: color 200ms ease-out;
 }
 .about-reveal-host:focus-within .about-reveal-word,
 .about-reveal-host:focus .about-reveal-word {
-  color: rgba(242, 239, 235, 0.94);
+  color: var(--about-text-lit);
 }
-@media (hover: hover) { .about-reveal-host:hover .about-reveal-word { color: rgba(242, 239, 235, 0.94); } }
+@media (hover: hover) { .about-reveal-host:hover .about-reveal-word { color: var(--about-text-lit); } }
 
 /* ── intro paragraph: slightly larger + brighter ── */
 .about-bio {
   font-size: clamp(1.25rem, 0.9vw + 0.95rem, 1.7rem);
   line-height: 1.55;
-  color: rgba(242, 239, 235, 0.86);
+  color: var(--about-bio-base);
   text-align: justify;
   text-align-last: justify;
   text-wrap: balance;
@@ -387,15 +390,15 @@ const ABOUT_STYLE = `
   word-spacing: normal;
 }
 .about-bio .about-reveal-word {
-  color: rgba(242, 239, 235, 0.62);
+  color: var(--about-bio-dim);
 }
 .about-bio:focus-within .about-reveal-word {
-  color: rgba(242, 239, 235, 0.98);
+  color: var(--about-bio-lit);
 }
-.about-bio .about-reveal-word:focus-visible { color: #ff6f79; }
+.about-bio .about-reveal-word:focus-visible { color: var(--about-word-hover); }
 @media (hover: hover) {
-  .about-bio:hover .about-reveal-word { color: rgba(242, 239, 235, 0.98); }
-  .about-bio .about-reveal-word:hover { color: #ff6f79; }
+  .about-bio:hover .about-reveal-word { color: var(--about-bio-lit); }
+  .about-bio .about-reveal-word:hover { color: var(--about-word-hover); }
 }
 
 /* ── tagline ── */
@@ -403,26 +406,26 @@ const ABOUT_STYLE = `
   transition: color 200ms ease-out, text-shadow 200ms ease-out;
 }
 .about-sub:focus-visible {
-  color: rgba(242, 239, 235, 0.96);
-  text-shadow: 0 0 18px rgba(242, 239, 235, 0.12);
+  color: var(--about-sub-lit);
+  text-shadow: 0 0 18px rgb(var(--t-ink-rgb) / 0.12);
 }
-@media (hover: hover) { .about-sub:hover { color: rgba(242,239,235,.96); text-shadow: 0 0 18px rgba(242,239,235,.12); } }
+@media (hover: hover) { .about-sub:hover { color: var(--about-sub-lit); text-shadow: 0 0 18px rgb(var(--t-ink-rgb) / .12); } }
 
 /* ── heading words ── */
 .about-head-line {
   transition: color 220ms ease-out, text-shadow 220ms ease-out;
 }
 .about-head-line--light:focus-visible {
-  color: #ffffff;
-  text-shadow: 0 0 28px rgba(242, 239, 235, 0.22);
+  color: var(--about-head-lit);
+  text-shadow: 0 0 28px rgb(var(--t-ink-rgb) / 0.22);
 }
 .about-head-line--red:focus-visible {
-  color: #ff3145;
-  text-shadow: 0 0 30px rgba(214, 26, 41, 0.42);
+  color: var(--t-accent-bright);
+  text-shadow: 0 0 30px rgb(var(--accent-rgb) / 0.42);
 }
 @media (hover: hover) {
-  .about-head-line--light:hover { color:#fff; text-shadow:0 0 28px rgba(242,239,235,.22); }
-  .about-head-line--red:hover { color:#ff3145; text-shadow:0 0 30px rgba(214,26,41,.42); }
+  .about-head-line--light:hover { color:var(--about-head-lit); text-shadow:0 0 28px rgb(var(--t-ink-rgb) / .22); }
+  .about-head-line--red:hover { color:var(--t-accent-bright); text-shadow:0 0 30px rgb(var(--accent-rgb) / .42); }
 }
 .about-heading span[data-cursor-hover] {
   cursor: default;
@@ -433,22 +436,22 @@ const ABOUT_STYLE = `
   transition: color 220ms ease-out, letter-spacing 220ms ease-out;
 }
 #about header [data-label]:focus-visible {
-  color: var(--color-red, #d61a29);
+  color: var(--color-red, var(--t-accent));
   letter-spacing: 0.13em;
 }
 @media (hover: hover) {
-  #about header [data-label]:hover { color:var(--color-red,#d61a29); letter-spacing:.13em; }
+  #about header [data-label]:hover { color:var(--color-red,var(--t-accent)); letter-spacing:.13em; }
 }
 
 /* ── thin hairline dividers ── */
 .about-rule-thin {
-  background: rgba(255, 255, 255, 0.09);
+  background: rgb(var(--fg-rgb) / 0.09);
   transition: background-color 220ms ease-out;
 }
 .about-row:focus-visible .about-rule-thin {
-  background: rgba(214, 26, 41, 0.42);
+  background: rgb(var(--accent-rgb) / 0.42);
 }
-@media (hover: hover) { .about-row:hover .about-rule-thin { background:rgba(214,26,41,.42); } }
+@media (hover: hover) { .about-row:hover .about-rule-thin { background:rgb(var(--accent-rgb) / .42); } }
 
 /* ── meta dl: label / value rows ── */
 .about-meta-dl {
@@ -458,25 +461,25 @@ const ABOUT_STYLE = `
   transition: background-color 220ms ease-out;
 }
 .about-row:focus-visible {
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: rgb(var(--fg-rgb) / 0.03);
 }
-@media (hover: hover) { .about-row:hover { background-color:rgba(255,255,255,.03); } }
+@media (hover: hover) { .about-row:hover { background-color:rgb(var(--fg-rgb) / .03); } }
 .about-row [data-dk] {
   transition: color 220ms ease-out;
 }
 .about-row:focus-visible [data-dk] {
-  color: var(--color-red, #d61a29);
+  color: var(--color-red, var(--t-accent));
 }
-@media (hover: hover) { .about-row:hover [data-dk] { color:var(--color-red,#d61a29); } }
+@media (hover: hover) { .about-row:hover [data-dk] { color:var(--color-red,var(--t-accent)); } }
 .about-row-value {
   font-size: clamp(0.8rem, 0.25vw + 0.72rem, 0.88rem);
   transition: transform 220ms ease-out, color 220ms ease-out;
 }
 .about-row:focus-visible .about-row-value {
   transform: translateX(3px);
-  color: rgba(242, 239, 235, 1);
+  color: rgb(var(--t-ink-rgb) / 1);
 }
-@media (hover: hover) { .about-row:hover .about-row-value { transform:translateX(3px); color:rgba(242,239,235,1); } }
+@media (hover: hover) { .about-row:hover .about-row-value { transform:translateX(3px); color:rgb(var(--t-ink-rgb) / 1); } }
 
 /* ── image layers ── */
 .about-img-container {
@@ -534,11 +537,11 @@ const ABOUT_STYLE = `
     letter-spacing 220ms ease-out;
 }
 .about-name:focus-visible {
-  color: #ff3145;
-  text-shadow: 0 0 20px rgba(214, 26, 41, 0.35);
+  color: var(--t-accent-bright);
+  text-shadow: 0 0 20px rgb(var(--accent-rgb) / 0.35);
   letter-spacing: 0.01em;
 }
-@media (hover: hover) { .about-name:hover { color:#ff3145; text-shadow:0 0 20px rgba(214,26,41,.35); letter-spacing:.01em; } }
+@media (hover: hover) { .about-name:hover { color:var(--t-accent-bright); text-shadow:0 0 20px rgb(var(--accent-rgb) / .35); letter-spacing:.01em; } }
 
 /* ── body layout ── */
 .about-body {
@@ -593,7 +596,7 @@ const ABOUT_STYLE = `
   z-index: 11;
   pointer-events: none;
   color: transparent;
-  background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,1) 50%, transparent 62%) no-repeat;
+  background: linear-gradient(105deg, transparent 38%, rgb(var(--about-shine-rgb) / 1) 50%, transparent 62%) no-repeat;
   background-size: 260% 100%;
   -webkit-background-clip: text;
   background-clip: text;

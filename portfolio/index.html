@@ -1,21 +1,28 @@
 <!doctype html>
-<html lang="en" style="background-color: #090909">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#090909" />
+  <meta name="theme-color" />
+  <script>
+    let initialTheme = "light";
+    try {
+      if (localStorage.getItem("theme") === "dark") initialTheme = "dark";
+    } catch (_) { /* storage may be unavailable */ }
+    document.documentElement.dataset.theme = initialTheme;
+  </script>
   <meta name="description" content="Adwaith A Kumar, Web Developer. React, Node.js and MERN stack." />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23090909'/%3E%3Ctext x='32' y='48' font-family='Impact,sans-serif' font-size='48' text-anchor='middle' fill='%23d61a29'%3EA%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='Canvas'/%3E%3Ctext x='32' y='48' font-size='48' text-anchor='middle' fill='CanvasText'%3EA%3C/text%3E%3C/svg%3E" />
   <title>Adwaith A Kumar | Web Developer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Caveat:wght@500&family=Manrope:wght@300;400;500;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Caveat:wght@500&family=Manrope:wght@300;400;500;600;700&display=swap"
     rel="stylesheet" />
 </head>
 
-<body style="background-color: #090909">
+<body>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

@@ -439,10 +439,10 @@ export default function StackStrip() {
         {/* the blue drag handle that leads the reveal wipe */}
         <span
           data-handle
-          className="pointer-events-none absolute bottom-5 left-0 top-0 z-[2] w-px -translate-x-1/2 bg-[#4c8dff] lg:bottom-6"
+          className="pointer-events-none absolute bottom-5 left-0 top-0 z-[2] w-px -translate-x-1/2 bg-[var(--t-build)] lg:bottom-6"
         >
-          <i className="absolute -left-[3px] -top-[3px] size-[7px] border border-[#4c8dff] bg-white" />
-          <i className="absolute -bottom-[3px] -left-[3px] size-[7px] border border-[#4c8dff] bg-white" />
+          <i className="absolute -left-[3px] -top-[3px] size-[7px] border border-[var(--t-build)] bg-[rgb(var(--cursor-rgb))]" />
+          <i className="absolute -bottom-[3px] -left-[3px] size-[7px] border border-[var(--t-build)] bg-[rgb(var(--cursor-rgb))]" />
         </span>
       </div>
     </section>

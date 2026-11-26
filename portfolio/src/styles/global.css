@@ -1,27 +1,41 @@
 @import "tailwindcss";
 
-@theme {
-  --color-bg: #090909;
-  --color-panel: #101010;
-  --color-ink: #f2efeb;
-  --color-muted: #a09c9a;
-  --color-red: #d61a29;
-  --color-red-dark: #8c0a14;
-  --color-gold: #b08d4d;
-  --color-deep: #21402d;
-  --color-line: #292323;
+@theme inline {
+  --color-bg: var(--t-bg);
+  --color-panel: var(--t-panel);
+  --color-ink: var(--t-ink);
+  --color-muted: var(--t-muted);
+  --color-red: var(--t-accent);
+  --color-red-dark: var(--t-accent-deep);
+  --color-gold: var(--t-detail);
+  --color-deep: var(--t-deep-fill);
+  --color-line: var(--t-line);
+  --color-pine: var(--t-pine);
 
-  --font-body: "Manrope", sans-serif;
-  --font-display: "Anton", Impact, sans-serif;
-  --font-script: "Caveat", cursive;
+  --font-body: var(--t-font-body);
+  --font-display: var(--t-font-display);
+  --font-script: var(--t-font-script);
+  --font-sans: var(--t-font-sans);
+
+  --font-weight-light: var(--t-fw-light);
+  --font-weight-normal: var(--t-fw-normal);
+  --font-weight-medium: var(--t-fw-medium);
+  --font-weight-semibold: var(--t-fw-semibold);
+  --font-weight-bold: var(--t-fw-bold);
+  --font-weight-bold-light: var(--fw-bold-light);
+  --font-weight-extrabold: var(--t-fw-extrabold);
 
   --spacing-gutter: clamp(20px, 3.8vw, 68px);
+}
+
+@utility section-heading {
+  font-size: var(--fs-section-heading);
 }
 
 /* ---------- reusable text styles ---------- */
 @utility display {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: var(--t-fw-normal);
   text-transform: uppercase;
   letter-spacing: -0.01em;
   line-height: 0.95;
@@ -29,7 +43,7 @@
 
 @utility label {
   font-size: 0.78rem;
-  font-weight: 500;
+  font-weight: var(--t-fw-medium);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-muted);
@@ -37,7 +51,6 @@
 
 @layer base {
   html {
-    color-scheme: dark;
     scroll-behavior: auto;
     -webkit-text-size-adjust: 100%;
   }
@@ -107,7 +120,7 @@ html.lenis body {
   transition-duration: 250ms;
 }
 :where(a, button, [role="button"]):focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-red) 78%, white);
+  outline: 2px solid color-mix(in srgb, var(--t-accent) 78%, rgb(var(--fg-rgb)));
   outline-offset: 3px;
   color: var(--color-ink);
 }
@@ -142,7 +155,7 @@ html.lenis body {
   [data-project-card]:hover { translate: 0 -4px; }
   [data-project-card]:hover [class~="border-line"] {
     border-color: color-mix(in srgb, var(--color-red) 78%, transparent);
-    box-shadow: 0 12px 28px -18px rgba(214,26,41,.85);
+    box-shadow: 0 12px 28px -18px rgb(var(--accent-rgb) / .85);
   }
   [data-project-card]:hover img { transform: scale(1.04); }
 }
@@ -192,7 +205,7 @@ body::after {
   /* the role label is red at rest; only a hover may lift it */
   #home [data-role]:hover { color: var(--color-ink); }
   #home [data-name]:hover [data-line] { color: var(--color-ink) !important; }
-  #home [data-period]:hover { color: #ff5560 !important; }
+  #home [data-period]:hover { color: var(--t-accent-hover) !important; }
   #home [data-title]:hover { color: var(--color-ink) !important; }
   #home [data-sub]:hover { color: var(--color-ink); }
   #home [data-loc]:hover { color: var(--color-ink); }
@@ -208,7 +221,7 @@ body::after {
 #home [data-social] {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgb(var(--fg-rgb) / 0.15);
   border-radius: 9999px;
   padding: 0.55rem 0.25rem;
   background: transparent;
@@ -236,10 +249,10 @@ body::after {
 @media (hover: hover) and (pointer: fine) {
   #home [data-dl]:hover,
   #home [data-social]:hover {
-    color: #fff;
+    color: var(--t-on-accent);
     border-color: var(--color-red);
     translate: 0 -2px;
-    box-shadow: 0 8px 20px rgba(214, 26, 41, 0.35);
+    box-shadow: 0 8px 20px rgb(var(--accent-rgb) / 0.35);
   }
   #home [data-dl]:hover [data-wipe],
   #home [data-social]:hover [data-wipe] {
@@ -247,7 +260,7 @@ body::after {
   }
   #home [data-dl]:hover svg {
     transform: translateY(3px);
-    stroke: #fff;
+    stroke: var(--t-on-accent);
   }
   #home [data-social]:hover svg {
     transform: scale(1.1);
@@ -262,7 +275,7 @@ body::after {
 #home [data-social]:focus-visible {
   outline: 2px solid var(--color-red);
   outline-offset: 2px;
-  color: #fff;
+  color: var(--t-on-accent);
 }
 @media (prefers-reduced-motion: reduce) {
   #home [data-dl],
@@ -280,8 +293,8 @@ body::after {
 
 /* ---------- stack strip marquee ---------- */
 .marquee-view {
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
-  mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, rgb(var(--fg-rgb)) 7%, rgb(var(--fg-rgb)) 93%, transparent);
+  mask-image: linear-gradient(to right, transparent, rgb(var(--fg-rgb)) 7%, rgb(var(--fg-rgb)) 93%, transparent);
 }
 @keyframes marquee {
   to {
@@ -307,15 +320,610 @@ body::after {
     display: none;
   }
 }
+/* Theme switch: the new root is revealed as an expanding circle from the toggle. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 @media (min-width: 1024px) {
   #home [data-ghost] [data-gl] {
     text-shadow:
-      1px 1px 0 #7a0f19, 2px 2px 0 #720e17,
-      3px 3px 0 #6a0d15, 4px 4px 0 #620c14,
-      5px 5px 0 #5a0b12, 6px 6px 0 #520a10,
-      7px 7px 0 #4a090e, 8px 8px 0 #42080d,
-      9px 9px 0 #3a070b, 10px 10px 0 #32060a,
-      11px 11px 0 #2a0508, 12px 12px 0 #220407,
-      6px 10px 14px rgba(0,0,0,0.55);
+      1px 1px 0 var(--t-extrude-1), 2px 2px 0 var(--t-extrude-2),
+      3px 3px 0 var(--t-extrude-3), 4px 4px 0 var(--t-extrude-4),
+      5px 5px 0 var(--t-extrude-5), 6px 6px 0 var(--t-extrude-6),
+      7px 7px 0 var(--t-extrude-7), 8px 8px 0 var(--t-extrude-8),
+      9px 9px 0 var(--t-extrude-9), 10px 10px 0 var(--t-extrude-10),
+      11px 11px 0 var(--t-extrude-11), 12px 12px 0 var(--t-extrude-12),
+      6px 10px 14px rgb(var(--shadow-rgb) / 0.55);
+  }
+}
+
+/* About heading is anchored to the paragraph without moving the paragraph. */
+#about header {
+  translate: 0 calc(var(--t-about-section-gap) - var(--t-about-head-gap));
+}
+#about .about-heading {
+  line-height: 0.95;
+}
+#about header [data-label] {
+  font-weight: var(--fw-bold-light);
+}
+
+/* ============================================================
+   LIGHT-ONLY REFINEMENT
+   Everything below is scoped to html[data-theme="light"], so dark
+   computed styles are exactly what they were before this block.
+   ============================================================ */
+
+/* ---- technology logos: official brand colors, ink for near-black ---- */
+html[data-theme="light"] [data-logo-kind] > img {
+  filter: none;
+  opacity: 1;
+}
+html[data-theme="light"] [data-logo-kind="ink"] > img {
+  display: none;
+}
+html[data-theme="light"] [data-logo-kind="ink"]::after {
+  content: "";
+  width: 100%;
+  height: 100%;
+  background-color: var(--t-ink);
+  -webkit-mask: var(--logo-src) center / contain no-repeat;
+  mask: var(--logo-src) center / contain no-repeat;
+}
+
+html[data-theme="light"] #stack [data-kicker],
+html[data-theme="light"] #stack [data-head],
+html[data-theme="light"] #stack [data-stack-chip] span {
+  color: var(--t-ink);
+  font-weight: var(--fw-bold-light);
+}
+
+/* ---- small text weight: labels, chips, captions, list items, UI copy ---- */
+html[data-theme="light"] :where(
+  .label,
+  .about-row-value,
+  .edu-card-label,
+  .edu-card-place,
+  .edu-card-meta,
+  .edu-card-studied,
+  .edu-card-list li,
+  .edu-card-next,
+  .edu-certs-line,
+  .edu-certs-kicker,
+  .edu-cert-name,
+  .edu-static-ach-tagline,
+  .cert-dialog-kicker,
+  .sk-item-name,
+  .sk-user-tag,
+  .sk-badge,
+  .footer-social-tip,
+  .contact-label,
+  #home [data-stat-label],
+  #home [data-dl-label],
+  #home [data-social-label],
+  #home [data-loc-text],
+  #stack [data-stack-chip] span,
+  #stack [data-kicker],
+  #tools [data-tool-chip] span,
+  #tools [data-kicker],
+  #tools [data-strip-divider],
+  #what-i-do [data-chip-name],
+  #what-i-do [data-now-k],
+  #what-i-do [data-now-v],
+  #what-i-do [data-elabel2],
+  #projects [data-hint],
+  #projects [data-clabel],
+  #about [data-label],
+  #experience [data-flow-intro],
+  #experience [data-int-point-text],
+  #experience [data-proj-title],
+  #contact [data-field] label,
+  footer .footer-link,
+  footer [data-f-phone],
+  footer [data-f-bar],
+  footer [data-f-copy]
+) {
+  font-weight: var(--fw-small-light);
+}
+
+/* ---- small paragraphs ---- */
+html[data-theme="light"] :where(
+  #home [data-sub],
+  #what-i-do [data-sub2],
+  #what-i-do [data-ltext],
+  #what-i-do [data-detail-text],
+  #what-i-do [data-proof-text],
+  #projects [data-csub],
+  #projects p:has(> a[data-plink]),
+  #about [data-sub],
+  #about .about-bio,
+  #experience [data-proj-desc],
+  .sk-desc,
+  .contact-field
+) {
+  font-weight: var(--fw-body-light);
+}
+
+/* ---- hairlines, rules and borders ---- */
+html[data-theme="light"] :where(
+  [class~="border-line"],
+  .edu-card,
+  .edu-cert-media,
+  .edu-cert-name,
+  .sk-item,
+  .sk-user-tag,
+  .sk-user-glyph,
+  .sk-explore-link,
+  .footer-link,
+  .footer-social-tip,
+  [data-f-divider]
+) {
+  border-color: var(--t-line);
+}
+html[data-theme="light"] :where(
+  .bg-line,
+  [data-rule],
+  [data-flow-rule],
+  .about-rule-thin,
+  .edu-card-rule,
+  .edu-certs-underline,
+  .edu-card-list li::before,
+  .cert-dialog-rule,
+  .footer-link::after
+) {
+  background-color: var(--t-line);
+}
+
+/* ---- hero ---- */
+html[data-theme="light"] #home [data-role],
+html[data-theme="light"] #home [data-status-text],
+html[data-theme="light"] #home [data-hello],
+html[data-theme="light"] #home [data-loc],
+html[data-theme="light"] #home [data-plus] {
+  color: var(--t-pine);
+}
+html[data-theme="light"] #home [data-name] [data-line],
+html[data-theme="light"] #home [data-name] [data-period] {
+  color: var(--t-pine) !important;
+}
+html[data-theme="light"] #home [data-dot] {
+  background-color: var(--t-pine);
+  box-shadow: 0 0 0 4px rgb(var(--pine-rgb) / 0.25);
+}
+html[data-theme="light"] #home [data-loc-icon] {
+  stroke: var(--t-pine);
+}
+html[data-theme="light"] #home [data-rule] {
+  background-color: var(--t-pine);
+}
+@media (hover: hover) and (pointer: fine) {
+  html[data-theme="light"] #home [data-role]:hover,
+  html[data-theme="light"] #home [data-status-text]:hover,
+  html[data-theme="light"] #home [data-hello]:hover,
+  html[data-theme="light"] #home [data-loc]:hover {
+    color: var(--color-ink);
+  }
+}
+html[data-theme="light"] #home [data-dl],
+html[data-theme="light"] #home [data-social] {
+  background: transparent;
+  border-color: var(--t-pine);
+  color: var(--t-ink);
+}
+html[data-theme="light"] #home [data-wipe] {
+  background: var(--t-pine);
+}
+html[data-theme="light"] #home [data-stat-label],
+html[data-theme="light"] #home [data-dl-label],
+html[data-theme="light"] #home [data-social-label] {
+  color: var(--t-ink);
+  font-weight: var(--fw-bold-light);
+}
+html[data-theme="light"] #home [data-sub] {
+  color: var(--t-ink);
+}
+html[data-theme="light"] #home [data-dl-icon],
+html[data-theme="light"] #home [data-dl-icon] svg {
+  stroke: var(--t-pine);
+}
+html[data-theme="light"] #home [data-social-icon] svg {
+  color: var(--t-pine);
+}
+@media (hover: hover) and (pointer: fine) {
+  html[data-theme="light"] #home [data-dl]:hover,
+  html[data-theme="light"] #home [data-social]:hover {
+    color: var(--t-on-pine);
+    border-color: var(--t-pine);
+    box-shadow: 0 8px 20px rgb(var(--pine-rgb) / 0.35);
+  }
+  html[data-theme="light"] #home [data-dl]:hover [data-dl-icon] svg {
+    stroke: var(--t-on-pine);
+  }
+  html[data-theme="light"] #home [data-social]:hover [data-social-icon] svg {
+    color: var(--t-on-pine);
+  }
+}
+html[data-theme="light"] #home [data-dl]:focus-visible,
+html[data-theme="light"] #home [data-social]:focus-visible {
+  outline-color: var(--t-pine);
+  color: var(--t-on-pine);
+}
+html[data-theme="light"] #home [data-dl]:focus-visible [data-dl-icon] svg {
+  stroke: var(--t-on-pine);
+}
+html[data-theme="light"] #home [data-social]:focus-visible [data-social-icon] svg {
+  color: var(--t-on-pine);
+}
+
+/* ---- what i do ---- */
+html[data-theme="light"] #what-i-do [data-frame] {
+  border-radius: var(--radius-card);
+}
+html[data-theme="light"] #what-i-do [data-h2],
+html[data-theme="light"] #what-i-do .display > span:last-child {
+  color: var(--t-pine);
+}
+html[data-theme="light"] #what-i-do [data-bar],
+html[data-theme="light"] #what-i-do [data-title] > i,
+html[data-theme="light"] #what-i-do [data-eff] > i,
+html[data-theme="light"] #what-i-do [data-now-dot] span,
+html[data-theme="light"] #what-i-do [data-detail-dot],
+html[data-theme="light"] #what-i-do [data-proof-dot] {
+  background-color: var(--t-pine);
+}
+html[data-theme="light"] #what-i-do [data-chip] {
+  border-color: var(--t-pine);
+  border-radius: 9999px;
+}
+
+/* ---- projects ---- */
+html[data-theme="light"] #projects [data-card-caption] {
+  background-image: var(--t-image-scrim);
+}
+html[data-theme="light"] #projects [data-card-caption] [data-card-title],
+html[data-theme="light"] #projects [data-card-caption] [data-card-num],
+html[data-theme="light"] #projects [data-card-fallback] {
+  color: var(--t-on-image);
+  text-shadow: var(--t-image-text-shadow);
+}
+html[data-theme="light"] #projects [data-ph2],
+html[data-theme="light"] #projects [data-h2],
+html[data-theme="light"] #projects [data-csub],
+html[data-theme="light"] #projects [data-plink] > span:last-child,
+html[data-theme="light"] #projects [data-pop-link] > span:last-child {
+  color: var(--t-pine);
+}
+html[data-theme="light"] #projects :where(
+  [data-sub], [data-hint], [data-clabel], [data-ctext], [data-csub] [data-plink] > span:first-child,
+  [data-pop-side="left"] [data-pop-block] > span:first-child,
+  [data-pop-block].line-clamp-6, [data-pop-side] ul li > span:last-child,
+  [data-pop-link] > span:first-of-type
+) {
+  color: var(--t-ink);
+  font-weight: var(--fw-bold-light);
+}
+html[data-theme="light"] #projects [data-pop-side] ul li {
+  border-color: var(--t-pine);
+  background-color: var(--t-panel);
+}
+
+/* ---- about ---- */
+@media (min-width: 1024px) {
+  html[data-theme="light"] #about header > div:first-child {
+    flex: 1 1 auto;
+  }
+  html[data-theme="light"] #about .about-heading {
+    flex-wrap: nowrap;
+    width: max-content;
+    max-width: none;
+    white-space: nowrap;
+  }
+}
+html[data-theme="light"] #about .about-head-line--red {
+  color: var(--t-ink);
+}
+@media (hover: hover) {
+  html[data-theme="light"] #about .about-head-line--red:hover,
+  html[data-theme="light"] #about .about-head-line--red:focus-visible,
+  html[data-theme="light"] #about .about-head-line--light:hover,
+  html[data-theme="light"] #about .about-head-line--light:focus-visible {
+    color: var(--t-ink);
+    text-shadow: 0 0 30px rgb(var(--t-accent-rgb) / 0.22);
+  }
+  html[data-theme="light"] #about .about-reveal-host:hover .about-reveal-word,
+  html[data-theme="light"] #about .about-reveal-host:focus-within .about-reveal-word,
+  html[data-theme="light"] #about .about-reveal-word:hover {
+    color: var(--about-word-hover);
+    text-shadow: 0 0 18px rgb(var(--t-accent-rgb) / 0.18);
+  }
+  html[data-theme="light"] #about .about-sub:hover,
+  html[data-theme="light"] #about .about-sub:focus-visible {
+    text-shadow: 0 0 18px rgb(var(--t-accent-rgb) / 0.12);
+  }
+}
+
+/* ---- education ---- */
+html[data-theme="light"] #education .edu-head-label,
+html[data-theme="light"] #education .edu-static-head > .label {
+  visibility: hidden;
+}
+html[data-theme="light"] #education .edu-head-title span:last-child,
+html[data-theme="light"] #education .edu-static-title span:last-child,
+html[data-theme="light"] #education .edu-card-script,
+html[data-theme="light"] #education .edu-card-meta {
+  color: var(--t-pine);
+}
+html[data-theme="light"] #education .edu-card {
+  border-top-color: var(--t-pine);
+}
+html[data-theme="light"] #education .edu-card-chips span {
+  border-color: var(--t-pine);
+}
+
+/* ---- skills + experience ---- */
+html[data-theme="light"] #experience [data-flow-h2],
+html[data-theme="light"] #experience [data-exp-h2],
+html[data-theme="light"] #experience .sk-h1-tail,
+html[data-theme="light"] #experience .sk-arrow,
+html[data-theme="light"] #experience .sk-live-note span,
+html[data-theme="light"] #experience .sk-explore-link span,
+html[data-theme="light"] #experience .sk-user-glyph {
+  color: var(--t-pine);
+}
+html[data-theme="light"] #experience .sk-arrow svg {
+  filter: drop-shadow(0 0 9px rgb(var(--pine-rgb) / 0.55));
+}
+html[data-theme="light"] #experience [data-tl-line] {
+  background: var(--t-pine);
+}
+html[data-theme="light"] #experience [data-int-dash] {
+  background: var(--t-pine);
+}
+@media (hover: hover) and (pointer: fine) {
+  html[data-theme="light"] #experience .sk-item:hover .sk-logo,
+  html[data-theme="light"] #experience .sk-item:focus-visible .sk-logo {
+    transform: translateY(-4px);
+  }
+}
+
+/* ---- contact ---- */
+html[data-theme="light"] #contact [data-contact-h2],
+html[data-theme="light"] #contact .contact-label::before,
+html[data-theme="light"] #contact .contact-field::placeholder {
+  color: var(--t-pine);
+}
+html[data-theme="light"] #contact .contact-field,
+html[data-theme="light"] #contact .contact-field:hover,
+html[data-theme="light"] #contact .contact-field:focus {
+  border-color: var(--t-pine);
+}
+html[data-theme="light"] #contact .contact-field:focus {
+  box-shadow:
+    0 20px 40px -20px rgb(var(--shadow-rgb)),
+    inset 3px 0 0 0 var(--t-pine),
+    inset 0 1px 0 rgb(var(--fg-rgb) / 0.07),
+    0 0 0 3px rgb(var(--pine-rgb) / 0.17),
+    0 0 26px rgb(var(--pine-rgb) / 0.26);
+}
+html[data-theme="light"] #contact .contact-liquid {
+  border-color: var(--t-pine) !important;
+}
+
+/* ---- footer ---- */
+html[data-theme="light"] footer [data-f-h2],
+html[data-theme="light"] footer [data-f-continue],
+html[data-theme="light"] footer [data-f-phone],
+html[data-theme="light"] footer [data-f-copy],
+html[data-theme="light"] footer .footer-top,
+html[data-theme="light"] footer .footer-top-arrow,
+html[data-theme="light"] footer .footer-link-arrow,
+html[data-theme="light"] footer [data-f-scroll-note],
+html[data-theme="light"] footer .footer-social svg {
+  color: var(--t-pine);
+}
+
+/* ---- static-text legibility + section emphasis ---- */
+html[data-theme="light"] :is(
+  [class*="text-ink/"], [class*="text-muted/"], [class*="text-red/"]
+) {
+  color: var(--t-ink);
+}
+html[data-theme="light"] #what-i-do [data-eff] {
+  border-color: var(--t-pine);
+  border-radius: var(--radius-card);
+}
+html[data-theme="light"] #what-i-do :where(
+  [data-sub2], [data-ltext], [data-detail], [data-proof], [data-elabel2]
+) {
+  color: var(--t-ink);
+}
+html[data-theme="light"] #what-i-do [data-eff] .display > span:last-child {
+  color: var(--t-accent);
+}
+
+html[data-theme="light"] #projects :where(
+  header > p.label, [data-close] [data-clabel], .mt-10 > div > p.label
+) {
+  color: var(--t-ink);
+  font-weight: var(--fw-bold-light);
+}
+html[data-theme="light"] #projects p.line-clamp-6 {
+  color: var(--t-ink);
+}
+
+html[data-theme="light"] #about header [data-label] {
+  color: var(--t-ink);
+}
+html[data-theme="light"] #about :where(
+  .about-sub, .about-row-value
+) {
+  color: var(--t-ink);
+}
+
+html[data-theme="light"] #education :where(
+  .edu-card-label span, .edu-card-place, .edu-card-studied,
+  .edu-card-list li, .edu-certs-line, .edu-static .edu-cert-caption
+) {
+  color: var(--t-ink);
+}
+
+html[data-theme="light"] #tools :where(
+  [data-kicker], [data-head], [data-period], [data-strip-divider],
+  [data-tool-chip] span
+) {
+  color: var(--t-ink);
+  font-weight: var(--fw-bold-light);
+}
+
+html[data-theme="light"] #experience [data-flow-label],
+html[data-theme="light"] #experience [data-flow-intro],
+html[data-theme="light"] #experience .sk-desc,
+html[data-theme="light"] #experience .sk-item-name,
+html[data-theme="light"] #experience .sk-user-tag,
+html[data-theme="light"] #experience .sk-live-badge,
+html[data-theme="light"] #experience .sk-live-note,
+html[data-theme="light"] #experience .sk-explore-link {
+  color: var(--t-ink);
+  font-weight: var(--fw-bold-light);
+}
+html[data-theme="light"] #experience .sk-badge,
+html[data-theme="light"] #experience .sk-h1,
+html[data-theme="light"] #experience .sk-h1-tail,
+html[data-theme="light"] #experience .sk-live-note span {
+  color: var(--t-ink);
+}
+html[data-theme="light"] #experience [data-exp-label],
+html[data-theme="light"] #experience [data-int-company],
+html[data-theme="light"] #experience [data-int-period],
+html[data-theme="light"] #experience [data-int-summary],
+html[data-theme="light"] #experience [data-int-point-text],
+html[data-theme="light"] #experience [data-proj-label],
+html[data-theme="light"] #experience [data-proj-desc],
+html[data-theme="light"] #experience [data-next-label],
+html[data-theme="light"] #experience [data-next-text] {
+  color: var(--t-ink);
+  font-weight: var(--fw-bold-light);
+}
+html[data-theme="light"] #experience [data-proj-title] {
+  color: var(--t-ink);
+}
+
+html[data-theme="light"] #contact [data-contact-label] {
+  color: var(--t-ink);
+  font-weight: var(--fw-bold-light);
+}
+
+html[data-theme="light"] footer :where(
+  [data-f-col-title], .footer-link, [data-f-email], [data-f-bar]
+) {
+  color: var(--t-ink);
+}
+html[data-theme="light"] footer .footer-social:hover svg,
+html[data-theme="light"] footer .footer-social:focus-visible svg {
+  color: var(--brand);
+}
+html[data-theme="light"] footer .footer-social:hover .footer-social-tip,
+html[data-theme="light"] footer .footer-social:focus-visible .footer-social-tip {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--t-on-image);
+}
+html[data-theme="light"] footer .footer-social:hover .footer-social-tip::after,
+html[data-theme="light"] footer .footer-social:focus-visible .footer-social-tip::after {
+  border-top-color: var(--brand);
+}
+
+/* ============================================================
+   LIGHT-ONLY: icons, chip text, rounded card top, project popup, about
+   ============================================================ */
+
+/* ---- icons: keep each brand's own color, deepened so it reads on sage ---- */
+html[data-theme="light"] [data-logo-kind] {
+  position: relative;
+}
+html[data-theme="light"] [data-logo-kind="brand"] > img {
+  display: block;
+  opacity: 1;
+  filter: brightness(0.5) saturate(1.6);
+}
+html[data-theme="light"] [data-logo-kind="ink"] > img {
+  display: none;
+}
+html[data-theme="light"] [data-logo-kind="ink"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: var(--t-ink);
+  -webkit-mask: var(--logo-src) center / contain no-repeat;
+  mask: var(--logo-src) center / contain no-repeat;
+}
+html[data-theme="light"] [data-logo-kind="fallback"] {
+  color: var(--t-ink);
+  border-color: var(--t-pine);
+  border-width: 1.5px;
+  font-weight: var(--t-fw-extrabold);
+}
+
+/* ---- skill / tool names: bold + dark everywhere ---- */
+html[data-theme="light"] :is(#stack [data-stack-chip], #tools [data-tool-chip]) > span:last-child,
+html[data-theme="light"] #what-i-do [data-chip-name],
+html[data-theme="light"] #experience .sk-item-name {
+  color: var(--t-ink);
+  font-weight: var(--t-fw-extrabold);
+}
+
+/* ---- section 2 (What I Do): card top border follows the rounded corners ---- */
+html[data-theme="light"] #what-i-do [data-bar] {
+  height: var(--radius-card);
+  background-color: transparent;
+  border-top: 3px solid var(--t-pine);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* ---- project popup, right side (popup is portaled to <body>, so no #projects prefix) ---- */
+html[data-theme="light"] [data-pop-side="right"] .label {
+  color: var(--t-ink);
+  font-weight: var(--t-fw-extrabold);
+  opacity: 1;
+}
+html[data-theme="light"] [data-pop-side="right"] ul li {
+  border-color: var(--t-pine);
+  background-color: var(--t-panel);
+}
+html[data-theme="light"] [data-pop-side="right"] ul li > span:last-child {
+  color: var(--t-ink);
+  font-weight: var(--t-fw-extrabold);
+  font-size: clamp(0.62rem, 0.85vw, 0.78rem);
+}
+html[data-theme="light"] [data-pop-link] {
+  border-color: var(--t-pine);
+  color: var(--t-ink);
+  font-weight: var(--t-fw-extrabold);
+}
+@media (hover: hover) {
+  html[data-theme="light"] [data-pop-link]:hover {
+    color: var(--t-on-accent);
+  }
+}
+
+/* ---- about: "BEHIND THE CODE." in pine green, heading sits closer to the paragraph ---- */
+html[data-theme="light"] #about .about-head-line--red {
+  color: var(--t-pine);
+}
+@media (hover: hover) {
+  html[data-theme="light"] #about .about-head-line--red:hover,
+  html[data-theme="light"] #about .about-head-line--red:focus-visible {
+    color: var(--t-pine);
+    text-shadow: 0 0 30px rgb(var(--pine-rgb) / 0.3);
+  }
+}
+@media (min-width: 1024px) {
+  html[data-theme="light"] #about header > div:first-child {
+    translate: 0 clamp(4.5rem, 7.5vw, 6rem);
   }
 }

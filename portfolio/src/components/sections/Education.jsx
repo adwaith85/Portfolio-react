@@ -30,7 +30,6 @@ export default function Education() {
     <>
       <section
         id="education"
-        data-env="education"
         aria-label="Education"
         className="relative border-t border-line bg-bg"
       >

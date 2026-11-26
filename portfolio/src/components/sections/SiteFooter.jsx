@@ -8,7 +8,6 @@ import {
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { content } from "../../data/content";
-import { ENVS, envCss } from "../../theme/palette";
 import {
   lockScroll,
   scrollToId,
@@ -27,7 +26,6 @@ import { swarm } from "../cursors/swarmApi";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const FOOTER = ENVS.footer;
 const RESUME = "/Adwaith_A_Kumar_Resume.pdf";
 
 /* Exactly the 20 build cursors: every one gets a small footer job. */
@@ -45,12 +43,12 @@ const AG = {
 const AGENTS = Array.from({ length: 20 }, (_, i) => i);
 
 const SOCIALS = [
-  { key: "github", label: "GitHub", brand: "#f2efeb" },
-  { key: "linkedin", label: "LinkedIn", brand: "#0a66c2" },
-  { key: "twitter", label: "X", brand: "#f2efeb" },
-  { key: "facebook", label: "Facebook", brand: "#1877f2" },
-  { key: "instagram", label: "Instagram", brand: "#e1306c" },
-  { key: "email", label: "Email", brand: "#d61a29" },
+  { key: "github", label: "GitHub", brand: "var(--t-github)" },
+  { key: "linkedin", label: "LinkedIn", brand: "var(--t-linkedin)" },
+  { key: "twitter", label: "X", brand: "var(--t-twitter)" },
+  { key: "facebook", label: "Facebook", brand: "var(--t-facebook)" },
+  { key: "instagram", label: "Instagram", brand: "var(--t-instagram)" },
+  { key: "email", label: "Email", brand: "var(--t-email)" },
 ];
 
 const ICONS = {
@@ -70,22 +68,22 @@ const FOOTER_STYLE = `
   .footer-ghost-word {
     background: linear-gradient(
       180deg,
-      rgba(242, 239, 235, 0.13) 0%,
-      rgba(214, 26, 41, 0.12) 38%,
-      rgba(140, 10, 20, 0.06) 70%,
-      rgba(10, 10, 12, 0) 100%
+      rgb(var(--t-ink-rgb) / 0.13) 0%,
+      rgb(var(--accent-rgb) / 0.12) 38%,
+      rgb(var(--t-accent-deep-rgb) / 0.06) 70%,
+      rgb(var(--bg-rgb) / 0) 100%
     );
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.035));
+    filter: drop-shadow(0 1px 0 rgb(var(--fg-rgb) / 0.035));
   }
 
   .footer-social {
-    --brand: #f2efeb;
+    --brand: var(--t-ink);
   }
   .footer-social svg {
-    color: #f2efeb;
+    color: var(--t-ink);
     transition:
       color 200ms ease,
       transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -104,18 +102,18 @@ const FOOTER_STYLE = `
     opacity: 0;
     pointer-events: none;
     white-space: nowrap;
-    border: 1px solid rgba(242, 239, 235, 0.14);
+    border: 1px solid rgb(var(--t-ink-rgb) / 0.14);
     border-radius: 5px;
-    background: rgba(17, 16, 18, 0.9);
+    background: rgb(var(--t-tip-fill-rgb) / 0.9);
     padding: 0.3rem 0.5rem;
-    color: #f2efeb;
+    color: var(--t-ink);
     font-size: 0.56rem;
-    font-weight: 600;
+    font-weight: var(--t-fw-semibold);
     letter-spacing: 0.13em;
     text-transform: uppercase;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 8px 20px rgb(var(--shadow-rgb) / 0.5);
     transition:
       opacity 160ms ease,
       transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -127,7 +125,7 @@ const FOOTER_STYLE = `
     left: 50%;
     transform: translateX(-50%);
     border: 4px solid transparent;
-    border-top-color: rgba(17, 16, 18, 0.9);
+    border-top-color: rgb(var(--t-tip-fill-rgb) / 0.9);
   }
   .footer-social:last-child .footer-social-tip {
     right: 0;
@@ -162,14 +160,14 @@ const FOOTER_STYLE = `
     bottom: -1px;
     left: 0;
     height: 1px;
-    background: #d61a29;
+    background: var(--t-accent);
     transform: scaleX(0);
     transform-origin: left center;
     transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
     pointer-events: none;
   }
   .footer-link:focus-visible {
-    color: #d61a29;
+    color: var(--t-accent);
     transform: translateY(-1px);
   }
   .footer-link:focus-visible::after {
@@ -189,7 +187,7 @@ const FOOTER_STYLE = `
       transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   .footer-copy:focus-visible {
-    color: #d61a29;
+    color: var(--t-accent);
     transform: translateY(-1px);
   }
 
@@ -199,7 +197,7 @@ const FOOTER_STYLE = `
       transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   .footer-contact-link:focus-visible {
-    color: #d61a29;
+    color: var(--t-accent);
     transform: translateY(-1px);
   }
 
@@ -209,7 +207,7 @@ const FOOTER_STYLE = `
       transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   .footer-top:focus-visible {
-    color: #d61a29;
+    color: var(--t-accent);
     transform: translateY(-1px);
   }
   .footer-top-arrow {
@@ -233,7 +231,7 @@ const FOOTER_STYLE = `
       transform: translate(0, 0);
     }
     .footer-link:hover {
-      color: #d61a29;
+      color: var(--t-accent);
       transform: translateY(-1px);
     }
     .footer-link:hover::after {
@@ -243,15 +241,15 @@ const FOOTER_STYLE = `
       transform: translate(2px, -2px);
     }
     .footer-copy:hover {
-      color: #d61a29;
+      color: var(--t-accent);
       transform: translateY(-1px);
     }
     .footer-contact-link:hover {
-      color: #d61a29;
+      color: var(--t-accent);
       transform: translateY(-1px);
     }
     .footer-top:hover {
-      color: #d61a29;
+      color: var(--t-accent);
       transform: translateY(-1px);
     }
     .footer-top:hover .footer-top-arrow {
@@ -1065,12 +1063,9 @@ export default function SiteFooter() {
   return (
     <footer
       ref={root}
-      data-env="footer"
-      className="relative overflow-hidden border-t border-line px-gutter py-[clamp(3rem,5.5vw,4rem)]"
-      style={{ backgroundColor: FOOTER.bg }}
+      className="relative overflow-hidden border-t border-line bg-bg px-gutter py-[clamp(3rem,5.5vw,4rem)]"
     >
       <style>{FOOTER_STYLE}</style>
-      <style>{envCss("footer")}</style>
 
       <div className="relative z-[2] mx-auto w-full max-w-[1400px]">
         <div className="grid items-center gap-x-10 gap-y-10 md:grid-cols-[minmax(0,0.85fr)_minmax(0,2fr)_minmax(0,0.85fr)] md:gap-x-12">
@@ -1096,7 +1091,7 @@ export default function SiteFooter() {
                     e.preventDefault();
                     scrollToId(item.id);
                   }}
-                  className={`footer-link flex items-center justify-between gap-3 border-b border-white/10 py-2 text-[0.86rem] text-ink/75 ${focusRing}`}
+                  className={`footer-link flex items-center justify-between gap-3 border-b border-[rgb(var(--cursor-rgb)_/_0.1)] py-2 text-[0.86rem] text-ink/75 ${focusRing}`}
                 >
                   <span>{item.label}</span>
                   <span aria-hidden="true" className="footer-link-arrow text-red">
@@ -1147,7 +1142,7 @@ export default function SiteFooter() {
               onClick={copyEmail}
               aria-label="Copy email address"
               className={`footer-copy inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[0.58rem] font-semibold uppercase tracking-[0.16em] ${focusRing} ${
-                copied ? "border-red/60 text-red" : "border-white/20 text-ink/65"
+                copied ? "border-red/60 text-red" : "border-[rgb(var(--cursor-rgb)_/_0.2)] text-ink/65"
               }`}
             >
               <span aria-hidden="true" className="size-[5px] rounded-full bg-current" />
@@ -1206,7 +1201,7 @@ export default function SiteFooter() {
         </div>
 
         {/* divider, with the big name sitting just below it */}
-        <div className="mt-[clamp(1.25rem,2.5vw,2rem)] border-t border-white/12 pt-[clamp(0.75rem,1.5vw,1.25rem)]">
+        <div data-f-divider className="mt-[clamp(1.25rem,2.5vw,2rem)] border-t border-[rgb(var(--cursor-rgb)_/_0.12)] pt-[clamp(0.75rem,1.5vw,1.25rem)]">
           <div
             aria-hidden="true"
             className="pointer-events-none relative -mx-[var(--spacing-gutter)] h-[0.78em] select-none overflow-hidden text-[clamp(2rem,9vw,7rem)]"
@@ -1241,7 +1236,7 @@ export default function SiteFooter() {
                 ↑
               </span>
             </button>
-            <span className="cursor-default select-none text-[0.58rem] tracking-[0.12em] text-ink/35">
+            <span data-f-scroll-note className="cursor-default select-none text-[0.58rem] tracking-[0.12em] text-ink/35">
               Continue scrolling ↓
             </span>
           </div>

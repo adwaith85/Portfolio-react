@@ -245,13 +245,18 @@ const SKILLS_STYLE = `
 .sk-arrow svg {
   width: 24px;
   height: 24px;
-  filter: drop-shadow(0 0 9px rgba(214, 26, 41, .55));
+  filter: drop-shadow(0 0 9px rgb(var(--accent-rgb) / .55));
   animation: skArrowBounce 1.7s cubic-bezier(.33,.66,.66,1) infinite;
 }
 @keyframes skArrowBounce {
   0%, 100% { transform: translateY(-2px); opacity: .55; }
   50% { transform: translateY(4px); opacity: 1; }
 }
+@keyframes skArrowBounceFlat {
+  0%, 100% { transform: translateY(-2px); opacity: var(--t-sk-arrow-flat-opacity); }
+  50% { transform: translateY(4px); opacity: var(--t-sk-arrow-flat-opacity); }
+}
+html[data-theme="light"] .sk-arrow svg { animation-name: skArrowBounceFlat; }
 
 /* lower slot: client -> api -> server -> data -> cloud -> live */
 .sk-lower {
@@ -284,7 +289,7 @@ const SKILLS_STYLE = `
 .sk-type { display: block; }
 
 .sk-h1 {
-  font-size: clamp(2.4rem, 5.5vw, 5rem);
+  font-size: var(--fs-section-heading);
   line-height: .94;
   letter-spacing: -.02em;
   color: var(--color-ink);
@@ -319,9 +324,9 @@ const SKILLS_STYLE = `
   gap: clamp(8px, .8vw, 12px);
   min-width: 0;
   padding: clamp(4px, .6svh, 7px) clamp(12px, 1.1vw, 17px);
-  border: 1px solid rgba(255,255,255,.09);
+  border: 1px solid rgb(var(--fg-rgb) / .09);
   border-radius: 10px;
-  background: rgba(255,255,255,.028);
+  background: rgb(var(--fg-rgb) / .028);
   transition: transform .26s cubic-bezier(.2,.7,.2,1), border-color .26s cubic-bezier(.2,.7,.2,1), background-color .26s cubic-bezier(.2,.7,.2,1), box-shadow .26s cubic-bezier(.2,.7,.2,1);
 }
 .sk-item:focus-visible,
@@ -339,7 +344,7 @@ const SKILLS_STYLE = `
 .sk-item-name {
   min-width: 0;
   font-size: clamp(.85rem, 1.05vw, .95rem);
-  font-weight: 600;
+  font-weight: var(--t-fw-semibold);
   line-height: 1.2;
   letter-spacing: .025em;
   text-transform: uppercase;
@@ -362,11 +367,11 @@ const SKILLS_STYLE = `
   place-items: center;
   width: clamp(96px, 9.5vw, 140px);
   aspect-ratio: 1;
-  border: 1px solid rgba(214,26,41,.4);
+  border: 1px solid rgb(var(--accent-rgb) / .4);
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(214,26,41,.18), transparent 70%);
+  background: radial-gradient(circle, rgb(var(--accent-rgb) / .18), transparent 70%);
   color: var(--color-red);
-  box-shadow: 0 0 60px -18px rgba(214,26,41,.7);
+  box-shadow: 0 0 60px -18px rgb(var(--accent-rgb) / .7);
 }
 .sk-user-glyph svg { width: 52%; height: 52%; }
 .sk-user-body {
@@ -379,10 +384,10 @@ const SKILLS_STYLE = `
 .sk-user-tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .sk-user-tag {
   padding: .55rem 1rem;
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid rgb(var(--fg-rgb) / .12);
   border-radius: 999px;
   font-size: .9rem;
-  font-weight: 600;
+  font-weight: var(--t-fw-semibold);
   letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--color-muted);
@@ -405,7 +410,7 @@ const SKILLS_STYLE = `
   align-items: center;
   gap: .65rem;
   font-size: clamp(.95rem, 1.15vw, 1.1rem);
-  font-weight: 700;
+  font-weight: var(--t-fw-bold);
   letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--color-red);
@@ -415,13 +420,17 @@ const SKILLS_STYLE = `
   height: 12px;
   border-radius: 999px;
   background: var(--color-red);
-  box-shadow: 0 0 0 4px rgba(214,26,41,.16), 0 0 16px rgba(214,26,41,.8);
+  box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / .16), 0 0 16px rgb(var(--accent-rgb) / .8);
   animation: skLivePulse 2.4s ease-in-out infinite;
 }
 @keyframes skLivePulse {
   0%, 100% { opacity: .55; }
   50% { opacity: 1; }
 }
+@keyframes skLivePulseFlat {
+  0%, 100%, 50% { opacity: var(--t-sk-live-flat-opacity); }
+}
+html[data-theme="light"] .sk-live-pulse { animation-name: skLivePulseFlat; }
 .sk-live-note {
   max-width: 38ch;
   font-size: clamp(1.05rem, 1.35vw, 1.25rem);
@@ -466,11 +475,11 @@ const SKILLS_STYLE = `
   justify-content: space-between;
   gap: 1rem;
   padding: clamp(13px, 1.7svh, 19px) clamp(15px, 1.5vw, 21px);
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid rgb(var(--fg-rgb) / .12);
   border-radius: 12px;
-  background: rgba(255,255,255,.03);
+  background: rgb(var(--fg-rgb) / .03);
   font-size: clamp(.95rem, 1.1vw, 1.1rem);
-  font-weight: 600;
+  font-weight: var(--t-fw-semibold);
   color: var(--color-ink);
   transition: transform .26s cubic-bezier(.2,.7,.2,1), border-color .26s cubic-bezier(.2,.7,.2,1), background-color .26s cubic-bezier(.2,.7,.2,1), box-shadow .26s cubic-bezier(.2,.7,.2,1);
 }
@@ -483,30 +492,30 @@ const SKILLS_STYLE = `
 @media (hover:hover) and (pointer:fine) {
   .sk-item:hover {
     transform: translateY(-4px);
-    border-color: rgba(214,26,41,.7);
-    background: rgba(214,26,41,.1);
-    box-shadow: 0 14px 32px -16px rgba(214,26,41,.7), inset 0 0 0 1px rgba(214,26,41,.18);
+    border-color: rgb(var(--accent-rgb) / .7);
+    background: rgb(var(--accent-rgb) / .1);
+    box-shadow: 0 14px 32px -16px rgb(var(--accent-rgb) / .7), inset 0 0 0 1px rgb(var(--accent-rgb) / .18);
   }
   .sk-item:hover .sk-logo { transform: scale(1.12); }
   .sk-item:hover .sk-item-name { color: var(--color-ink); }
   .sk-explore-link:hover {
     transform: translateY(-3px);
-    border-color: rgba(214,26,41,.7);
-    background: rgba(214,26,41,.1);
-    box-shadow: 0 14px 32px -16px rgba(214,26,41,.7);
+    border-color: rgb(var(--accent-rgb) / .7);
+    background: rgb(var(--accent-rgb) / .1);
+    box-shadow: 0 14px 32px -16px rgb(var(--accent-rgb) / .7);
   }
   .sk-explore-link:hover span { transform: translate(2px,-2px); }
 }
 .sk-item:focus-visible {
   transform: translateY(-4px);
-  border-color: rgba(214,26,41,.7);
-  box-shadow: 0 14px 32px -16px rgba(214,26,41,.7);
+  border-color: rgb(var(--accent-rgb) / .7);
+  box-shadow: 0 14px 32px -16px rgb(var(--accent-rgb) / .7);
 }
 .sk-item:focus-visible .sk-logo { transform: scale(1.12); }
 .sk-item:focus-visible .sk-item-name { color: var(--color-ink); }
 .sk-explore-link:focus-visible {
   transform: translateY(-3px);
-  border-color: rgba(214,26,41,.7);
+  border-color: rgb(var(--accent-rgb) / .7);
 }
 
 /* ---------- tablet + mobile: two compact slots with ALL content visible ----------
@@ -553,7 +562,6 @@ const SKILLS_STYLE = `
   .sk-live-top .sk-left { display: block; min-width: 0; }
   .sk-fixed .sk-h1,
   .sk-live-top .sk-h1 {
-    font-size: clamp(1.35rem, 5.6vw, 1.9rem);
     line-height: 1;
     white-space: normal;
   }
@@ -612,7 +620,6 @@ const SKILLS_STYLE = `
   }
   .sk-left { justify-content: flex-start; }
   .sk-h1 {
-    font-size: clamp(1.8rem, 7.4vw, 2.5rem);
     line-height: .98;
   }
   .sk-desc-row { margin-top: clamp(3px, .7svh, 6px); }
@@ -660,7 +667,7 @@ const SKILLS_STYLE = `
   .sk-live-pulse {
     width: 9px;
     height: 9px;
-    box-shadow: 0 0 0 3px rgba(214,26,41,.16), 0 0 12px rgba(214,26,41,.8);
+    box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / .16), 0 0 12px rgb(var(--accent-rgb) / .8);
   }
   .sk-live-note {
     max-width: none;
@@ -685,7 +692,6 @@ const SKILLS_STYLE = `
 
 @media (max-width: 420px) {
   .sk-inner { padding-inline: 10px; }
-  .sk-h1 { font-size: clamp(1.7rem, 8.6vw, 2.2rem); }
   .sk-item { padding: 2px 4px; gap: 3px; }
   .sk-item-name { font-size: clamp(.64rem, 2.7vw, .74rem); letter-spacing: 0; }
   .sk-logo { width: 16px; height: 16px; }
@@ -708,15 +714,12 @@ const SKILLS_STYLE = `
 /* short phones: tighten type and spacing, but never hide skills content */
 @media (max-width: 1023px) and (max-height: 740px) {
   .sk-inner { gap: 3px; padding-block: 6px; }
-  .sk-fixed .sk-h1,
-  .sk-live-top .sk-h1 { font-size: clamp(1.25rem, 5.2vw, 1.6rem); }
   .sk-fixed .sk-desc,
   .sk-live-top .sk-desc,
   .sk-live-note { font-size: clamp(.7rem, 2.7vw, .8rem); line-height: 1.32; }
   .sk-fixed .sk-user-glyph { width: clamp(30px, 8vw, 40px); }
   .sk-arrow { height: 14px; }
   .sk-arrow svg { width: 16px; height: 16px; }
-  .sk-h1 { font-size: clamp(1.6rem, 6.8vw, 2.2rem); }
   .sk-desc { font-size: clamp(.74rem, 2.9vw, .86rem); line-height: 1.36; }
   .sk-skills { gap: 2px 3px; }
   .sk-item { padding: 2px 4px; gap: 3px; }
@@ -732,14 +735,11 @@ const SKILLS_STYLE = `
     margin-top: 2px;
   }
   .sk-head-slot header [data-flow-rule] { margin-top: 3px; }
-  .sk-fixed .sk-h1,
-  .sk-live-top .sk-h1 { font-size: clamp(1.15rem, 4.8vw, 1.45rem); }
   .sk-fixed .sk-desc,
   .sk-live-top .sk-desc,
   .sk-live-note { font-size: clamp(.66rem, 2.5vw, .74rem); line-height: 1.28; }
   .sk-fixed .sk-user-glyph { width: 30px; }
   .sk-fixed .sk-user-tag { padding: .16rem .4rem; font-size: .64rem; }
-  .sk-h1 { font-size: clamp(1.45rem, 6vw, 1.9rem); }
   .sk-desc { font-size: clamp(.7rem, 2.7vw, .8rem); line-height: 1.32; }
   .sk-item { padding: 2px 3px; gap: 2px; }
   .sk-logo { width: 15px; height: 15px; }
@@ -752,7 +752,6 @@ const SKILLS_STYLE = `
   .sk-live-top .sk-desc,
   .sk-desc,
   .sk-live-note { line-height: 1.24; }
-  .sk-h1 { font-size: clamp(1.35rem, 5.8vw, 1.7rem); }
   .sk-arrow { height: 12px; }
   .sk-arrow svg { width: 15px; height: 15px; }
 }
@@ -769,8 +768,6 @@ const SKILLS_STYLE = `
     gap: 12px;
   }
   .sk-fixed .sk-user { gap: 8px; }
-  .sk-fixed .sk-h1,
-  .sk-live-top .sk-h1 { font-size: clamp(1.1rem, 4vh, 1.5rem); }
   .sk-fixed .sk-desc,
   .sk-live-top .sk-desc,
   .sk-live-note { font-size: clamp(.66rem, 2.1vh, .8rem); line-height: 1.3; }
@@ -782,7 +779,6 @@ const SKILLS_STYLE = `
     align-items: center;
     gap: 12px;
   }
-  .sk-h1 { font-size: clamp(1.3rem, 4.5vh, 1.8rem); }
   .sk-skills {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 2px 3px;
@@ -796,7 +792,6 @@ const SKILLS_STYLE = `
 @media (min-width: 1024px) and (max-height: 800px) {
   .sk-inner { gap: 6px; padding-block: 10px; }
   .sk-fixed { min-height: clamp(120px, 20svh, 160px); }
-  .sk-h1 { font-size: clamp(2.2rem, 4.6vw, 3.6rem); }
   .sk-desc { font-size: clamp(.95rem, 1.1vw, 1.1rem); line-height: 1.5; }
   .sk-skills { gap: 5px; }
   .sk-item { padding: 5px 9px; }
@@ -934,6 +929,19 @@ function LiveContent({ stop }) {
   );
 }
 
+/* Keep one animated type span, but split the visible text after the first word
+   so light mode can ink the tail without changing textContent or the timeline. */
+const headlineTail = (text) => {
+  const split = text.indexOf(" ");
+  if (split < 0) return text;
+  return (
+    <>
+      {text.slice(0, split + 1)}
+      <span className="sk-h1-tail">{text.slice(split + 1)}</span>
+    </>
+  );
+};
+
 function StopSlide({ stop, index, active, slideRef, fixed = false }) {
   return (
     <div
@@ -944,7 +952,7 @@ function StopSlide({ stop, index, active, slideRef, fixed = false }) {
       <div className="sk-left">
         <MaskLine as="h2" className="sk-h1 display">
           <span data-sk-type className="sk-type">
-            {stop.h1}
+            {headlineTail(stop.h1)}
           </span>
         </MaskLine>
         <MaskLine as="p" className="sk-desc" wrapClassName="sk-desc-row">
@@ -986,7 +994,7 @@ function ExploreSlide({ stop, exploreRef }) {
   return (
     <div ref={exploreRef} className="sk-explore sk-slide" aria-hidden="true">
       <div className="sk-left">
-        <h2 className="sk-h1 display">{stop.h1}</h2>
+        <h2 className="sk-h1 display">{headlineTail(stop.h1)}</h2>
         <p className="sk-desc">{stop.desc}</p>
       </div>
       <div className="sk-right">

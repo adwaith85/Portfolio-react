@@ -12,7 +12,7 @@ import {
 } from "../../engine/viewport";
 import useAgentsEnabled from "../../engine/useAgentsEnabled";
 import { Words, typeWords } from "../../engine/swarmBuild";
-import { envCss, ENVS, rgbOf } from "../../theme/palette";
+import { themeColor, useTheme } from "../../theme/theme";
 import {
   lockScroll,
   scrollToId,
@@ -25,6 +25,12 @@ gsap.registerPlugin(ScrollTrigger);
 /* Cursor leases: two agents type the heading, one teaches the click in the hold,
    two more write the closing block. */
 const AG = { head: [0, 1], auto: 2, close: [3, 4] };
+
+const withAlpha = (value, amount) => {
+  const h = value.replace("#", "");
+  const rgb = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  return `rgba(${rgb.join(",")},${amount})`;
+};
 
 /* Progress at which the flight ends and the finished table takes over. */
 const HOLD_AT = 0.85;
@@ -119,7 +125,7 @@ function CardFace({ project: p, n }) {
   const num = String(n).padStart(2, "0");
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-[6px] border border-line bg-deep/20 transition-colors duration-300 group-hover/card:border-gold">
+    <div className="relative h-full w-full overflow-hidden rounded-[var(--radius-media)] border border-line bg-deep/20 transition-colors duration-300 group-hover/card:border-gold">
       {src ? (
         <img
           src={src}
@@ -129,16 +135,16 @@ function CardFace({ project: p, n }) {
           className="absolute inset-0 h-full w-full object-cover object-top"
         />
       ) : (
-        <span className="absolute inset-0 grid place-items-center bg-deep/30 text-[0.65rem] uppercase tracking-[0.16em] text-muted">
+        <span data-card-fallback className="absolute inset-0 grid place-items-center bg-deep/30 text-[0.65rem] uppercase tracking-[0.16em] text-muted">
           Screenshot soon
         </span>
       )}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-[clamp(0.4rem,0.9vw,0.75rem)] pb-[clamp(0.3rem,0.7vw,0.6rem)] pt-[clamp(1.4rem,3vw,2.4rem)]">
+      <div data-card-caption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-[clamp(0.4rem,0.9vw,0.75rem)] pb-[clamp(0.3rem,0.7vw,0.6rem)] pt-[clamp(1.4rem,3vw,2.4rem)]">
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <span className="shrink-0 text-[clamp(0.48rem,0.65vw,0.6rem)] font-semibold uppercase tracking-[0.14em] text-gold">
+          <span data-card-num className="shrink-0 text-[clamp(0.48rem,0.65vw,0.6rem)] font-semibold uppercase tracking-[0.14em] text-gold">
             {num}
           </span>
-          <span className="display min-w-0 truncate text-[clamp(0.6rem,0.9vw,0.82rem)] leading-none text-ink">
+          <span data-card-title className="display min-w-0 truncate text-[clamp(0.6rem,0.9vw,0.82rem)] leading-none text-ink">
             {p.title}
           </span>
         </div>
@@ -214,6 +220,7 @@ function ProjectPopup({
   backdropRef,
   closeBtnRef,
 }) {
+  useTheme();
   const p = active.project;
   const num = String(active.index + 1).padStart(2, "0");
   const links = linksOf(p);
@@ -224,7 +231,7 @@ function ProjectPopup({
       {p.tech.map((t) => (
         <li
           key={t}
-          className="group/chip flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] py-0.5 pl-1 pr-[clamp(0.3rem,0.6vw,0.6rem)] transition-[translate,border-color,background-color] duration-200 hover:-translate-y-0.5 hover:border-red/60 hover:bg-red/10"
+          className="group/chip flex items-center gap-1 rounded-full border border-[rgb(var(--cursor-rgb)_/_0.1)] bg-[rgb(var(--cursor-rgb)_/_0.03)] py-0.5 pl-1 pr-[clamp(0.3rem,0.6vw,0.6rem)] transition-[translate,border-color,background-color] duration-200 hover:-translate-y-0.5 hover:border-red/60 hover:bg-red/10"
         >
           <span className="inline-flex">
             <Logo
@@ -245,6 +252,7 @@ function ProjectPopup({
     <div className="flex flex-wrap gap-[clamp(0.3rem,0.7vw,0.6rem)]">
       {links.map((l) => (
         <a
+          data-pop-link
           key={l.label}
           href={l.href}
           target="_blank"
@@ -268,7 +276,7 @@ function ProjectPopup({
   );
 
   return createPortal(
-    <div data-env="projects" className="fixed inset-0 z-[10000]">
+    <div className="fixed inset-0 z-[10000]">
       <div
         ref={backdropRef}
         data-backdrop
@@ -276,7 +284,7 @@ function ProjectPopup({
         aria-hidden="true"
         className="absolute inset-0 backdrop-blur-md"
         style={{
-          backgroundColor: `rgba(${rgbOf(ENVS.projects.bg).join(",")},0.75)`,
+          backgroundColor: withAlpha(themeColor("bg"), 0.75),
         }}
       />
 
@@ -287,7 +295,7 @@ function ProjectPopup({
         >
           <div
             ref={cloneRef}
-            className="absolute overflow-hidden rounded-[6px] border border-line bg-deep/30"
+            className="absolute overflow-hidden rounded-[var(--radius-media)] border border-line bg-deep/30"
           >
             <CardFace project={p} n={active.index + 1} />
           </div>
@@ -333,7 +341,7 @@ function ProjectPopup({
             {/* The screenshot: natural proportions, its own frame, no crop. */}
             <div
               ref={imageRef}
-              className="pointer-events-auto order-1 shrink-0 overflow-hidden rounded-[6px] border border-line shadow-[0_18px_50px_rgba(0,0,0,0.55)] lg:order-2"
+              className="pointer-events-auto order-1 shrink-0 overflow-hidden rounded-[var(--radius-media)] border border-line shadow-[0_18px_50px_rgb(var(--shadow-rgb) / 0.55)] lg:order-2"
             >
               {src ? (
                 <img
@@ -378,7 +386,7 @@ function ProjectPopup({
             type="button"
             onClick={onClose}
             aria-label="Close project"
-            className="pointer-events-auto absolute right-2 top-2 z-30 grid size-8 place-items-center rounded-full border border-line bg-black/50 text-sm leading-none text-muted backdrop-blur-sm transition-colors hover:border-gold hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="pointer-events-auto absolute right-2 top-2 z-30 grid size-8 place-items-center rounded-full border border-line bg-[rgb(var(--shadow-rgb)_/_0.5)] text-sm leading-none text-muted backdrop-blur-sm transition-colors hover:border-gold hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           >
             ×
           </button>
@@ -1222,13 +1230,10 @@ export default function Projects() {
     <section
       id="projects"
       ref={root}
-      data-env="projects"
       className={`relative border-t border-line ${
         mode === "desktop" ? "h-svh overflow-hidden" : ""
       }`}
     >
-      <style>{envCss("projects")}</style>
-
       {mode !== "reduced" ? (
         <>
           <div
@@ -1236,7 +1241,7 @@ export default function Projects() {
             className="pointer-events-none absolute left-gutter right-gutter top-[clamp(0.5rem,1.6svh,1.75rem)] z-20 flex flex-col items-start gap-2 lg:flex-row lg:items-start lg:justify-between lg:gap-8"
           >
             <div className="min-w-0">
-              <h2 className="display flex flex-wrap gap-x-[0.28em] text-[clamp(1.6rem,4.2vw,4rem)] leading-[0.9] max-sm:text-[clamp(1.7rem,8vw,2.5rem)]">
+              <h2 className="section-heading display flex flex-wrap gap-x-[0.28em] leading-[0.9]">
                 <span data-ph1 className="block w-fit text-ink">
                   <Words text="PROJECTS" />
                 </span>
@@ -1317,6 +1322,7 @@ export default function Projects() {
               >
                 <Words text="Want to see more? Browse the code on" />{" "}
                 <a
+                  data-plink
                   href={content.social.github}
                   target="_blank"
                   rel="noreferrer"
@@ -1332,6 +1338,7 @@ export default function Projects() {
                 </a>{" "}
                 <Words text="or get in touch via" />{" "}
                 <a
+                  data-plink
                   href="#contact"
                   onClick={(e) => {
                     e.preventDefault();
@@ -1364,7 +1371,7 @@ export default function Projects() {
                   <Words text="IN LIVE" />
                 </span>
               </h2>
-              <p className="mt-2 max-w-[30rem] text-sm leading-relaxed text-ink">
+              <p data-sub className="mt-2 max-w-[30rem] text-sm leading-relaxed text-ink">
                 <Words text={sub} />
               </p>
             </div>
@@ -1399,15 +1406,16 @@ export default function Projects() {
 
           <div className="mt-10 flex flex-col items-start gap-3 text-left">
             <div className="max-w-[38rem]">
-              <p className="label text-[0.7rem] tracking-[0.18em] text-muted">
+              <p data-clabel className="label text-[0.7rem] tracking-[0.18em] text-muted">
                 <Words text="WHAT'S NEXT" />
               </p>
-              <p className="mt-1 text-[min(1.12rem,2.3svh)] font-medium leading-snug text-ink">
+              <p data-ctext className="mt-1 text-[min(1.12rem,2.3svh)] font-medium leading-snug text-ink">
                 <Words text="Every project here started as an idea and shipped as a working product." />
               </p>
-              <p className="mt-1 text-[min(0.94rem,2.1svh)] leading-relaxed text-muted">
+              <p data-csub className="mt-1 text-[min(0.94rem,2.1svh)] leading-relaxed text-muted">
                 <Words text="Want to see more? Browse the code on" />{" "}
                 <a
+                  data-plink
                   href={content.social.github}
                   target="_blank"
                   rel="noreferrer"
@@ -1417,6 +1425,7 @@ export default function Projects() {
                 </a>{" "}
                 <Words text="or get in touch via" />{" "}
                 <a
+                  data-plink
                   href="#contact"
                   onClick={(e) => {
                     e.preventDefault();

@@ -16,10 +16,10 @@ export function CertificateArt({ large = false }) {
       className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-4 text-center"
       style={{
         background:
-          "radial-gradient(circle at 50% 35%, rgba(214,26,41,0.16), transparent 58%), linear-gradient(145deg, #151515, #0b0b0b)",
+          "radial-gradient(circle at 50% 35%, rgb(var(--accent-rgb) / 0.16), transparent 58%), linear-gradient(145deg, var(--t-panel), var(--t-panel-sunken))",
       }}
     >
-      <span className="absolute inset-3 rounded-[2px] border border-dashed border-white/10" />
+      <span className="absolute inset-3 rounded-[2px] border border-dashed border-[rgb(var(--cursor-rgb)/0.1)]" />
       <svg
         viewBox="0 0 24 24"
         className={large ? "size-12 text-red" : "size-7 text-red"}

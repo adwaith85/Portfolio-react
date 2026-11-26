@@ -11,8 +11,8 @@ const PAD = 48;
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
-const ARROW_FILTER = "drop-shadow(0 2px 3px rgba(0,0,0,0.6))";
-const HOVER_FILTER = "drop-shadow(0 0 8px rgba(214,26,41,0.9))";
+const ARROW_FILTER = "drop-shadow(0 2px 3px rgb(var(--shadow-rgb) / 0.6))";
+const HOVER_FILTER = "drop-shadow(0 0 8px rgb(var(--accent-rgb) / 0.9))";
 
 // While roaming, keep the cursors reasonably spread out. A pure random point
 // lets 20 agents pile up in the same corner, which looks messy. Each agent

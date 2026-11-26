@@ -36,7 +36,7 @@ function Divider({ label, dup = false }) {
       {...(dup ? { "aria-hidden": "true", "data-dup": "" } : {})}
       className="mr-8 flex shrink-0 items-center sm:mr-12 lg:mr-14"
     >
-      <span className="whitespace-nowrap rounded-full border border-line px-2.5 py-1 text-[0.52rem] font-semibold uppercase leading-none tracking-[0.2em] text-red/90 sm:text-[0.56rem]">
+      <span data-strip-divider className="whitespace-nowrap rounded-full border border-line px-2.5 py-1 text-[0.52rem] font-semibold uppercase leading-none tracking-[0.2em] text-red/90 sm:text-[0.56rem]">
         {label}
       </span>
     </li>
@@ -466,10 +466,10 @@ export default function ToolsStrip() {
         {/* the blue drag handle that leads the reveal wipe */}
         <span
           data-handle
-          className="pointer-events-none absolute bottom-5 left-0 top-0 z-[2] w-px -translate-x-1/2 bg-[#4c8dff] lg:bottom-6"
+          className="pointer-events-none absolute bottom-5 left-0 top-0 z-[2] w-px -translate-x-1/2 bg-[var(--t-build)] lg:bottom-6"
         >
-          <i className="absolute -left-[3px] -top-[3px] size-[7px] border border-[#4c8dff] bg-white" />
-          <i className="absolute -bottom-[3px] -left-[3px] size-[7px] border border-[#4c8dff] bg-white" />
+          <i className="absolute -left-[3px] -top-[3px] size-[7px] border border-[var(--t-build)] bg-[rgb(var(--cursor-rgb))]" />
+          <i className="absolute -bottom-[3px] -left-[3px] size-[7px] border border-[var(--t-build)] bg-[rgb(var(--cursor-rgb))]" />
         </span>
       </div>
     </section>

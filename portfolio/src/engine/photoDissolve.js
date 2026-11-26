@@ -1,28 +1,27 @@
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { themeColor } from "../theme/theme";
 
 gsap.registerPlugin(ScrollTrigger);
 
-/* [color, share]. Mostly mixed reds, blacks and ash. A few pure white, a few pure red. */
-const PALETTE = [
-  ["#ffffff", 0.08], // pure white
-  ["#e11d2a", 0.1], // pure red
-  ["#9c0d18", 0.15], // deep red
-  ["#5e0810", 0.13], // red + black
-  ["#2a0508", 0.1], // almost black red
-  ["#0b0b0b", 0.08], // black
-  ["#ff737b", 0.12], // red + white
-  ["#f6c3c6", 0.08], // white + a little red
-  ["#b5b0b0", 0.08], // ash
-  ["#6d6a6a", 0.08], // dark ash
-];
-const COLORS = PALETTE.map((p) => p[0]);
+/* Shares only; the colors themselves are derived per theme in theme.js. */
+const PALETTE_WEIGHTS = [0.08, 0.1, 0.15, 0.13, 0.1, 0.08, 0.12, 0.08, 0.08, 0.08];
+const paletteColors = () =>
+  PALETTE_WEIGHTS.map((_, i) => themeColor(`dissolve${i}`));
 const CUM = [];
 {
   let acc = 0;
-  PALETTE.forEach(([, w]) => CUM.push((acc += w)));
+  PALETTE_WEIGHTS.forEach((w) => CUM.push((acc += w)));
   CUM[CUM.length - 1] = 1;
 }
+const rgbTriplet = (value) => {
+  const h = value.replace("#", "");
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(",");
+};
+const themeNum = (name, fallback) => {
+  const value = parseFloat(themeColor(name));
+  return Number.isFinite(value) ? value : fallback;
+};
 
 const LAUNCH = 0.22; // every speck lets go within this first share of the animation
 const PHOTO_OUT = 0.2; // the photo itself fades out over this share
@@ -66,14 +65,20 @@ export function createPhotoDissolve({
 }) {
   const bottomEdge = () => trigger.offsetHeight - (window.scrollY || window.pageYOffset || 0);
   const ctx = canvas.getContext("2d");
-  const sprW = makeSprite("255,255,255");
-  const sprR = makeSprite("255,76,88");
+  let sprW;
+  let sprR;
+  const buildSprites = () => {
+    sprW = makeSprite(rgbTriplet(themeColor("fg")));
+    sprR = makeSprite(rgbTriplet(themeColor("accent")));
+  };
+  buildSprites();
 
   let vw = 0;
   let vh = 0;
   let P = null; // the cloud of specks
   let buf = null;
   let state = "rest"; // rest | active | fade | gone
+  let lastP = 0;
   let animTween = null;
   let isDissolved = false;
 
@@ -83,7 +88,7 @@ export function createPhotoDissolve({
       `rgb(${((k >> 6) & 7) * 32 + 16},${((k >> 3) & 7) * 32 + 16},${(k & 7) * 32 + 16})`
   );
   const origBins = Array.from({ length: QN }, () => []);
-  const bins = Array.from({ length: COLORS.length * LEVELS }, () => []);
+  const bins = Array.from({ length: PALETTE_WEIGHTS.length * LEVELS }, () => []);
   const sparks = [];
 
   const fit = () => {
@@ -135,7 +140,7 @@ export function createPhotoDissolve({
     }
 
     const total = xs.length;
-    const keep = total > MAX ? MAX / total : 1;
+    const keep = (total > MAX ? MAX / total : 1) * themeNum("speckDensity", 1);
     const idx = [];
     for (let i = 0; i < total; i++) if (Math.random() < keep) idx.push(i);
     const n = idx.length;
@@ -218,6 +223,7 @@ export function createPhotoDissolve({
   };
 
   const render = (p) => {
+    lastP = p;
     if (p <= 0.001) return rest();
 
     const hb = bottomEdge();
@@ -234,7 +240,8 @@ export function createPhotoDissolve({
     glowEl.style.opacity = String(1 - clamp(p / 0.28));
 
     const r = img.getBoundingClientRect();
-    const G = 1 - clamp((p - 0.65) / 0.25); // smoothly fade out by end of animation
+    const SO = themeNum("speckOpacity", 1);
+    const G = 1 - clamp((p - themeNum("speckFadeStart", 0.65)) / themeNum("speckFadeSpan", 0.25)); // smoothly fade out by end of animation
 
     for (let b = 0; b < bins.length; b++) bins[b].length = 0;
     for (let q = 0; q < QN; q++) origBins[q].length = 0;
@@ -260,7 +267,7 @@ export function createPhotoDissolve({
       }
 
       const tw = 0.6 + 0.4 * Math.sin(t * P.tws[i] * 3 + ph);
-      const al = (t < 0.4 ? 1 : 1 - (t - 0.4) / 0.6) * G * tw;
+      const al = (t < 0.4 ? 1 : 1 - (t - 0.4) / 0.6) * G * tw * SO;
       if (al < 0.06) continue;
 
       buf.a[i] = al;
@@ -278,7 +285,7 @@ export function createPhotoDissolve({
     ctx.clip();
 
     // pass 1: photo's own color specks
-    ctx.globalAlpha = G;
+    ctx.globalAlpha = G * SO;
     for (let q = 0; q < QN; q++) {
       const list = origBins[q];
       if (!list.length) continue;
@@ -290,10 +297,11 @@ export function createPhotoDissolve({
     }
 
     // pass 2: palette colors (reds, black, white, ash)
+    const colors = paletteColors();
     for (let b = 0; b < bins.length; b++) {
       const list = bins[b];
       if (!list.length) continue;
-      ctx.fillStyle = COLORS[(b / LEVELS) | 0];
+      ctx.fillStyle = colors[(b / LEVELS) | 0];
       ctx.globalAlpha = ((b % LEVELS) + 1) / LEVELS;
       for (let j = 0; j < list.length; j++) {
         const i = list[j];
@@ -310,7 +318,7 @@ export function createPhotoDissolve({
       const y = buf.y[i];
       ctx.globalAlpha = buf.a[i] * 0.9;
       ctx.drawImage(P.sw[i] ? sprR : sprW, x - g / 2, y - g / 2, g, g);
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = themeColor("fg");
       ctx.globalAlpha = buf.a[i];
       ctx.fillRect(x - 0.5, y - 0.5, 1, 1);
     }
@@ -381,7 +389,14 @@ export function createPhotoDissolve({
     },
   });
 
+  const onThemeChange = () => {
+    buildSprites();
+    if (state === "active" || state === "fade") render(lastP);
+  };
+  window.addEventListener("themechange", onThemeChange);
+
   return () => {
+    window.removeEventListener("themechange", onThemeChange);
     clearTimeout(warm);
     if (animTween) animTween.kill();
     st.kill();

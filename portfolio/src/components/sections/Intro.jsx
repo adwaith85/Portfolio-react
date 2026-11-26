@@ -7,11 +7,17 @@ import { createPhotoDissolve } from "../../engine/photoDissolve";
 import { handoff } from "../../engine/handoff";
 import { makeOverlay, clearOverlays, dragBox } from "../../engine/swarmBuild";
 import useAgentsEnabled from "../../engine/useAgentsEnabled";
+import { themeColor, useTheme } from "../../theme/theme";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const RED = "#d61a29";
-const INK = "#f2efeb";
+const RED = () => themeColor("accent");
+const INK = () => themeColor("ink");
+const rgbTriplet = (value) => {
+  const h = value.replace("#", "");
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(" ");
+};
+const rgba = (value, amount) => `rgb(${rgbTriplet(value)} / ${amount})`;
 const SHOW_PLUS = true; // small "+" after the counter stats
 
 // local to the intro: other sections keep reading content.hero.stats
@@ -60,15 +66,16 @@ const HIDE_SEL = [
   photo has a transparent background). Applied ONLY to a transparent cutout —
   never to an opaque photo, so the hair is always shown exactly as in the file.
 */
-const PHOTO_GLOW =
-  "drop-shadow(14px 0 24px rgba(214,26,41,0.3)) drop-shadow(-12px 0 24px rgba(50,110,255,0.22))";
+const PHOTO_GLOW = () =>
+  `drop-shadow(14px 0 24px ${rgba(themeColor("photoGlow"), 0.3)}) ` +
+  `drop-shadow(-12px 0 24px ${rgba(themeColor("buildGlow"), 0.22)})`;
 
 // opaque photos only: a short side/bottom edge blend, never near the hair (top stays fully opaque)
 const OPAQUE_MASK = {
   WebkitMaskImage:
-    "linear-gradient(to right, transparent 0%, #000 6%, #000 94%, transparent 100%), linear-gradient(to bottom, #000 0%, #000 88%, transparent 100%)",
+    "linear-gradient(to right, transparent 0%, rgb(var(--fg-rgb)) 6%, rgb(var(--fg-rgb)) 94%, transparent 100%), linear-gradient(to bottom, rgb(var(--fg-rgb)) 0%, rgb(var(--fg-rgb)) 88%, transparent 100%)",
   maskImage:
-    "linear-gradient(to right, transparent 0%, #000 6%, #000 94%, transparent 100%), linear-gradient(to bottom, #000 0%, #000 88%, transparent 100%)",
+    "linear-gradient(to right, transparent 0%, rgb(var(--fg-rgb)) 6%, rgb(var(--fg-rgb)) 94%, transparent 100%), linear-gradient(to bottom, rgb(var(--fg-rgb)) 0%, rgb(var(--fg-rgb)) 88%, transparent 100%)",
   WebkitMaskComposite: "source-in",
   maskComposite: "intersect",
 };
@@ -233,6 +240,7 @@ const SIL =
 
 /* placeholder until photo.png exists */
 function Silhouette({ outline = false, ...rest }) {
+  useTheme();
   return (
     <svg
       viewBox="0 0 400 600"
@@ -241,8 +249,8 @@ function Silhouette({ outline = false, ...rest }) {
     >
       <path
         d={SIL}
-        fill={outline ? "none" : "#131010"}
-        stroke={outline ? "#ffffff" : "#2a2222"}
+        fill={outline ? "none" : themeColor("silFill")}
+        stroke={outline ? `rgb(${rgbTriplet(themeColor("cursor"))})` : themeColor("silStroke")}
         strokeWidth={outline ? 3 : 2}
       />
       {!outline && (
@@ -251,10 +259,10 @@ function Silhouette({ outline = false, ...rest }) {
             x="200"
             y="470"
             textAnchor="middle"
-            fill="#4a4040"
+            fill={themeColor("silText")}
             fontSize="17"
             letterSpacing="2"
-            fontFamily="Manrope, sans-serif"
+            style={{ fontFamily: "var(--t-font-body)" }}
           >
             ADD YOUR PHOTO
           </text>
@@ -262,9 +270,9 @@ function Silhouette({ outline = false, ...rest }) {
             x="200"
             y="496"
             textAnchor="middle"
-            fill="#3a3232"
+            fill={themeColor("silText2")}
             fontSize="14"
-            fontFamily="Manrope, sans-serif"
+            style={{ fontFamily: "var(--t-font-body)" }}
           >
             public/photo.png
           </text>
@@ -277,15 +285,16 @@ function Silhouette({ outline = false, ...rest }) {
 /* two stacked layers: the real photo, and a sketch version drawn over it */
 function Photo({ kind }) {
   const opaque = kind === "opaque";
+  useTheme();
 
   if (kind === "missing") {
     return (
       <div data-stack className="relative h-full">
-        <Silhouette data-real style={{ filter: PHOTO_GLOW }} />
+        <Silhouette data-real style={{ filter: PHOTO_GLOW() }} />
         <Silhouette data-sketch outline />
         <i
           data-pen
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/90 shadow-[0_0_14px_3px_rgba(255,255,255,0.45)]"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[rgb(var(--cursor-rgb)/0.9)] shadow-[0_0_14px_3px_rgb(var(--fg-rgb) / 0.45)]"
         />
       </div>
     );
@@ -299,7 +308,7 @@ function Photo({ kind }) {
         src="/photo.webp"
         alt="Adwaith A Kumar"
         className="relative block h-full w-auto max-w-none opacity-100"
-        style={opaque ? undefined : { filter: PHOTO_GLOW }}
+        style={opaque ? undefined : { filter: PHOTO_GLOW() }}
       />
       <img
         data-sketch
@@ -311,7 +320,7 @@ function Photo({ kind }) {
       />
       <i
         data-pen
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/90 shadow-[0_0_14px_3px_rgba(255,255,255,0.45)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[rgb(var(--cursor-rgb)/0.9)] shadow-[0_0_14px_3px_rgb(var(--fg-rgb) / 0.45)]"
       />
     </div>
   );
@@ -437,7 +446,7 @@ function applyHidden(el) {
   gsap.set(all("[data-ch]"), { opacity: 0 });
   gsap.set(all("[data-gl]"), { autoAlpha: 0 });
   gsap.set(all("[data-dot]"), { autoAlpha: 0, scale: 0 });
-  gsap.set(all("[data-period],[data-title]"), { color: INK });
+  gsap.set(all("[data-period],[data-title]"), { color: INK() });
   gsap.set(all("[data-rule]"), { clipPath: "inset(0 100% 0 0)" });
   gsap.set(all("[data-sketch]"), { clipPath: "inset(0% 0% 100% 0%)" });
   gsap.set(all("[data-real]"), { clipPath: "inset(0% -60% 100% -60%)" });
@@ -746,7 +755,7 @@ function buildIntro(root, cursors = true, pre = {}) {
   reserveT(6, 0.82, HOP + 0.18 + 0.05); // ag6 free after letter 3 (~0.81)
   {
     const start = go(6, period, 0.82, { offset: { x: 0.5, y: 0.5 } });
-    tl.to(period, { autoAlpha: 1, scale: 1, color: RED, duration: 0.18, ease: "back.out(3)" }, start);
+    tl.to(period, { autoAlpha: 1, scale: 1, color: RED(), duration: 0.18, ease: "back.out(3)" }, start);
   }
 
   // title lines
@@ -757,7 +766,7 @@ function buildIntro(root, cursors = true, pre = {}) {
     const ag = 7 + i;
     const t = 0.88 + i * 0.12;
     const start = go(ag, line, t, { offset: { x: 0, y: 0.55 } });
-    tl.set(line, { color: INK }, start);
+    tl.set(line, { color: INK() }, start);
     tl.add(
       typeRevealFast(line, {
         duration: 0.4,
@@ -768,9 +777,9 @@ function buildIntro(root, cursors = true, pre = {}) {
     );
     const paintAt = start + 0.4 + 0.03;
     clickAt(ag, paintAt);
-    tl.to(line, { color: RED, duration: 0.14 }, paintAt);
+    tl.to(line, { color: RED(), duration: 0.14 }, paintAt);
   });
-  tl.to(title, { color: RED, duration: 0.12 }, 1.0 + HOP + 0.4 + 0.08);
+  tl.to(title, { color: RED(), duration: 0.12 }, 1.0 + HOP + 0.4 + 0.08);
 
   // paragraph (typed in 3 line-parts by up to 3 cursors)
   {
@@ -1140,8 +1149,8 @@ function buildIntro(root, cursors = true, pre = {}) {
     });
     gsap.set(all("[data-gl]"), { autoAlpha: 1, clearProps: "opacity,visibility" });
     gsap.set(all("[data-dot]"), { autoAlpha: 1, scale: 1, clearProps: "opacity,visibility" });
-    gsap.set(all("[data-period]"), { autoAlpha: 1, scale: 1, color: RED });
-    gsap.set(all("[data-title],[data-title-line]"), { color: RED });
+    gsap.set(all("[data-period]"), { autoAlpha: 1, scale: 1, color: RED() });
+    gsap.set(all("[data-title],[data-title-line]"), { color: RED() });
     gsap.set(all("[data-rule]"), { clearProps: "clipPath,opacity,visibility" });
     gsap.set(all("[data-rule-handle],[data-pen],[data-caret]"), { autoAlpha: 0 });
     gsap.set(all("[data-sketch]"), { autoAlpha: 0, clearProps: "clipPath,filter" });
@@ -1171,6 +1180,7 @@ export default function Intro() {
   const { hero } = content;
   const enabled = useAgentsEnabled();
   const kind = usePhotoKind();
+  const theme = useTheme();
   const root = useRef(null);
   const ghost = useRef(null);
   const photoDrift = useRef(null);
@@ -1261,10 +1271,10 @@ export default function Intro() {
       });
       gsap.set(allSel("[data-gl]"), { autoAlpha: 1, clearProps: "opacity,visibility" });
       gsap.set(allSel("[data-dot]"), { scale: 1, clearProps: "opacity,visibility,autoAlpha" });
-      gsap.set(allSel("[data-period]"), { color: RED, autoAlpha: 1, scale: 1 });
-      gsap.set(allSel("[data-title]"), { color: RED });
+      gsap.set(allSel("[data-period]"), { color: RED(), autoAlpha: 1, scale: 1 });
+      gsap.set(allSel("[data-title]"), { color: RED() });
       allSel("[data-title-line]").forEach((l) => {
-        l.style.color = RED;
+        l.style.color = RED();
       });
       gsap.set(allSel("[data-rule]"), { clearProps: "clipPath" });
       gsap.set(allSel("[data-rule-handle],[data-pen],[data-caret]"), { autoAlpha: 0 });
@@ -1482,6 +1492,20 @@ export default function Intro() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* GSAP writes colors inline; refresh those when the palette changes. */
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const refresh = () => {
+      gsap.set(el.querySelectorAll("[data-period],[data-title],[data-title-line]"), {
+        color: RED(),
+      });
+      gsap.set(el.querySelectorAll("[data-line]"), { color: INK() });
+    };
+    window.addEventListener("themechange", refresh);
+    return () => window.removeEventListener("themechange", refresh);
+  }, [theme]);
+
   /* recreate dissolve on photo kind change after the intro build is done */
   useEffect(() => {
     if (buildDone.current) createDissolveLate();
@@ -1578,7 +1602,7 @@ export default function Intro() {
       />
 
       {/* TOP ROW: both ends stay on one line at every width */}
-      <div className="relative z-[5] flex shrink-0 items-start justify-between gap-2 whitespace-nowrap [text-shadow:0_2px_10px_rgba(0,0,0,0.9)]">
+      <div className="relative z-[5] flex shrink-0 items-start justify-between gap-2 whitespace-nowrap [text-shadow:0_2px_10px_rgb(var(--shadow-rgb) / 0.9)]">
         <p
           data-cursor-hover
           className="font-medium uppercase leading-tight text-muted !text-[clamp(6.5px,2.25vw,0.78rem)] !tracking-[clamp(0em,0.2vw,0.08em)]"
@@ -1600,7 +1624,7 @@ export default function Intro() {
         >
           <i
             data-dot
-            className="size-[7px] shrink-0 rounded-full bg-red shadow-[0_0_0_4px_rgba(214,26,41,0.25)]"
+            className="size-[7px] shrink-0 rounded-full bg-red shadow-[0_0_0_4px_rgb(var(--accent-rgb) / 0.25)]"
           />
           <span data-status-text>
             <Typed text={hero.availability} />
@@ -1613,7 +1637,17 @@ export default function Intro() {
         <div ref={ghost}>
           <span data-ghost className="block select-none whitespace-nowrap font-display text-[min(24vw,17svh)] leading-[0.85] lg:text-[calc(min(20vw,35svh)+6px)]">
             {"PORTFOLIO".split("").map((ch, i) => (
-              <span key={i} data-gl className="inline-block bg-[linear-gradient(180deg,#c4131f_0%,#8e0c16_38%,#3a060b_72%,#090909_100%)] bg-clip-text text-transparent">{ch}</span>
+              <span
+                key={i}
+                data-gl
+                className="inline-block bg-clip-text text-transparent"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(180deg, var(--t-accent) 0%, var(--t-accent-deep) 38%, var(--t-ghost-3) 72%, var(--t-ghost-4) 100%)",
+                }}
+              >
+                {ch}
+              </span>
             ))}
           </span>
         </div>
@@ -1703,7 +1737,7 @@ export default function Intro() {
               <div ref={glowWrap} className="absolute inset-0 will-change-transform">
                 <i
                   data-glow
-                  className="absolute -inset-[8%] bg-[radial-gradient(ellipse_at_66%_55%,rgba(214,26,41,0.14),transparent_58%),radial-gradient(ellipse_at_34%_55%,rgba(50,110,255,0.11),transparent_52%)] blur-2xl"
+                  className="absolute -inset-[8%] bg-[radial-gradient(ellipse_at_66%_55%,rgb(var(--accent-rgb) / 0.14),transparent_58%),radial-gradient(ellipse_at_34%_55%,var(--t-hero-glow-blue),transparent_52%)] blur-2xl"
                 />
               </div>
               {/* extra side padding so the glow is never cut off */}
@@ -1717,11 +1751,11 @@ export default function Intro() {
         {/* readability gradient under the mobile right block (lower 22svh only) */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-[4] h-[22svh] bg-gradient-to-t from-[rgba(9,9,9,0.8)] to-transparent lg:hidden"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-[4] h-[22svh] bg-gradient-to-t from-[var(--t-hero-mobile-scrim)] to-transparent lg:hidden"
         />
 
         {/* RIGHT: stats, CV, socials */}
-        <div className="absolute inset-x-0 bottom-0 z-[5] [text-shadow:0_1px_8px_rgba(0,0,0,0.85)] lg:static lg:col-start-3 lg:z-[3] lg:ml-auto lg:mt-0 lg:[text-shadow:none]">
+        <div className="absolute inset-x-0 bottom-0 z-[5] [text-shadow:0_1px_8px_rgb(var(--shadow-rgb) / 0.85)] lg:static lg:col-start-3 lg:z-[3] lg:ml-auto lg:mt-0 lg:[text-shadow:none]">
           <div className="relative w-full lg:ml-auto lg:w-[min(36rem,30vw)]">
             <ul data-stats className="grid grid-cols-3 gap-2 lg:grid-cols-1 lg:gap-0">
               {INTRO_STATS.map((s) => (
@@ -1730,7 +1764,7 @@ export default function Intro() {
                     data-row-inner
                     className="flex flex-col gap-0.5 py-[1.4svh] transition-[translate] duration-300 group-hover/stat:translate-x-2 [@media(max-height:700px)]:py-[1svh] lg:flex-row lg:items-center lg:justify-between lg:gap-3 lg:py-[1.8svh]"
                   >
-                    <span className="display flex min-w-[0.85em] items-end text-[clamp(2.4rem,11vw,3.4rem)] leading-none text-red transition-[text-shadow] duration-300 group-hover/stat:[text-shadow:0_0_26px_rgba(214,26,41,0.65)] lg:text-[min(4.2vw,7.6svh)]">
+                    <span className="display flex min-w-[0.85em] items-end text-[clamp(2.4rem,11vw,3.4rem)] leading-none text-red transition-[text-shadow] duration-300 group-hover/stat:[text-shadow:0_0_26px_rgb(var(--accent-rgb) / 0.65)] lg:text-[min(4.2vw,7.6svh)]">
                       <span
                         data-stat-num
                         data-kind={s.text ? "text" : "count"}
@@ -1763,11 +1797,11 @@ export default function Intro() {
                   {/* the divider a cursor draws, with its blue drag handle */}
                   <i
                     data-rule
-                    className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-white/15 transition-colors duration-300 group-hover/stat:bg-red"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[rgb(var(--cursor-rgb)/0.15)] transition-colors duration-300 group-hover/stat:bg-red"
                   />
                   <i
                     data-rule-handle
-                    className="pointer-events-none absolute bottom-0 left-0 z-[2] size-2 -translate-x-1/2 translate-y-1/2 border border-[#4c8dff] bg-white"
+                    className="pointer-events-none absolute bottom-0 left-0 z-[2] size-2 -translate-x-1/2 translate-y-1/2 border border-[var(--t-build)] bg-[rgb(var(--cursor-rgb))]"
                   />
                 </li>
               ))}
@@ -1780,7 +1814,7 @@ export default function Intro() {
                 data-cursor-hover
                 href="/Adwaith_A_Kumar_Resume.pdf"
                 download
-                className="label relative inline-flex min-w-0 items-center justify-center gap-[0.15rem] overflow-hidden whitespace-nowrap rounded-full border border-white/15 !text-[clamp(0.55rem,2.8vw,0.76rem)] !tracking-[0.02em] leading-none text-ink transition-[color,border-color,box-shadow,translate] duration-[250ms] lg:gap-2 lg:!text-[min(0.82vw,1.65svh)]"
+                className="label relative inline-flex min-w-0 items-center justify-center gap-[0.15rem] overflow-hidden whitespace-nowrap rounded-full border border-[rgb(var(--cursor-rgb)/0.15)] !text-[clamp(0.55rem,2.8vw,0.76rem)] !tracking-[0.02em] leading-none text-ink transition-[color,border-color,box-shadow,translate] duration-[250ms] lg:gap-2 lg:!text-[min(0.82vw,1.65svh)]"
               >
                 <i data-wipe aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 bg-red" />
                 <span data-dl-icon className="relative z-[1] inline-flex shrink-0">
@@ -1805,7 +1839,7 @@ export default function Intro() {
                 href={content.social.github}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="relative inline-flex min-w-0 items-center justify-center gap-[0.15rem] overflow-hidden whitespace-nowrap rounded-full border border-white/15 font-medium uppercase leading-none text-ink !text-[clamp(0.55rem,2.8vw,0.76rem)] !tracking-[0.02em] transition-[color,border-color,box-shadow,translate] duration-[250ms] lg:gap-2 lg:!text-[min(0.82vw,1.65svh)] lg:!tracking-[0.08em]"
+                className="relative inline-flex min-w-0 items-center justify-center gap-[0.15rem] overflow-hidden whitespace-nowrap rounded-full border border-[rgb(var(--cursor-rgb)/0.15)] font-medium uppercase leading-none text-ink !text-[clamp(0.55rem,2.8vw,0.76rem)] !tracking-[0.02em] transition-[color,border-color,box-shadow,translate] duration-[250ms] lg:gap-2 lg:!text-[min(0.82vw,1.65svh)] lg:!tracking-[0.08em]"
               >
                 <i data-wipe aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 bg-red" />
                 <span data-social-icon className="relative z-[1] inline-flex shrink-0">
@@ -1828,7 +1862,7 @@ export default function Intro() {
                 href={content.social.linkedin}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="relative inline-flex min-w-0 items-center justify-center gap-[0.15rem] overflow-hidden whitespace-nowrap rounded-full border border-white/15 font-medium uppercase leading-none text-ink !text-[clamp(0.55rem,2.8vw,0.76rem)] !tracking-[0.02em] transition-[color,border-color,box-shadow,translate] duration-[250ms] lg:gap-2 lg:!text-[min(0.82vw,1.65svh)] lg:!tracking-[0.08em]"
+                className="relative inline-flex min-w-0 items-center justify-center gap-[0.15rem] overflow-hidden whitespace-nowrap rounded-full border border-[rgb(var(--cursor-rgb)/0.15)] font-medium uppercase leading-none text-ink !text-[clamp(0.55rem,2.8vw,0.76rem)] !tracking-[0.02em] transition-[color,border-color,box-shadow,translate] duration-[250ms] lg:gap-2 lg:!text-[min(0.82vw,1.65svh)] lg:!tracking-[0.08em]"
               >
                 <i data-wipe aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 bg-red" />
                 <span data-social-icon className="relative z-[1] inline-flex shrink-0">

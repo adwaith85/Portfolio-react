@@ -646,8 +646,8 @@ html[data-theme="light"] #about .about-head-line--red {
 }
 
 /* ---- education ---- */
-html[data-theme="light"] #education .edu-head-label,
-html[data-theme="light"] #education .edu-static-head > .label {
+#education .edu-head-label,
+#education .edu-static-head > .label {
   visibility: hidden;
 }
 html[data-theme="light"] #education .edu-head-title span:last-child,
@@ -926,4 +926,106 @@ html[data-theme="light"] #about .about-head-line--red {
   html[data-theme="light"] #about header > div:first-child {
     translate: 0 clamp(4.5rem, 7.5vw, 6rem);
   }
+}
+
+/* ============================================================
+   DARK-ONLY PARITY: same shape / size / weight as light.
+   Colors stay dark.
+   ============================================================ */
+
+/* ---- What I Do: rounded cards, same as light ---- */
+html[data-theme="dark"] #what-i-do [data-frame],
+html[data-theme="dark"] #what-i-do [data-eff] {
+  border-radius: var(--radius-card);
+}
+html[data-theme="dark"] #what-i-do [data-bar] {
+  height: var(--radius-card);
+  background-color: transparent;
+  border-top: 3px solid var(--t-accent);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* ---- About: heading and paragraph positions same as light ---- */
+@media (min-width: 1024px) {
+  html[data-theme="dark"] #about header > div:first-child {
+    flex: 1 1 auto;
+    translate: 0 clamp(4.5rem, 7.5vw, 6rem);
+  }
+  html[data-theme="dark"] #about .about-heading {
+    flex-wrap: nowrap;
+    width: max-content;
+    max-width: none;
+    white-space: nowrap;
+  }
+}
+html[data-theme="dark"] #about .about-row-value {
+  font-weight: var(--fw-small-light);
+}
+html[data-theme="dark"] #about :where([data-sub], .about-bio) {
+  font-weight: var(--fw-body-light);
+}
+
+/* ---- Education: card text same weight as light (size comes from --edu-boost) ---- */
+html[data-theme="dark"] #education :where(
+  .edu-card-label, .edu-card-place, .edu-card-meta,
+  .edu-card-studied, .edu-card-list li, .edu-card-next
+) {
+  font-weight: var(--fw-small-light);
+}
+
+/* ---- Skills: whiter chip border, red on hover, red set headings ---- */
+html[data-theme="dark"] #experience .sk-item {
+  border-color: rgb(var(--fg-rgb) / 0.5);
+}
+html[data-theme="dark"] #experience .sk-h1,
+html[data-theme="dark"] #experience .sk-h1-tail {
+  color: var(--t-accent);
+}
+html[data-theme="dark"] #experience .sk-item:focus-visible {
+  border-color: var(--t-accent);
+}
+html[data-theme="dark"] #experience .sk-item:focus-visible .sk-item-name {
+  color: var(--t-accent);
+}
+@media (hover: hover) and (pointer: fine) {
+  html[data-theme="dark"] #experience .sk-item:hover {
+    border-color: var(--t-accent);
+  }
+  html[data-theme="dark"] #experience .sk-item:hover .sk-item-name {
+    color: var(--t-accent);
+  }
+}
+
+/* ---- Experience: text weight same as light ---- */
+html[data-theme="dark"] #experience :where(
+  [data-exp-label], [data-int-company], [data-int-period], [data-int-summary],
+  [data-int-point-text], [data-proj-label], [data-proj-desc],
+  [data-next-label], [data-next-text]
+) {
+  font-weight: var(--fw-bold-light);
+}
+html[data-theme="dark"] #experience [data-proj-title] {
+  font-weight: var(--fw-small-light);
+}
+
+/* ---- Footer ---- */
+html[data-theme="dark"] footer [data-f-continue],
+html[data-theme="dark"] footer .footer-top {
+  color: var(--t-accent);
+}
+html[data-theme="dark"] footer .footer-social:hover .footer-social-tip,
+html[data-theme="dark"] footer .footer-social:focus-visible .footer-social-tip {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--t-on-image);
+}
+html[data-theme="dark"] footer .footer-social:is([aria-label="GitHub"], [aria-label="X"]):hover .footer-social-tip,
+html[data-theme="dark"] footer .footer-social:is([aria-label="GitHub"], [aria-label="X"]):focus-visible .footer-social-tip {
+  color: var(--t-bg);
+}
+html[data-theme="dark"] footer .footer-social:hover .footer-social-tip::after,
+html[data-theme="dark"] footer .footer-social:focus-visible .footer-social-tip::after {
+  border-top-color: var(--brand);
 }

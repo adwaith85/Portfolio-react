@@ -45,7 +45,7 @@ const weights = {
 const radius = {
   cardRound: "20px",
   cardLight: "20px",
-  cardDark: "3px",
+  cardDark: "20px",
   media: "6px",
   contact: "26px",
 };
@@ -57,7 +57,7 @@ const sectionHeading = {
 };
 
 const modeSpacing = {
-  eduBoost: { light: "2px", dark: "0px" },
+  eduBoost: { light: "2px", dark: "2px" },
 };
 
 const STORAGE_KEY = "theme";

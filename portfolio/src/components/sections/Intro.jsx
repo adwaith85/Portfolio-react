@@ -8,6 +8,7 @@ import { handoff } from "../../engine/handoff";
 import { makeOverlay, clearOverlays, dragBox } from "../../engine/swarmBuild";
 import useAgentsEnabled from "../../engine/useAgentsEnabled";
 import { themeColor, useTheme } from "../../theme/theme";
+import ThemeToggle from "../ui/ThemeToggle";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -1593,6 +1594,7 @@ export default function Intro() {
       className="intro-prep sticky top-0 flex h-svh flex-col gap-[1.2svh] overflow-x-clip overflow-y-hidden px-gutter py-[2svh] lg:gap-0 lg:py-[4svh]"
     >
       <Filters />
+      <ThemeToggle />
 
       {/* dust canvas: the powder the photo turns into while you scroll (clipped to this section) */}
       <canvas

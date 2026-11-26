@@ -327,6 +327,117 @@ body::after {
   mix-blend-mode: normal;
 }
 
+/* ---------- hero theme controls: lamp pull cord + real switch ---------- */
+@keyframes rope-sway {
+  0%,
+  100% {
+    transform: rotate(-1.5deg);
+  }
+  50% {
+    transform: rotate(1.5deg);
+  }
+}
+.theme-rope-sway {
+  transform-origin: 50% 0;
+  animation: rope-sway 4s ease-in-out infinite;
+}
+.theme-rope-sway.is-pulling {
+  animation-play-state: paused;
+}
+.theme-rope-cord {
+  filter: drop-shadow(1px 1px 1.5px rgb(var(--shadow-rgb) / 0.45));
+}
+.theme-rope-knob {
+  touch-action: none;
+  user-select: none;
+  border-radius: 9999px;
+  cursor: grab;
+}
+.theme-rope-knob:active,
+.theme-rope-sway.is-pulling .theme-rope-knob {
+  cursor: grabbing;
+}
+.theme-rope-knob:hover,
+.theme-rope-knob:focus-visible {
+  translate: none;
+}
+.theme-rope-knob:focus-visible {
+  outline: 2px solid var(--t-accent);
+  outline-offset: 3px;
+}
+
+.theme-switch {
+  width: 52px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--t-line);
+  border-radius: 9999px;
+  background: var(--t-panel);
+  touch-action: manipulation;
+}
+html[data-theme="dark"] .theme-switch {
+  background: color-mix(in srgb, var(--t-accent) 14%, var(--t-panel));
+}
+.theme-switch:hover,
+.theme-switch:focus-visible {
+  translate: none;
+}
+.theme-switch:focus-visible {
+  outline: 2px solid var(--t-accent);
+  outline-offset: 3px;
+}
+.theme-switch-icon {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  translate: 0 -50%;
+  transition: opacity 250ms cubic-bezier(.2,.7,.2,1);
+}
+.theme-switch-sun {
+  left: 5px;
+  opacity: 0;
+}
+.theme-switch-moon {
+  right: 5px;
+  opacity: 1;
+}
+html[data-theme="dark"] .theme-switch-sun {
+  opacity: 1;
+}
+html[data-theme="dark"] .theme-switch-moon {
+  opacity: 0;
+}
+.theme-switch-thumb {
+  position: absolute;
+  z-index: 1;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: var(--t-accent);
+  box-shadow: 0 1px 3px rgb(var(--shadow-rgb) / 0.55);
+  transition:
+    translate 300ms cubic-bezier(.2,.7,.2,1),
+    scale 180ms cubic-bezier(.2,.7,.2,1);
+}
+html[data-theme="dark"] .theme-switch-thumb {
+  translate: 24px 0;
+}
+.theme-switch:active .theme-switch-thumb {
+  scale: 1.12 0.92;
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-rope-sway {
+    animation: none;
+  }
+  .theme-switch-icon,
+  .theme-switch-thumb {
+    transition: none;
+  }
+}
+
 @media (min-width: 1024px) {
   #home [data-ghost] [data-gl] {
     text-shadow:

@@ -1,4 +1,3 @@
-
 import useSmoothScroll from "./hooks/useSmoothScroll";
 import Intro from "./components/sections/Intro";
 import StackStrip from "./components/sections/StackStrip";
@@ -11,14 +10,12 @@ import Experience from "./components/sections/Experience";
 import Contact from "./components/sections/Contact";
 import SiteFooter from "./components/sections/SiteFooter";
 import CursorSwarm from "./components/cursors/CursorSwarm";
-import ThemeToggle from "./components/ui/ThemeToggle";
 
 export default function App() {
   useSmoothScroll();
 
   return (
     <>
-      <ThemeToggle />
       <main>
         <Intro />
         <div className="relative z-10 bg-bg">

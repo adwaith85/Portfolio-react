@@ -818,10 +818,7 @@ html[data-theme="light"] #contact .contact-field:focus {
     inset 0 1px 0 rgb(var(--fg-rgb) / 0.07),
     0 0 0 3px rgb(var(--pine-rgb) / 0.17),
     0 0 26px rgb(var(--pine-rgb) / 0.26);
-}
-html[data-theme="light"] #contact .contact-liquid {
-  border-color: var(--t-pine) !important;
-}
+}
 
 /* ---- footer ---- */
 html[data-theme="light"] footer [data-f-h2],

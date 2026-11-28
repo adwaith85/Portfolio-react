@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { setTheme, useTheme } from "../../theme/theme";
 
 const EASE = "cubic-bezier(.2,.7,.2,1)";
@@ -207,10 +208,12 @@ export default function ThemeToggle() {
   const knobTop = cordEnd + FERRULE;
   const tasselTop = knobTop + KNOB_H - 1;
 
-  return (
+  /* Portal to the body so the fixed controls sit above every section, not inside
+     the sticky hero's stacking context. Design and position stay the same. */
+  return createPortal(
     <>
       {/* Desktop: old lamp pull cord hanging in the right gutter of the hero. */}
-      <div className="pointer-events-none absolute right-[calc(var(--spacing-gutter)/2+18px)] top-0 z-[7] hidden w-8 translate-x-1/2 select-none lg:block">
+      <div className="pointer-events-none fixed right-[calc(var(--spacing-gutter)/2+18px)] top-0 z-[60] hidden w-8 translate-x-1/2 select-none lg:block">
         <div ref={swayRef} className="theme-rope-sway relative h-[360px] w-8">
           <svg
             className="pointer-events-none absolute left-0 top-0 overflow-visible"
@@ -334,9 +337,9 @@ export default function ThemeToggle() {
         aria-label="Dark mode"
         data-cursor-hover
         onClick={() => toggle(thumbRef.current || switchRef.current)}
-        className="theme-switch absolute z-[7] lg:hidden"
+        className="theme-switch fixed z-[60] lg:hidden"
         style={{
-          right: "var(--spacing-gutter)",
+          right: "-12px",
           top: "calc(6svh + min(24vw, 17svh) * 0.85 + 1svh)",
         }}
       >
@@ -357,6 +360,7 @@ export default function ThemeToggle() {
         </svg>
         <span ref={thumbRef} className="theme-switch-thumb" aria-hidden="true" />
       </button>
-    </>
+    </>,
+    document.body
   );
 }

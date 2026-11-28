@@ -684,8 +684,10 @@ export default function SiteFooter() {
 
     const restoreMain = () => {
       if (!state.main) return;
-      gsap.set(state.main, { y: state.mainY });
+      const node = state.main;
       state.main = null;
+      if (state.mainY) gsap.set(node, { y: state.mainY });
+      else gsap.set(node, { clearProps: "transform" });
     };
 
     const reset = () => {

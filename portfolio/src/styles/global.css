@@ -376,6 +376,13 @@ body::after {
   background: var(--t-panel);
   touch-action: manipulation;
 }
+/* Responsive: vertical switch pinned flush to the right edge. */
+@media (max-width: 1023.98px) {
+  .theme-switch {
+    margin-top: 12px;
+    rotate: 90deg;
+  }
+}
 html[data-theme="dark"] .theme-switch {
   background: color-mix(in srgb, var(--t-accent) 14%, var(--t-panel));
 }

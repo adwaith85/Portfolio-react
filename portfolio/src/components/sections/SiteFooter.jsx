@@ -11,6 +11,7 @@ import { content } from "../../data/content";
 import {
   lockScroll,
   scrollToId,
+  syncScroll,
   unlockScroll,
 } from "../../hooks/useSmoothScroll";
 import {
@@ -709,10 +710,10 @@ export default function SiteFooter() {
       stripCurtain();
       restoreMain();
       if (exitLocked.current) {
-        unlockScroll();
+        unlockScroll("footer-curtain");
         exitLocked.current = false;
       }
-      window.scrollTo(0, state.scrollY);
+      syncScroll(state.scrollY);
       reset();
       ScrollTrigger.refresh();
       ScrollTrigger.update();
@@ -853,7 +854,7 @@ export default function SiteFooter() {
         gsap.set(state.main, { y: state.mainY + scrollY });
       }
 
-      lockScroll();
+      lockScroll("footer-curtain");
       exitLocked.current = true;
 
       // Blank the hero while the curtain still hides it, before any movement.
@@ -902,6 +903,7 @@ export default function SiteFooter() {
 
     const onWheel = (e) => {
       if (!canAct()) return;
+      if (!state.engaged && e.deltaY <= 0) { state.acc = 0; return; }
       e.preventDefault();
       state.lastWheel = performance.now();
       if (state.wheelIdle) window.clearTimeout(state.wheelIdle);
@@ -932,9 +934,10 @@ export default function SiteFooter() {
 
     const onTouchMove = (e) => {
       if (!canAct() || justArrived()) return;
-      e.preventDefault();
       const y = e.touches[0]?.clientY ?? state.touchLast;
       const raw = state.touchLast - y;
+      if (!state.engaged && raw <= 0) { state.touchLast = y; state.acc = 0; return; }
+      e.preventDefault();
       state.touchLast = y;
       const step = Math.max(-TOUCH_STEP, Math.min(TOUCH_STEP, raw)) * RESISTANCE;
       if (!step) return;
@@ -960,6 +963,7 @@ export default function SiteFooter() {
         e.key === "Spacebar";
       const back = e.key === "PageUp" || e.key === "ArrowUp";
       if ((!forward && !back) || !canAct()) return;
+      if (!state.engaged && back) return;
       e.preventDefault();
       state.lastWheel = performance.now();
       handleWheelDelta(forward ? MAX_STEP : -MAX_STEP);
@@ -992,7 +996,7 @@ export default function SiteFooter() {
       stripCurtain();
       restoreMain();
       if (exitLocked.current) {
-        unlockScroll();
+        unlockScroll("footer-curtain");
         exitLocked.current = false;
       }
       reset();

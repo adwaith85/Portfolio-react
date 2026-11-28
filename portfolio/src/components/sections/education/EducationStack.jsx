@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { safeRefresh } from "../../../hooks/useSmoothScroll";
 import EduCard, { fitCard } from "./EduCard";
 import EduCertCard from "./EduCertCard";
 
@@ -22,7 +23,7 @@ export default function EducationStack({ head, cards, achievements, onOpen }) {
       clearTimeout(timer);
       timer = setTimeout(() => {
         setVersion((v) => v + 1);
-        ScrollTrigger.refresh();
+        safeRefresh();
       }, 200);
     };
     window.addEventListener("resize", onResize);
@@ -240,6 +241,7 @@ export default function EducationStack({ head, cards, achievements, onOpen }) {
         pinSpacing: true,
         anticipatePin: 1,
         invalidateOnRefresh: true,
+        refreshPriority: 2,
         scrub: true,
         animation: tl,
       });

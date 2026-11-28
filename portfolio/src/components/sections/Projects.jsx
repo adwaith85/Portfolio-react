@@ -15,6 +15,7 @@ import { Words, typeWords } from "../../engine/swarmBuild";
 import { themeColor, useTheme } from "../../theme/theme";
 import {
   lockScroll,
+  safeRefresh,
   scrollToId,
   unlockScroll,
 } from "../../hooks/useSmoothScroll";
@@ -552,7 +553,6 @@ export default function Projects() {
 
     if (mode === "reduced") return;
 
-    let refreshTimer;
     let st = null;
     /* Progress to restore after a width-changing resize/rotation. */
     let keepProgress = -1;
@@ -731,6 +731,7 @@ export default function Projects() {
           scrub: 1,
           anticipatePin: 1,
           invalidateOnRefresh: true,
+          refreshPriority: 3,
           onRefresh: (self) => {
             paths = buildPaths();
             const keep = keepProgress;
@@ -764,8 +765,7 @@ export default function Projects() {
       if (keep && keepProgress < 0 && st && st.isActive) {
         keepProgress = lastProgressRef.current;
       }
-      clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => ScrollTrigger.refresh(), 100);
+      safeRefresh(100);
     };
     let lastWidth = window.innerWidth;
     const onViewport = () => {
@@ -781,15 +781,14 @@ export default function Projects() {
       img.addEventListener("load", onImg);
       img.addEventListener("error", onImg);
     });
-    const raf = requestAnimationFrame(() => ScrollTrigger.refresh());
-    const onWinLoad = () => ScrollTrigger.refresh();
+    const raf = requestAnimationFrame(() => safeRefresh());
+    const onWinLoad = () => safeRefresh();
     window.addEventListener("load", onWinLoad);
     window.addEventListener("resize", onViewport);
     window.addEventListener("orientationchange", onViewport);
 
     return () => {
       cancelAnimationFrame(raf);
-      clearTimeout(refreshTimer);
       imgs.forEach((img) => {
         img.removeEventListener("load", onImg);
         img.removeEventListener("error", onImg);
@@ -1210,8 +1209,8 @@ export default function Projects() {
 
   useEffect(() => {
     if (!active) return;
-    lockScroll();
-    return () => unlockScroll();
+    lockScroll("projects-modal");
+    return () => unlockScroll("projects-modal");
   }, [active]);
 
   useEffect(() => {

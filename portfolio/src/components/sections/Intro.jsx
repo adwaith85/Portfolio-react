@@ -8,6 +8,7 @@ import { handoff } from "../../engine/handoff";
 import { makeOverlay, clearOverlays, dragBox } from "../../engine/swarmBuild";
 import useAgentsEnabled from "../../engine/useAgentsEnabled";
 import { themeColor, useTheme } from "../../theme/theme";
+import { safeRefresh } from "../../hooks/useSmoothScroll";
 import ThemeToggle from "../ui/ThemeToggle";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -1225,7 +1226,7 @@ export default function Intro() {
         mode: kindRef.current,
       });
       // one refresh after late creation so ScrollTrigger picks it up
-      ScrollTrigger.refresh();
+      safeRefresh();
     } catch {
       dissolveCleanup.current = null;
     }

@@ -1,5 +1,6 @@
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { safeRefresh, isScrollLocked } from "../hooks/useSmoothScroll";
 import { swarm } from "../components/cursors/swarmApi";
 import { typeReveal } from "./buildKit";
 import { handoff } from "./handoff";
@@ -29,11 +30,23 @@ gsap.registerPlugin(ScrollTrigger);
   different sections.
 */
 
-let refreshTimer = 0;
-const scheduleRefresh = () => {
-  if (typeof window === "undefined") return;
-  clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(() => ScrollTrigger.refresh(), 90);
+const scheduleRefresh = () => safeRefresh(90);
+
+const reconcilers = new Set();
+export const reconcileReveals = () => {
+  if (isScrollLocked()) return;
+  reconcilers.forEach((fn) => fn());
+};
+let listening = false;
+const listen = () => {
+  if (listening) return;
+  listening = true;
+  ScrollTrigger.addEventListener("scrollEnd", reconcileReveals);
+  ScrollTrigger.addEventListener("refresh", () => requestAnimationFrame(reconcileReveals));
+};
+const startRatio = (value, fallback) => {
+  const m = /(\d+(?:\.\d+)?)%/.exec(String(value || ""));
+  return m ? Number(m[1]) / 100 : fallback;
 };
 
 export function isInViewport(el, margin = 0) {
@@ -170,6 +183,8 @@ export function createViewportReveal({
 }) {
   if (!root || reduced || typeof window === "undefined") return () => {};
 
+  listen();
+  const recs = [];
   let alive = true;
   const triggers = [];
   const timelines = new Set();
@@ -193,6 +208,10 @@ export function createViewportReveal({
 
     let tl = null;
     let mode = "idle"; // idle | forward | back
+    const ratio = startRatio(spec.start || start, 0.95);
+    const topNow = () => el.getBoundingClientRect().top;
+    const reachedStart = () => topNow() <= window.innerHeight * ratio;
+    const clearlyBelow = () => topNow() > window.innerHeight * ratio + 120;
 
     const ensure = () => {
       if (tl) return tl;
@@ -206,33 +225,26 @@ export function createViewportReveal({
           handoff.end(sectionId, tl);
         });
       }
+      tl.eventCallback("onReverseComplete", () => {
+        if (mode === "back") mode = "idle";
+      });
       return tl;
     };
 
     const play = () => {
-      if (!alive || spec.once && mode === "forward") return;
-      if (mode === "forward") return;
-
-      // A fast scroll can cross this group after it has already passed above
-      // the viewport. Start it anyway so it animates to completion instead of
-      // jumping to its end state.
+      if (!alive || mode === "forward") return;
       const t = ensure();
-
-      if (enabled && agents.length) {
-        handoff.begin(sectionId, t);
-        agents.forEach((i) => swarm.show(i));
-      }
-
+      if (enabled && agents.length) { handoff.begin(sectionId, t); agents.forEach((i) => swarm.show(i)); }
       mode = "forward";
-      t.invalidate();
       t.timeScale(groupSpeed);
-
-      if (t.progress() > 0 && t.progress() < 1) t.play();
-      else t.restart();
+      const p = t.progress();
+      if (p === 0) { t.invalidate(); t.restart(); }
+      else if (p < 1 || t.reversed()) t.play();
     };
 
-    const reverse = () => {
-      if (!alive || !tl || mode === "idle" || spec.once) return;
+    const reverse = (force = false) => {
+      if (!alive || !tl || mode === "idle" || spec.once || isScrollLocked()) return;
+      if (!force && !clearlyBelow()) return;
 
       const owner = handoff.getSection();
       const canAnimateBack = !enabled || !agents.length || !owner || owner === sectionId;
@@ -264,7 +276,7 @@ export function createViewportReveal({
         // already playing is never interrupted.
         if (mode !== "forward") play();
       },
-      onLeaveBack: reverse,
+      onLeaveBack: () => reverse(),
       onRefresh: () => {
         // A refresh can land while the page is resting on an unplayed group.
         // Play it normally instead of snapping to the end state.
@@ -273,6 +285,25 @@ export function createViewportReveal({
     });
 
     triggers.push(st);
+
+    const reconcile = () => {
+      if (!alive) return;
+      if (reachedStart()) {
+        if (mode === "forward") return;
+        if (el.getBoundingClientRect().bottom < 0) {
+          const t = ensure();
+          t.pause();
+          t.progress(1, true);
+          mode = "forward";
+          return;
+        }
+        play();
+      } else if (clearlyBelow() && tl && mode !== "idle") {
+        reverse(true);
+      }
+    };
+    reconcilers.add(reconcile);
+    recs.push(reconcile);
 
     // A group that is already visible on first paint (for example when the
     // browser restores a scroll position) should not stay hidden.
@@ -294,5 +325,6 @@ export function createViewportReveal({
     });
     timelines.clear();
     specs.length = 0;
+    recs.forEach((fn) => reconcilers.delete(fn));
   };
 }

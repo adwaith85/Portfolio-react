@@ -51,6 +51,7 @@
 
 @layer base {
   html {
+    scrollbar-gutter: stable;
     scroll-behavior: auto;
     -webkit-text-size-adjust: 100%;
   }
@@ -801,23 +802,8 @@ html[data-theme="light"] #experience [data-int-dash] {
 }
 
 /* ---- contact ---- */
-html[data-theme="light"] #contact [data-contact-h2],
-html[data-theme="light"] #contact .contact-label::before,
-html[data-theme="light"] #contact .contact-field::placeholder {
+html[data-theme="light"] #contact [data-contact-h2] {
   color: var(--t-pine);
-}
-html[data-theme="light"] #contact .contact-field,
-html[data-theme="light"] #contact .contact-field:hover,
-html[data-theme="light"] #contact .contact-field:focus {
-  border-color: var(--t-pine);
-}
-html[data-theme="light"] #contact .contact-field:focus {
-  box-shadow:
-    0 20px 40px -20px rgb(var(--shadow-rgb)),
-    inset 3px 0 0 0 var(--t-pine),
-    inset 0 1px 0 rgb(var(--fg-rgb) / 0.07),
-    0 0 0 3px rgb(var(--pine-rgb) / 0.17),
-    0 0 26px rgb(var(--pine-rgb) / 0.26);
 }
 
 /* ---- footer ---- */

@@ -40,7 +40,9 @@ const FRAME_URLS = Object.keys(FRAME_FILES).sort().map((k) => FRAME_FILES[k]);
 const FRAME_COUNT = FRAME_URLS.length;          // 190
 const FRAME_W = 800, FRAME_H = 450;
 const FRAME_BODY_END = 0.88;                    // scroll progress at which the last frame is shown; the rest is a short hold
-const FORM_IN = 1.1;                            // seconds, automatic form grow-in
+const FORM_IN = 1.2;                            // seconds, automatic form grow-in
+const RECT_CX = 0.7375; // centre x of the sketch rectangle inside the frame (0..1)
+const RECT_CY = 0.428;  // centre y of the sketch rectangle inside the frame (0..1)
 const WHITE_POINT = 226, BLACK_POINT = 50, GAMMA = 0.9;
 const ALPHA_LUT = (() => {
   const t = new Uint8ClampedArray(256);
@@ -138,132 +140,130 @@ const paintFrame = (canvas, img, ink) => {
 const CONTACT_STYLE = `
 #contact-stage { container-type: size; display: flex; align-items: center; justify-content: center; }
 .contact-scene { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; }
-.contact-frame { position: relative; flex: none; align-self: center; aspect-ratio: 16 / 9; height: min(56.25cqw, 26cqh); }
-@media (max-width: 1023.98px) and (min-height: 800px) { .contact-frame { height: min(56.25cqw, 34cqh); } }
+.contact-frame { position: relative; flex: none; align-self: center; aspect-ratio: 16 / 9; height: min(56.25cqw, 34cqh); }
+@media (max-width: 1023.98px) and (min-height: 800px) { .contact-frame { height: min(56.25cqw, 38cqh); } }
+@media (max-width: 1023.98px) and (max-height: 720px) { .contact-frame { height: min(56.25cqw, 30cqh); } }
 .contact-frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .contact-form-slot { position: relative; flex: 1 1 0; min-height: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.5svh; }
 .contact-card {
-  width: 100%; max-width: 480px; box-sizing: border-box;
-  background: var(--t-bg); border: 2px solid var(--t-ink); border-radius: 6px;
-  padding: clamp(10px, 1.8svh, 26px) clamp(14px, 1.8vw, 28px);
-  transform-origin: 50% 0%; will-change: transform, opacity;
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
+  background-color: var(--t-panel);
+  background-image: linear-gradient(180deg, rgb(var(--t-ink-rgb) / 0.05), transparent 40%);
+  border: 1px solid rgb(var(--t-ink-rgb) / 0.2);
+  border-radius: 20px;
+  padding: clamp(14px, 2.4svh, 28px) clamp(16px, 2vw, 30px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 1px 2px rgb(var(--shadow-rgb) / 0.25),
+    0 24px 48px -24px rgb(var(--shadow-rgb) / 0.55),
+    0 60px 90px -50px rgb(var(--shadow-rgb) / 0.5);
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+.contact-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 14%; right: 14%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--t-accent), transparent);
+  opacity: 0.55;
+  pointer-events: none;
 }
 .contact-card form { counter-reset: contact-field; }
+.contact-card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: clamp(8px, 1.6svh, 16px);
+  padding-bottom: clamp(8px, 1.6svh, 14px);
+  border-bottom: 1px solid rgb(var(--t-ink-rgb) / 0.12);
+  font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase;
+}
+.contact-card-head b { font-weight: 600; color: var(--t-ink); }
+.contact-card-head b::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 0.8em;
+  border-radius: 50%; background: var(--t-accent); vertical-align: 0.08em;
+}
+.contact-card-head span { color: rgb(var(--t-ink-rgb) / 0.55); letter-spacing: 0.14em; }
+@media (max-height: 700px) { .contact-card-head { display: none; } }
 @media (min-width: 1024px) {
   .contact-scene { display: block; width: min(100cqw, 177.78cqh); height: auto; aspect-ratio: 16 / 9; }
   .contact-frame { position: absolute; inset: 0; width: 100%; height: 100%; align-self: auto; aspect-ratio: auto; }
-  .contact-form-slot { position: absolute; left: 51%; top: 42.8%; width: 45.5%; transform: translateY(-50%); display: block; padding: 0; }
-  .contact-card { max-width: none; transform-origin: 50% 50%; }
+  .contact-form-slot { position: absolute; left: 50.2%; top: 42.8%; width: 47.1%; transform: translateY(-50%); display: block; padding: 0; }
+  .contact-card { max-width: none; }
 }
 .contact-field {
   width: 100%;
-  border: 1px solid rgb(var(--fg-rgb) / 0.16);
+  box-sizing: border-box;
+  min-height: clamp(40px, 5.6svh, 46px);
+  border: 1px solid rgb(var(--t-ink-rgb) / 0.16);
   border-radius: 12px;
-  background: rgb(var(--fg-rgb) / 0.05);
-  padding: clamp(0.4rem, 1.3svh, 0.8rem) 1rem;
+  background: rgb(var(--t-ink-rgb) / 0.04);
+  padding: clamp(0.4rem, 1.3svh, 0.7rem) 0.95rem;
   font-family: inherit;
-  font-size: clamp(0.95rem, 1vw, 1.05rem);
-  line-height: 1.42;
-  color: var(--t-hover-ink);
+  font-size: clamp(0.92rem, 1vw, 1rem);
+  line-height: 1.4;
+  color: var(--t-ink);
   outline: none;
-  box-shadow:
-    0 20px 40px -20px rgb(var(--shadow-rgb)),
-    inset 0 1px 0 rgb(var(--fg-rgb) / 0.055),
-    inset 0 8px 20px rgb(var(--shadow-rgb) / 0.28);
-  transition:
-    border-color 240ms cubic-bezier(.2, .7, .2, 1),
-    box-shadow 240ms cubic-bezier(.2, .7, .2, 1),
-    background-color 240ms cubic-bezier(.2, .7, .2, 1);
+  box-shadow: none;
+  transition: border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
 }
-.contact-field::placeholder { color: rgb(var(--t-ink-rgb) / 0.45); }
-.contact-field:hover { border-color: rgb(var(--fg-rgb) / 0.3); }
+textarea.contact-field { height: clamp(64px, 11svh, 104px); min-height: 0; }
+.contact-field::placeholder { color: rgb(var(--t-ink-rgb) / 0.42); }
+.contact-field:hover { border-color: rgb(var(--t-ink-rgb) / 0.32); }
 .contact-field:focus {
-  border-color: rgb(var(--accent-rgb) / 0.92);
-  background: rgb(var(--fg-rgb) / 0.072);
-  box-shadow:
-    0 20px 40px -20px rgb(var(--shadow-rgb)),
-    inset 3px 0 0 0 var(--t-accent),
-    inset 0 1px 0 rgb(var(--fg-rgb) / 0.07),
-    0 0 0 3px rgb(var(--accent-rgb) / 0.17),
-    0 0 26px rgb(var(--accent-rgb) / 0.26);
+  border-color: var(--t-accent);
+  background: rgb(var(--t-ink-rgb) / 0.06);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.16);
 }
-.contact-field[aria-invalid="true"] {
-  border-color: var(--t-accent-hover);
-  background: rgb(var(--accent-rgb) / 0.075);
-  box-shadow:
-    0 20px 40px -20px rgb(var(--shadow-rgb)),
-    inset 3px 0 0 0 var(--t-accent-hover),
-    0 0 0 3px rgb(var(--accent-rgb) / 0.14),
-    0 0 22px rgb(var(--accent-rgb) / 0.18);
-}
-.contact-field[aria-invalid="true"]:focus {
-  box-shadow:
-    0 20px 40px -20px rgb(var(--shadow-rgb)),
-    inset 3px 0 0 0 var(--t-accent-hover),
-    0 0 0 3px rgb(var(--accent-rgb) / 0.2),
-    0 0 28px rgb(var(--accent-rgb) / 0.3);
-}
+.contact-field[aria-invalid="true"] { border-color: var(--t-accent-hover); background: rgb(var(--accent-rgb) / 0.06); }
+.contact-field[aria-invalid="true"]:focus { box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.22); }
 .contact-field:disabled { opacity: 0.72; cursor: progress; }
 .contact-label {
   display: block;
-  margin-bottom: 0.38rem;
-  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+  font-size: clamp(0.64rem, 1.4svh, 0.72rem);
   font-weight: var(--t-fw-semibold);
   line-height: 1.2;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgb(var(--t-ink-rgb) / 0.74);
+  color: rgb(var(--t-ink-rgb) / 0.62);
   counter-increment: contact-field;
 }
 .contact-label::before {
-  content: counter(contact-field, decimal-leading-zero) " /";
-  margin-right: 0.55em;
+  content: counter(contact-field, decimal-leading-zero);
+  margin-right: 0.9em;
   color: var(--t-accent-hover);
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 12px rgb(var(--accent-rgb) / 0.55);
 }
-.contact-field { min-height: clamp(40px, 5.6svh, 48px); }
-textarea.contact-field { height: clamp(64px, 11svh, 104px); min-height: 0; }
-.contact-label { margin-bottom: 0.25rem; font-size: clamp(0.66rem, 1.5svh, 0.85rem); }
-@media (hover: none) {
-  .contact-field,
-  .contact-send { min-height: 48px; }
+@media (max-width: 1023.98px) {
+  .contact-card { max-width: 440px; border-radius: 16px; padding: clamp(10px, 1.8svh, 16px) 14px; }
+  .contact-card-head { display: none; }
+  .contact-field { min-height: 38px; padding: 0.35rem 0.8rem; font-size: 0.9rem; border-radius: 10px; }
+  textarea.contact-field { height: clamp(56px, 9svh, 84px); min-height: 0; }
+  .contact-label { margin-bottom: 0.25rem; font-size: 0.62rem; }
 }
 .contact-send {
-  border: 1px solid rgb(var(--fg-rgb) / 0.2);
-  background: transparent;
-  color: rgb(var(--fg-rgb));
+  border: 0;
+  background: var(--t-ink);
+  color: var(--t-bg);
   overflow: hidden;
-  text-shadow: 0 1px 4px rgb(var(--shadow-rgb) / 0.5);
-  transition:
-    translate 240ms cubic-bezier(.2, .7, .2, 1),
-    scale 180ms cubic-bezier(.2, .7, .2, 1),
-    box-shadow 240ms cubic-bezier(.2, .7, .2, 1),
-    border-color 240ms cubic-bezier(.2, .7, .2, 1),
-    background-color 240ms cubic-bezier(.2, .7, .2, 1);
+  box-shadow: 0 10px 24px -12px rgb(var(--t-ink-rgb) / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.14);
+  transition: translate 220ms cubic-bezier(.2, .7, .2, 1), scale 180ms cubic-bezier(.2, .7, .2, 1), box-shadow 220ms cubic-bezier(.2, .7, .2, 1);
 }
+.contact-send-arrow { transition: translate 220ms cubic-bezier(.2, .7, .2, 1); }
 @media (hover: hover) {
   .contact-send:hover:not(:disabled) {
-    translate: 0 -2px;
-    border-color: rgb(var(--fg-rgb) / 0.38);
-    box-shadow:
-      0 14px 34px -12px rgb(var(--accent-rgb) / 0.72),
-      0 0 26px rgb(var(--accent-rgb) / 0.32);
+    translate: 0 -1px;
+    box-shadow: 0 16px 30px -12px rgb(var(--t-ink-rgb) / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.18);
   }
+  .contact-send:hover:not(:disabled) .contact-send-arrow { translate: 4px 0; }
 }
-.contact-send:active:not(:disabled) {
-  translate: 0 0;
-  scale: 0.98;
-}
-.contact-send:focus-visible {
-  outline: 2px solid rgb(var(--t-accent-hover-rgb) / 0.95);
-  outline-offset: 3px;
-  box-shadow:
-    0 0 0 4px rgb(var(--accent-rgb) / 0.2),
-    0 0 30px rgb(var(--accent-rgb) / 0.4);
-}
+.contact-send:active:not(:disabled) { translate: 0 0; scale: 0.985; }
+.contact-send:focus-visible { outline: 2px solid var(--t-accent-hover); outline-offset: 3px; }
 .contact-send:disabled { cursor: progress; }
-.contact-status { text-shadow: 0 1px 8px rgb(var(--shadow-rgb) / 0.65); }
+.contact-status { text-shadow: none; }
 
 /* ---------- section atmosphere ---------- */
 #contact { isolation: isolate; }
@@ -465,7 +465,7 @@ export default function Contact() {
     });
 
     tl.to(label, { opacity: 0, duration: 0.15, ease: "power1.out" }, 0.3);
-    tl.to(shape, { width: 48, duration: 0.38, ease: "power3.inOut" }, 0.34);
+    tl.to(shape, { width: shape.offsetHeight, duration: 0.38, ease: "power3.inOut" }, 0.34);
     tl.to(icon, { opacity: 1, duration: 0.2, ease: "power1.out" }, 0.6);
     tl.call(() => {
       spinRef.current = gsap.to(ring, { rotation: 360, transformOrigin: "50% 50%", repeat: -1, duration: 0.8, ease: "none" });
@@ -511,7 +511,9 @@ export default function Contact() {
         if (!mountedRef.current) return;
         const out = gsap.timeline({
           onComplete: () => {
-            gsap.set([ring, check, icon], { clearProps: "opacity,strokeDasharray,strokeDashoffset,scale,rotation" });
+            gsap.set(icon, { opacity: 0, clearProps: "scale" });
+            gsap.set(check, { opacity: 0, clearProps: "strokeDasharray,strokeDashoffset" });
+            gsap.set(ring, { opacity: 1, clearProps: "rotation" });
             gsap.set(btn, { clearProps: "backgroundColor" });
             gsap.set(shape, { clearProps: "width" });
             gsap.set(statusEl, { autoAlpha: 0, y: 0, clearProps: "color" });
@@ -527,7 +529,7 @@ export default function Contact() {
         });
         sendTlRef.current = out;
         out.to(check, { opacity: 0, duration: 0.15, ease: "power1.in" }, 0);
-        out.to(btn, { backgroundColor: "transparent", duration: 0.2, ease: "power1.inOut" }, 0);
+        out.to(btn, { backgroundColor: themeColor("ink"), duration: 0.2, ease: "power1.inOut" }, 0);
         out.to(shape, { width: w0, duration: 0.4, ease: "power3.inOut" }, 0.1);
         out.to(icon, { opacity: 0, duration: 0.15 }, 0.1);
         out.to(label, { opacity: 1, duration: 0.25, ease: "power1.out" }, 0.25);
@@ -768,31 +770,33 @@ export default function Contact() {
 
     let safety = null;
     const ctx = gsap.context(() => {
-      gsap.set(card, { autoAlpha: 0, scale: 0.06 });
-      const formTween = gsap.to(card, {
-        autoAlpha: 1,
-        scale: 1,
-        duration: FORM_IN,
-        ease: "back.out(1.5)",
-        paused: true,
-        onComplete: () => {
-          safety?.kill();
-          unlockScroll();
-        },
-      });
+      gsap.set(card, { autoAlpha: 0, scale: 0.08 });
+      let formTween = null;
       let shown = false;
       const showForm = () => {
         shown = true;
         lockScroll();
         safety?.kill();
         safety = gsap.delayedCall(FORM_IN + 1.2, unlockScroll);
-        formTween.timeScale(1).play();
+        const frame = canvasRef.current.getBoundingClientRect();
+        const slot = card.parentElement.getBoundingClientRect();
+        const dx = frame.left + frame.width * RECT_CX - (slot.left + slot.width / 2);
+        const dy = frame.top + frame.height * RECT_CY - (slot.top + card.offsetHeight / 2);
+        formTween?.kill();
+        formTween = gsap.timeline({
+          onComplete: () => {
+            safety?.kill();
+            unlockScroll();
+          },
+        });
+        formTween.fromTo(card, { scale: 0.08, x: dx, y: dy }, { scale: 1, x: 0, y: 0, duration: FORM_IN, ease: "power4.out" }, 0);
+        formTween.fromTo(card, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3, ease: "power1.out" }, 0);
       };
       const hideForm = () => {
         shown = false;
         safety?.kill();
         unlockScroll();
-        formTween.timeScale(2.2).reverse();
+        formTween?.timeScale(2).reverse();
       };
 
       const state = { f: 0 };
@@ -807,7 +811,7 @@ export default function Contact() {
           scrub: 0.5,
           anticipatePin: 1,
           invalidateOnRefresh: true,
-          refreshPriority: -1,
+          refreshPriority: 1,
         },
       });
       tl.to(state, {
@@ -825,12 +829,33 @@ export default function Contact() {
 
     return () => {
       safety?.kill();
-      unlockScroll();
+      unlockScroll("contact-form");
       observer.disconnect();
       window.removeEventListener("themechange", onThemeChange);
       framesRef.current.forEach((img) => { img.onload = null; });
       framesRef.current = [];
       ctx.revert();
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const h3 = root.current?.querySelector("[data-contact-head] h3");
+    if (!h3) return undefined;
+    const fit = () => {
+      h3.style.fontSize = "";
+      if (window.innerWidth >= 1024) return;
+      const avail = h3.parentElement.clientWidth;
+      const need = h3.scrollWidth;
+      if (need > avail) {
+        h3.style.fontSize = `${(parseFloat(getComputedStyle(h3).fontSize) * avail * 0.98) / need}px`;
+      }
+    };
+    fit();
+    document.fonts?.ready.then(fit);
+    window.addEventListener("resize", fit);
+    return () => {
+      window.removeEventListener("resize", fit);
+      h3.style.fontSize = "";
     };
   }, []);
 
@@ -869,6 +894,7 @@ export default function Contact() {
           element: host,
           agents: AGENTS,
           build: () => buildContact(host),
+          once: true,
         },
       ],
     });
@@ -923,7 +949,7 @@ export default function Contact() {
                <Words text={section.label} />
             </span>
           </p>
-          <h3 className="section-heading display flex flex-wrap items-baseline gap-x-4">
+          <h3 className="section-heading display flex flex-nowrap items-baseline gap-x-2 whitespace-nowrap lg:gap-x-4">
             <span data-contact-h1 className="block w-fit text-ink">
               <Words text={section.headline[0]} />
             </span>
@@ -951,16 +977,20 @@ export default function Contact() {
                 className="contact-card"
                 style={{ visibility: "hidden", opacity: 0 }}
               >
+                <div className="contact-card-head">
+                  <b>New message</b>
+                  <span>All fields required</span>
+                </div>
                 <form
                   ref={formRef}
                   onSubmit={submit}
                   noValidate
-                  className="flex w-full flex-col gap-[clamp(6px,1.2svh,14px)]"
+                  className="flex w-full flex-col gap-[clamp(6px,1.2svh,14px)] lg:gap-[clamp(8px,1.5svh,16px)]"
                 >
                   <div data-field>
                     <label
                       htmlFor="contact-name"
-                      className="contact-label mb-1 block text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-ink/70"
+                      className="contact-label"
                     >
                       Name
                     </label>
@@ -986,7 +1016,7 @@ export default function Contact() {
                   <div data-field>
                     <label
                       htmlFor="contact-email"
-                      className="contact-label mb-1 block text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-ink/70"
+                      className="contact-label"
                     >
                       Email
                     </label>
@@ -1011,7 +1041,7 @@ export default function Contact() {
                   <div data-field>
                     <label
                       htmlFor="contact-message"
-                      className="contact-label mb-1 block text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-ink/70"
+                      className="contact-label"
                     >
                       Message
                     </label>
@@ -1033,22 +1063,27 @@ export default function Contact() {
                     )}
                   </div>
 
-                  <div data-submit className="mt-1 flex h-[52px] w-full items-center justify-center">
-                    <div ref={shapeRef} className="relative h-[48px] w-[clamp(170px,15vw,200px)] shrink-0">
+                  <div data-submit className="mt-1 flex h-[44px] w-full items-center justify-center lg:h-[48px]">
+                    <div ref={shapeRef} className="relative h-[44px] w-full shrink-0 lg:h-[48px]">
                       <button
                         ref={btnRef}
                         type="submit"
                         disabled={sending}
                         onPointerDown={onBtnPointerDown}
-                        className="contact-send absolute inset-0 z-10 rounded-full text-[0.85rem] font-semibold uppercase tracking-[0.18em] text-[rgb(var(--cursor-rgb))]"
+                        className="contact-send absolute inset-0 z-10 rounded-full text-[0.8rem] font-semibold uppercase tracking-[0.16em]"
                       >
                         <span
                           ref={rippleRef}
                           aria-hidden="true"
                           className="pointer-events-none absolute left-0 top-0 size-10 rounded-full"
-                          style={{ opacity: 0, background: "rgb(var(--accent-rgb) / 0.4)" }}
+                          style={{ opacity: 0, background: "rgb(var(--t-bg-rgb) / 0.28)" }}
                         />
-                        <span ref={labelRef} className="relative z-10 inline-block">Send message</span>
+                        <span ref={labelRef} className="relative z-10 inline-flex items-center gap-[0.7em]">
+                          Send message
+                          <svg className="contact-send-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M5 12h14M13 6l6 6-6 6" />
+                          </svg>
+                        </span>
                         <svg
                           ref={iconRef}
                           viewBox="0 0 48 48"
@@ -1062,7 +1097,7 @@ export default function Contact() {
                             cy="24"
                             r="18"
                             fill="none"
-                            stroke="var(--t-accent)"
+                            stroke="var(--t-bg)"
                             strokeWidth="3"
                             strokeLinecap="round"
                             strokeDasharray="30 84"

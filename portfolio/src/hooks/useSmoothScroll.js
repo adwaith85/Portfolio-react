@@ -6,7 +6,44 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
 
 let lenisInstance = null;
-let locked = false;
+const locks = new Set();
+const applyLock = () => {
+  const on = locks.size > 0;
+  document.documentElement.style.overflow = on ? "hidden" : "";
+  if (lenisInstance) {
+    if (on) lenisInstance.stop();
+    else lenisInstance.start();
+  }
+};
+export function lockScroll(owner = "default") {
+  locks.add(owner);
+  applyLock();
+}
+export function unlockScroll(owner = "default") {
+  if (!locks.delete(owner)) return;
+  applyLock();
+  if (!locks.size && lenisInstance)
+    lenisInstance.scrollTo(window.scrollY, { immediate: true, force: true });
+}
+export function isScrollLocked() {
+  return locks.size > 0;
+}
+export function syncScroll(y) {
+  if (lenisInstance) lenisInstance.scrollTo(y, { immediate: true, force: true });
+  else window.scrollTo(0, y);
+}
+let globalRefreshTimer = 0;
+export function safeRefresh(delay = 90) {
+  clearTimeout(globalRefreshTimer);
+  const run = () => {
+    if (locks.size) {
+      globalRefreshTimer = setTimeout(run, 120);
+      return;
+    }
+    ScrollTrigger.refresh();
+  };
+  globalRefreshTimer = setTimeout(run, delay);
+}
 
 export function scrollToTop() {
   if (lenisInstance) {
@@ -17,18 +54,6 @@ export function scrollToTop() {
   } else {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
-}
-
-export function lockScroll() {
-  locked = true;
-  document.documentElement.style.overflow = "hidden";
-  if (lenisInstance) lenisInstance.stop();
-}
-
-export function unlockScroll() {
-  locked = false;
-  document.documentElement.style.overflow = "";
-  if (lenisInstance) lenisInstance.start();
 }
 
 export function scrollToId(id) {
@@ -47,12 +72,10 @@ export default function useSmoothScroll() {
   useEffect(() => {
     ScrollTrigger.config({ ignoreMobileResize: true });
 
-    let refreshTimer = 0;
     let disposed = false;
     const refresh = () => {
       if (disposed) return;
-      window.clearTimeout(refreshTimer);
-      refreshTimer = window.setTimeout(() => ScrollTrigger.refresh(), 80);
+      safeRefresh(80);
     };
     const onAssetLoad = (event) => {
       if (event.target instanceof HTMLImageElement) refresh();
@@ -75,7 +98,6 @@ export default function useSmoothScroll() {
         disposed = true;
         document.removeEventListener("load", onAssetLoad, true);
         window.removeEventListener("load", refresh);
-        window.clearTimeout(refreshTimer);
       };
     }
 
@@ -87,7 +109,7 @@ export default function useSmoothScroll() {
       autoRaf: false,
     });
     lenisInstance = lenis;
-    if (locked) lenis.stop();
+    if (locks.size) lenis.stop();
     lenis.on("scroll", ScrollTrigger.update);
 
     const tick = (time) => lenis.raf(time * 1000);
@@ -101,7 +123,6 @@ export default function useSmoothScroll() {
       lenisInstance = null;
       document.removeEventListener("load", onAssetLoad, true);
       window.removeEventListener("load", refresh);
-      window.clearTimeout(refreshTimer);
     };
   }, []);
 }

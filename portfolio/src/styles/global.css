@@ -804,7 +804,8 @@ html[data-theme="light"] #experience [data-int-dash] {
 /* ---- contact ---- */
 html[data-theme="light"] #contact [data-contact-h2] {
   color: var(--t-pine);
-}
+}
+
 
 /* ---- footer ---- */
 html[data-theme="light"] footer [data-f-h2],

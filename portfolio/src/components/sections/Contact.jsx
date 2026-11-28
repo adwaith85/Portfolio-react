@@ -188,7 +188,7 @@ const CONTACT_STYLE = `
 .contact-card-head span { color: rgb(var(--t-ink-rgb) / 0.55); letter-spacing: 0.14em; }
 @media (max-height: 700px) { .contact-card-head { display: none; } }
 @media (min-width: 1024px) {
-  .contact-scene { display: block; width: min(100cqw, 177.78cqh); height: auto; aspect-ratio: 16 / 9; }
+  .contact-scene { display: block; width: min(100cqw, 190cqh); height: auto; aspect-ratio: 16 / 9; }
   .contact-frame { position: absolute; inset: 0; width: 100%; height: 100%; align-self: auto; aspect-ratio: auto; }
   .contact-form-slot { position: absolute; left: 50.2%; top: 42.8%; width: 47.1%; transform: translateY(-50%); display: block; padding: 0; }
   .contact-card { max-width: none; }

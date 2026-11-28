@@ -35,6 +35,10 @@ const FORM_ENDPOINT = "";
    Example: { access_key: "YOUR_KEY" } */
 const FORM_EXTRA_FIELDS = {};
 
+const ROW_MQ = "(min-width: 1024px), (orientation: landscape) and (min-width: 640px) and (max-height: 560px)";
+const STACK_MQ = "(max-width: 1023.98px) and (not ((orientation: landscape) and (min-width: 640px) and (max-height: 560px)))";
+const RECT_ERASE = { x: 0.503, y: 0.298, w: 0.472, h: 0.262 }; // sketch rectangle region inside the 800x450 frame (rect is x .51-.9625, y .307-.549)
+
 const FRAME_FILES = import.meta.glob("../../assets/contact-frames/*.webp", { eager: true, query: "?url", import: "default" });
 const FRAME_URLS = Object.keys(FRAME_FILES).sort().map((k) => FRAME_FILES[k]);
 const FRAME_COUNT = FRAME_URLS.length;          // 190
@@ -80,6 +84,45 @@ const validate = ({ name, email, message }) => {
   return errors;
 };
 
+const vanishField = (el, text) => {
+  const ghost = el.parentElement.querySelector(".contact-ghost");
+  ghost.textContent = "";
+  text.slice(0, 240).split(/(\s+)/).forEach((part) => {
+    if (!part) return;
+    if (/^\s+$/.test(part)) {
+      ghost.appendChild(document.createTextNode(part));
+      return;
+    }
+    const word = document.createElement("span");
+    word.style.display = "inline-block";
+    word.style.whiteSpace = "nowrap";
+    [...part].forEach((ch) => {
+      const letter = document.createElement("span");
+      letter.style.display = "inline-block";
+      letter.textContent = ch;
+      word.appendChild(letter);
+    });
+    ghost.appendChild(word);
+  });
+  el.value = "";
+  el.classList.add("is-vanishing");
+  return gsap.to(ghost.querySelectorAll("span span"), {
+    opacity: 0,
+    y: () => gsap.utils.random(-26, -10),
+    x: () => gsap.utils.random(-10, 10),
+    rotation: () => gsap.utils.random(-14, 14),
+    scale: 0.7,
+    filter: "blur(6px)",
+    duration: 0.55,
+    ease: "power2.out",
+    stagger: { amount: 0.3, from: "random" },
+    onComplete: () => {
+      ghost.textContent = "";
+      el.classList.remove("is-vanishing");
+    },
+  });
+};
+
 /* Cursor build: heading. Cursors leave at the end. */
 function buildContact(host) {
   const tl = gsap.timeline();
@@ -123,7 +166,7 @@ function buildContact(host) {
   return tl;
 }
 
-const paintFrame = (canvas, img, ink) => {
+const paintFrame = (canvas, img, ink, erase) => {
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   ctx.clearRect(0, 0, FRAME_W, FRAME_H);
   ctx.drawImage(img, 0, 0, FRAME_W, FRAME_H);
@@ -135,16 +178,17 @@ const paintFrame = (canvas, img, ink) => {
     px[i] = r; px[i + 1] = g; px[i + 2] = b;
   }
   ctx.putImageData(data, 0, 0);
+  if (erase) ctx.clearRect(FRAME_W * RECT_ERASE.x, FRAME_H * RECT_ERASE.y, FRAME_W * RECT_ERASE.w, FRAME_H * RECT_ERASE.h);
 };
 
 const CONTACT_STYLE = `
 #contact-stage { container-type: size; display: flex; align-items: center; justify-content: center; }
 .contact-scene { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; }
 .contact-frame { position: relative; flex: none; align-self: center; aspect-ratio: 16 / 9; height: min(56.25cqw, 34cqh); }
-@media (max-width: 1023.98px) and (min-height: 800px) { .contact-frame { height: min(56.25cqw, 38cqh); } }
-@media (max-width: 1023.98px) and (max-height: 720px) { .contact-frame { height: min(56.25cqw, 30cqh); } }
+@media ${STACK_MQ} and (min-height: 800px) { .contact-frame { height: min(56.25cqw, 38cqh); } }
+@media ${STACK_MQ} and (max-height: 720px) { .contact-frame { height: min(56.25cqw, 30cqh); } }
 .contact-frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.contact-form-slot { position: relative; flex: 1 1 0; min-height: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.5svh; }
+.contact-form-slot { position: relative; flex: 1 1 0; min-height: 0; max-height: 100%; display: flex; align-items: flex-start; justify-content: center; padding-top: 1.5svh; }
 .contact-card {
   position: relative;
   width: 100%;
@@ -153,7 +197,7 @@ const CONTACT_STYLE = `
   background-color: var(--t-panel);
   background-image: linear-gradient(180deg, rgb(var(--t-ink-rgb) / 0.05), transparent 40%);
   border: 1px solid rgb(var(--t-ink-rgb) / 0.2);
-  border-radius: 20px;
+  border-radius: 22px;
   padding: clamp(14px, 2.4svh, 28px) clamp(16px, 2vw, 30px);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.12),
@@ -172,7 +216,6 @@ const CONTACT_STYLE = `
   opacity: 0.55;
   pointer-events: none;
 }
-.contact-card form { counter-reset: contact-field; }
 .contact-card-head {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   margin-bottom: clamp(8px, 1.6svh, 16px);
@@ -187,62 +230,72 @@ const CONTACT_STYLE = `
 }
 .contact-card-head span { color: rgb(var(--t-ink-rgb) / 0.55); letter-spacing: 0.14em; }
 @media (max-height: 700px) { .contact-card-head { display: none; } }
-@media (min-width: 1024px) {
-  .contact-scene { display: block; width: min(100cqw, 190cqh); height: auto; aspect-ratio: 16 / 9; }
-  .contact-frame { position: absolute; inset: 0; width: 100%; height: 100%; align-self: auto; aspect-ratio: auto; }
-  .contact-form-slot { position: absolute; left: 50.2%; top: 42.8%; width: 47.1%; transform: translateY(-50%); display: block; padding: 0; }
-  .contact-card { max-width: none; }
+@media ${ROW_MQ} {
+  #contact-stage { align-items: center; justify-content: center; }
+  .contact-scene {
+    --fw: min(72cqw, 177.78cqh);
+    --cw: clamp(400px, 30cqw, 620px);
+    --gap: clamp(48px, 7cqw, 150px);
+    display: flex; flex-direction: row; align-items: center; justify-content: center;
+    width: 100%; height: auto;
+  }
+  .contact-frame { position: relative; flex: none; width: var(--fw); height: auto; aspect-ratio: 16 / 9; align-self: center; inset: auto; }
+  .contact-form-slot {
+    position: relative; flex: none; left: auto; top: auto; transform: none; padding: 0; display: block;
+    width: var(--cw);
+    margin-left: calc(var(--fw) * -0.46 + var(--gap));
+  }
+  .contact-card { max-width: none; width: 100%; }
 }
+.contact-input { --cf-px: 0.95rem; --cf-pl: 2.7rem; --cf-py: 0.7rem; position: relative; border-radius: 14px; }
+.contact-input::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 0; height: 2px; border-radius: 2px; background: var(--t-accent); transform: scaleX(0); transition: transform 280ms cubic-bezier(.2,.7,.2,1); pointer-events: none; }
+.contact-input:focus-within::after { transform: scaleX(1); }
 .contact-field {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: clamp(40px, 5.6svh, 46px);
-  border: 1px solid rgb(var(--t-ink-rgb) / 0.16);
-  border-radius: 12px;
-  background: rgb(var(--t-ink-rgb) / 0.04);
-  padding: clamp(0.4rem, 1.3svh, 0.7rem) 0.95rem;
-  font-family: inherit;
-  font-size: clamp(0.92rem, 1vw, 1rem);
-  line-height: 1.4;
-  color: var(--t-ink);
+  width: 100%; box-sizing: border-box;
+  min-height: clamp(44px, 5.8svh, 50px);
+  padding: var(--cf-py) var(--cf-px) var(--cf-py) var(--cf-pl);
+  border-radius: 14px; border: 1px solid rgb(var(--t-ink-rgb) / 0.14);
+  background: rgb(var(--t-ink-rgb) / 0.05);
+  box-shadow: inset 0 1px 2px rgb(var(--shadow-rgb) / 0.18);
+  color: var(--t-ink); font: inherit;
+  font-size: clamp(0.92rem, 1vw, 1.05rem); line-height: 1.4;
   outline: none;
-  box-shadow: none;
-  transition: border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
+  transition: border-color 200ms, background-color 200ms, box-shadow 200ms, color 300ms;
 }
-textarea.contact-field { height: clamp(64px, 11svh, 104px); min-height: 0; }
-.contact-field::placeholder { color: rgb(var(--t-ink-rgb) / 0.42); }
-.contact-field:hover { border-color: rgb(var(--t-ink-rgb) / 0.32); }
 .contact-field:focus {
   border-color: var(--t-accent);
-  background: rgb(var(--t-ink-rgb) / 0.06);
-  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.16);
+  background: rgb(var(--t-ink-rgb) / 0.07);
+  box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 0.16), inset 0 1px 2px rgb(var(--shadow-rgb) / 0.12);
 }
+.contact-field::placeholder { color: rgb(var(--t-ink-rgb) / 0.42); }
+.contact-field:hover { border-color: rgb(var(--t-ink-rgb) / 0.32); }
 .contact-field[aria-invalid="true"] { border-color: var(--t-accent-hover); background: rgb(var(--accent-rgb) / 0.06); }
-.contact-field[aria-invalid="true"]:focus { box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.22); }
+.contact-field[aria-invalid="true"]:focus { box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 0.22), inset 0 1px 2px rgb(var(--shadow-rgb) / 0.12); }
 .contact-field:disabled { opacity: 0.72; cursor: progress; }
-.contact-label {
-  display: block;
-  margin-bottom: 0.35rem;
-  font-size: clamp(0.64rem, 1.4svh, 0.72rem);
-  font-weight: var(--t-fw-semibold);
-  line-height: 1.2;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgb(var(--t-ink-rgb) / 0.62);
-  counter-increment: contact-field;
-}
-.contact-label::before {
-  content: counter(contact-field, decimal-leading-zero);
-  margin-right: 0.9em;
-  color: var(--t-accent-hover);
-  font-variant-numeric: tabular-nums;
-}
-@media (max-width: 1023.98px) {
-  .contact-card { max-width: 440px; border-radius: 16px; padding: clamp(10px, 1.8svh, 16px) 14px; }
+.contact-input-icon { position: absolute; left: 0.95rem; top: 50%; transform: translateY(-50%); color: rgb(var(--t-ink-rgb) / 0.45); transition: color 200ms; pointer-events: none; }
+.contact-input.is-multi .contact-input-icon { top: calc(var(--cf-py) + 0.7em); transform: none; }
+.contact-input:focus-within .contact-input-icon { color: var(--t-accent); }
+.contact-count { position: absolute; right: 0.8rem; bottom: 0.45rem; font-size: 0.68rem; letter-spacing: 0.08em; color: rgb(var(--t-ink-rgb) / 0.45); pointer-events: none; opacity: 0; transition: opacity 200ms; }
+.contact-input:focus-within .contact-count { opacity: 1; }
+.contact-label { display: block; margin-bottom: 0.4rem; line-height: 1.2; font-size: clamp(0.64rem, 1.4svh, 0.74rem); font-weight: var(--t-fw-semibold); letter-spacing: 0.16em; text-transform: uppercase; color: rgb(var(--t-ink-rgb) / 0.7); }
+.contact-field:-webkit-autofill { -webkit-text-fill-color: var(--t-ink); box-shadow: 0 0 0 1000px var(--t-panel) inset; caret-color: var(--t-ink); }
+.contact-ghost { position: absolute; inset: 0; padding: var(--cf-py) var(--cf-px) var(--cf-py) var(--cf-pl); font: inherit; font-size: clamp(0.92rem, 1vw, 1.05rem); line-height: 1.4; color: var(--t-ink); white-space: pre-wrap; word-break: break-word; overflow: hidden; pointer-events: none; border-radius: 14px; }
+.contact-input.is-single .contact-ghost { display: flex; align-items: center; white-space: nowrap; }
+.contact-field.is-vanishing { color: transparent; caret-color: transparent; }
+.contact-field.is-vanishing::placeholder { color: transparent; }
+@media ${STACK_MQ} {
+  .contact-card { max-width: 460px; width: 100%; border-radius: 16px; padding: clamp(10px, 1.8svh, 16px) 14px; }
   .contact-card-head { display: none; }
-  .contact-field { min-height: 38px; padding: 0.35rem 0.8rem; font-size: 0.9rem; border-radius: 10px; }
-  textarea.contact-field { height: clamp(56px, 9svh, 84px); min-height: 0; }
+  .contact-input { --cf-py: 0.55rem; border-radius: 12px; }
+  .contact-field { min-height: 42px; border-radius: 12px; font-size: 0.9rem; }
+  textarea.contact-field { height: clamp(64px, 10svh, 92px); min-height: 0; }
   .contact-label { margin-bottom: 0.25rem; font-size: 0.62rem; }
+}
+@media (max-height: 560px) {
+  .contact-card-head { display: none; }
+  .contact-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .contact-field { min-height: 36px; }
+  textarea.contact-field { height: 56px; }
 }
 .contact-send {
   border: 0;
@@ -320,18 +373,24 @@ export default function Contact() {
   const sendTlRef = useRef(null);
   const spinRef = useRef(null);
   const holdRef = useRef(null);
+  const formShownRef = useRef(false);
+  const syncRef = useRef(null);
+  const guardHeadingRef = useRef(() => {});
+  const headingTlRef = useRef(null);
+  const headingOkRef = useRef(false);
 
   const enabled = useAgentsEnabled();
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState("idle");
+  const [msgLen, setMsgLen] = useState(0);
 
   const mountedRef = useRef(true);
   const sendingRef = useRef(false);
   const abortRef = useRef(null);
   const framesRef = useRef([]);
   const wantedRef = useRef(0);
-  const paintedRef = useRef({ i: -1, ink: "" });
+  const paintedRef = useRef({ i: -1, ink: "", erase: false });
   const renderFrameRef = useRef(() => {});
 
   const section =
@@ -363,12 +422,11 @@ export default function Contact() {
     if (i < 0) return;
     const ink = themeRGB("ink").split(" ").map(Number);
     const inkKey = ink.join(",");
-    if (paintedRef.current.i === i && paintedRef.current.ink === inkKey) return;
-    paintFrame(canvas, framesRef.current[i], ink);
-    paintedRef.current = { i, ink: inkKey };
+    const erase = formShownRef.current;
+    if (paintedRef.current.i === i && paintedRef.current.ink === inkKey && paintedRef.current.erase === erase) return;
+    paintFrame(canvas, framesRef.current[i], ink, erase);
+    paintedRef.current = { i, ink: inkKey, erase };
   }, []);
-
-  renderFrameRef.current = renderFrame;
 
   const requestMessage = useCallback(async (payload) => {
     if (!FORM_ENDPOINT) {
@@ -405,21 +463,6 @@ export default function Contact() {
     if (!btn) return;
     const r = btn.getBoundingClientRect();
     pointRef.current = { x: e.clientX - r.left, y: e.clientY - r.top };
-  }, []);
-
-  const eraseTween = useCallback((el, text) => {
-    const o = { n: text.length };
-    return gsap.to(o, {
-      n: 0,
-      duration: Math.min(0.7, Math.max(0.25, text.length * 0.022)),
-      ease: "power1.in",
-      onUpdate: () => {
-        el.value = text.slice(0, Math.round(o.n));
-      },
-      onComplete: () => {
-        el.value = "";
-      },
-    });
   }, []);
 
   const playSend = useCallback(() => {
@@ -461,7 +504,7 @@ export default function Contact() {
       if (!el) return;
       const text = values[i];
       if (!text) return;
-      tl.add(eraseTween(el, text), 0.12 + i * 0.28);
+      tl.add(vanishField(el, text), 0.1 + i * 0.12);
     });
 
     tl.to(label, { opacity: 0, duration: 0.15, ease: "power1.out" }, 0.3);
@@ -470,11 +513,15 @@ export default function Contact() {
     tl.call(() => {
       spinRef.current = gsap.to(ring, { rotation: 360, transformOrigin: "50% 50%", repeat: -1, duration: 0.8, ease: "none" });
     }, [], 0.6);
-    tl.call(resolve, [], 1.0);
+    tl.call(() => {
+      setMsgLen(0);
+      setErrors({});
+    }, [], 1.25);
+    tl.call(resolve, [], 1.3);
     tl.set(shape, { attr: { "data-w0": w0 } });
 
     return arrived;
-  }, [eraseTween]);
+  }, []);
 
   const finishOk = useCallback(() => {
     const shape = shapeRef.current;
@@ -552,6 +599,11 @@ export default function Contact() {
     const w0 = Number(shape.getAttribute("data-w0")) || shape.offsetWidth || 180;
     const saved = savedRef.current || { name: "", email: "", message: "" };
     gsap.killTweensOf([ring, btn, shape, label, icon, statusEl]);
+    ["name", "email", "message"].forEach((k) => {
+      const el = form.elements[k];
+      if (el) el.value = saved[k] || "";
+    });
+    setMsgLen((saved.message || "").length);
 
     const tl = gsap.timeline({
       onComplete: () => {
@@ -578,20 +630,6 @@ export default function Contact() {
       statusEl.style.color = "var(--t-accent-hover)";
     }, [], 0.05);
     tl.fromTo(statusEl, { autoAlpha: 0, y: 4 }, { autoAlpha: 1, y: 0, duration: 0.3, ease: "power2.out" }, 0.05);
-
-    ["name", "email", "message"].forEach((k) => {
-      const el = form.elements[k];
-      const text = saved[k] || "";
-      if (!el) return;
-      const o = { n: 0 };
-      tl.to(o, {
-        n: text.length,
-        duration: 0.4,
-        ease: "power1.out",
-        onUpdate: () => { el.value = text.slice(0, Math.round(o.n)); },
-        onComplete: () => { el.value = text; },
-      }, 0.15);
-    });
 
     tl.to(shape, { width: w0, duration: 0.4, ease: "power3.inOut" }, 0.2);
     tl.to(label, { opacity: 1, duration: 0.25, ease: "power1.out" }, 0.35);
@@ -650,6 +688,7 @@ export default function Contact() {
     let animDone = Promise.resolve();
     if (reduced) {
       formRef.current.reset();
+      setMsgLen(0);
     } else {
       animDone = playSend();
     }
@@ -672,6 +711,7 @@ export default function Contact() {
     if (result.ok) {
       if (reduced) {
         formRef.current?.reset();
+        setMsgLen(0);
         [formRef.current?.elements?.name, formRef.current?.elements?.email, formRef.current?.elements?.message].forEach((el) => {
           if (el) el.readOnly = false;
         });
@@ -716,6 +756,7 @@ export default function Contact() {
   };
 
   useLayoutEffect(() => {
+    renderFrameRef.current = renderFrame;
     const el = root.current;
     const canvas = canvasRef.current;
     const card = cardRef.current;
@@ -752,12 +793,18 @@ export default function Contact() {
     observer.observe(el);
 
     const onThemeChange = () => {
-      paintedRef.current = { i: -1, ink: "" };
+      paintedRef.current = { i: -1, ink: "", erase: false };
       renderFrameRef.current(wantedRef.current);
+      syncRef.current?.(undefined, true);
+      requestAnimationFrame(() => {
+        renderFrameRef.current(wantedRef.current);
+        syncRef.current?.(undefined, true);
+      });
     };
     window.addEventListener("themechange", onThemeChange);
 
     if (reduced) {
+      formShownRef.current = true;
       gsap.set(card, { autoAlpha: 1, scale: 1 });
       renderFrameRef.current(FRAME_COUNT - 1);
       return () => {
@@ -765,70 +812,79 @@ export default function Contact() {
         window.removeEventListener("themechange", onThemeChange);
         framesRef.current.forEach((img) => { img.onload = null; });
         framesRef.current = [];
+        formShownRef.current = false;
       };
     }
 
     let safety = null;
-    const ctx = gsap.context(() => {
-      gsap.set(card, { autoAlpha: 0, scale: 0.08 });
-      let formTween = null;
-      let shown = false;
-      const showForm = () => {
-        shown = true;
-        lockScroll();
-        safety?.kill();
-        safety = gsap.delayedCall(FORM_IN + 1.2, unlockScroll);
+    let ctx = null;
+    ctx = gsap.context(() => {
+      const rowMQ = window.matchMedia(ROW_MQ);
+      let shown = false, lastP = 0, cardTween = null;
+      const release = () => { safety?.kill(); safety = null; unlockScroll("contact-form"); };
+      const setCardFinal = (visible) => {
+        cardTween?.kill(); cardTween = null; release();
+        gsap.set(card, visible ? { autoAlpha: 1, scale: 1, x: 0, y: 0 } : { autoAlpha: 0, scale: 0.08 });
+      };
+      const flightOffset = () => {
         const frame = canvasRef.current.getBoundingClientRect();
         const slot = card.parentElement.getBoundingClientRect();
-        const dx = frame.left + frame.width * RECT_CX - (slot.left + slot.width / 2);
-        const dy = frame.top + frame.height * RECT_CY - (slot.top + card.offsetHeight / 2);
-        formTween?.kill();
-        formTween = gsap.timeline({
-          onComplete: () => {
-            safety?.kill();
-            unlockScroll();
-          },
-        });
-        formTween.fromTo(card, { scale: 0.08, x: dx, y: dy }, { scale: 1, x: 0, y: 0, duration: FORM_IN, ease: "power4.out" }, 0);
-        formTween.fromTo(card, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3, ease: "power1.out" }, 0);
+        return {
+          dx: frame.left + frame.width * RECT_CX - (slot.left + slot.width / 2),
+          dy: frame.top + frame.height * RECT_CY - (slot.top + card.offsetHeight / 2),
+        };
       };
-      const hideForm = () => {
-        shown = false;
-        safety?.kill();
-        unlockScroll();
-        formTween?.timeScale(2).reverse();
+      const animateCardIn = () => {
+        cardTween?.kill();
+        gsap.set(card, { x: 0, y: 0, scale: 1 });
+        const { dx, dy } = flightOffset();
+        lockScroll("contact-form");
+        safety?.kill(); safety = gsap.delayedCall(FORM_IN + 1.2, release);
+        cardTween = gsap.timeline({ onComplete: release });
+        cardTween.fromTo(card, { scale: 0.08, x: dx, y: dy }, { scale: 1, x: 0, y: 0, duration: FORM_IN, ease: "power4.out" }, 0);
+        cardTween.fromTo(card, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3, ease: "power1.out" }, 0);
       };
-
-      const state = { f: 0 };
-      const tl = gsap.timeline({
-        defaults: { ease: "none" },
-        scrollTrigger: {
-          trigger: root.current,
-          start: "top top",
-          end: () => `+=${Math.round(window.innerHeight * (window.innerWidth < 1024 ? 2.6 : 3.2))}`,
-          pin: true,
-          pinSpacing: true,
-          scrub: 0.5,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-          refreshPriority: 1,
-        },
+      const animateCardOut = () => {
+        cardTween?.kill(); release();
+        gsap.set(card, { x: 0, y: 0, scale: 1 });
+        const { dx, dy } = flightOffset();
+        cardTween = gsap.to(card, { scale: 0.08, x: dx, y: dy, autoAlpha: 0, duration: 0.5, ease: "power3.in" });
+      };
+      const sync = (p, instant = false) => {
+        const f = Math.min(1, Math.max(0, p / FRAME_BODY_END)) * (FRAME_COUNT - 1);
+        const want = shown ? f >= FRAME_COUNT - 4 : f >= FRAME_COUNT - 1.01;
+        const jumped = instant || Math.abs(p - lastP) > 0.08;
+        lastP = p;
+        let changed = false;
+        if (want !== shown) {
+          shown = want;
+          changed = true;
+          formShownRef.current = want;
+          if (jumped) setCardFinal(want); else if (want) animateCardIn(); else animateCardOut();
+        }
+        renderFrameRef.current(f);
+        if (!changed && !cardTween?.isActive()) {
+          const o = Number(gsap.getProperty(card, "opacity"));
+          if (shown && o < 1) setCardFinal(true);
+          else if (!shown && o > 0) setCardFinal(false);
+        }
+      };
+      gsap.set(card, { autoAlpha: 0, scale: 0.08 });
+      const st = ScrollTrigger.create({
+        trigger: el, start: "top top",
+        end: () => `+=${Math.round(el.offsetHeight * (rowMQ.matches ? 3.2 : 2.6))}`,
+        pin: true, pinSpacing: true, anticipatePin: 1, invalidateOnRefresh: true, refreshPriority: 1,
+        onUpdate: (self) => { sync(self.progress); guardHeadingRef.current(self.progress); },
+        onRefresh: (self) => { sync(self.progress, true); guardHeadingRef.current(self.progress); },
       });
-      tl.to(state, {
-        f: FRAME_COUNT - 1,
-        duration: FRAME_BODY_END,
-        onUpdate: () => {
-          renderFrameRef.current(state.f);
-          if (!shown && state.f >= FRAME_COUNT - 1.01) showForm();
-          else if (shown && state.f < FRAME_COUNT - 4) hideForm();
-        },
-      });
-      tl.to({}, { duration: 1 - FRAME_BODY_END });
-      renderFrameRef.current(0);
+      syncRef.current = (p, instant) => sync(p ?? st.progress, instant);
+      sync(st.progress, true);
     }, root);
 
     return () => {
       safety?.kill();
+      syncRef.current = null;
+      formShownRef.current = false;
       unlockScroll("contact-form");
       observer.disconnect();
       window.removeEventListener("themechange", onThemeChange);
@@ -836,24 +892,35 @@ export default function Contact() {
       framesRef.current = [];
       ctx.revert();
     };
-  }, []);
+  }, [renderFrame]);
 
   useLayoutEffect(() => {
     const h3 = root.current?.querySelector("[data-contact-head] h3");
-    if (!h3) return undefined;
+    const parent = h3?.parentElement;
+    if (!h3 || !parent) return undefined;
+    const rowMQ = window.matchMedia(ROW_MQ);
+    let lastW = parent.clientWidth;
     const fit = () => {
       h3.style.fontSize = "";
-      if (window.innerWidth >= 1024) return;
-      const avail = h3.parentElement.clientWidth;
+      if (rowMQ.matches) return;
+      const avail = parent.clientWidth;
       const need = h3.scrollWidth;
       if (need > avail) {
         h3.style.fontSize = `${(parseFloat(getComputedStyle(h3).fontSize) * avail * 0.98) / need}px`;
       }
     };
     fit();
-    document.fonts?.ready.then(fit);
+    document.fonts?.ready.then(() => requestAnimationFrame(fit));
+    const ro = new ResizeObserver(() => {
+      const w = parent.clientWidth;
+      if (w === lastW) return;
+      lastW = w;
+      fit();
+    });
+    ro.observe(parent);
     window.addEventListener("resize", fit);
     return () => {
+      ro.disconnect();
       window.removeEventListener("resize", fit);
       h3.style.fontSize = "";
     };
@@ -863,41 +930,74 @@ export default function Contact() {
     mountedRef.current = true;
     const el = root.current;
     if (!el) return undefined;
+    const head = el.querySelector("[data-contact-head]");
 
     const reduced = prefersReduced();
     let stop = () => {};
+    let reveal = null;
     let ctx = null;
 
+    const showHeading = () => {
+      gsap.set(el.querySelectorAll("[data-contact-head] [data-w], [data-contact-label], [data-contact-h1], [data-contact-h2]"), { autoAlpha: 1, clearProps: "clipPath,transform,color" });
+      headingOkRef.current = true;
+    };
+    guardHeadingRef.current = (p) => {
+      if (p > 0.03 && !headingOkRef.current && !headingTlRef.current?.isActive()) showHeading();
+    };
+
     if (reduced) {
+      headingOkRef.current = true;
       return () => {
+        guardHeadingRef.current = () => {};
         mountedRef.current = false;
       };
     }
 
-    ctx = gsap.context(() => {
-      gsap.set(el.querySelectorAll("[data-contact-head] [data-w]"), { autoAlpha: 0 });
-      gsap.set(el.querySelectorAll("[data-contact-h2] [data-w]"), { autoAlpha: 1 });
-      gsap.set(el.querySelector("[data-contact-h2]"), { autoAlpha: 0 });
-    }, root);
+    if (enabled) {
+      if (el.getBoundingClientRect().top > window.innerHeight * 0.92) {
+        ctx = gsap.context(() => {
+          gsap.set(el.querySelectorAll("[data-contact-head] [data-w]"), { autoAlpha: 0 });
+          gsap.set(el.querySelectorAll("[data-contact-h2] [data-w]"), { autoAlpha: 1 });
+          gsap.set(el.querySelector("[data-contact-h2]"), { autoAlpha: 0 });
+        }, root);
+      } else {
+        showHeading();
+      }
 
-    const host = el.querySelector("[data-contact-inner]") || el;
-    stop = createViewportReveal({
-      root: el,
-      sectionId: "contact",
-      enabled,
-      reduced,
-      start: "top 92%",
-      speed: 1.5,
-      back: 2.4,
-      groups: [
-        {
-          element: host,
-          agents: AGENTS,
-          build: () => buildContact(host),
-          once: true,
-        },
-      ],
-    });
+      const host = el.querySelector("[data-contact-inner]") || el;
+      stop = createViewportReveal({
+        root: el,
+        sectionId: "contact",
+        enabled,
+        reduced,
+        start: "top 92%",
+        speed: 1.5,
+        back: 2.4,
+        groups: [
+          {
+            element: host,
+            agents: AGENTS,
+            build: () => {
+              const t = buildContact(host);
+              headingTlRef.current = t;
+              t.eventCallback("onComplete", () => { headingOkRef.current = true; });
+              return t;
+            },
+            once: true,
+          },
+        ],
+      });
+    } else if (head) {
+      reveal = ScrollTrigger.create({
+        trigger: head,
+        start: "top 92%",
+        once: true,
+        onEnter: () => gsap.from(head, {
+          autoAlpha: 0, y: 18, duration: 0.6, ease: "power2.out",
+          immediateRender: false, clearProps: "all", onComplete: showHeading,
+        }),
+      });
+    }
 
     return () => {
       mountedRef.current = false;
@@ -909,8 +1009,13 @@ export default function Contact() {
       if (holdRef.current) { holdRef.current.kill(); holdRef.current = null; }
       swarm.dismiss(AGENTS);
       stop();
-      clearOverlays(el);
+      reveal?.kill();
       if (ctx) ctx.revert();
+      headingTlRef.current = null;
+      showHeading();
+      headingOkRef.current = false;
+      guardHeadingRef.current = () => {};
+      clearOverlays(el);
     };
   }, [enabled]);
 
@@ -946,7 +1051,7 @@ export default function Contact() {
             <span data-contact-label className="inline-block">
               <span className="text-red">
               </span>{" "}
-               <Words text={section.label} />
+                <Words text={section.label} />
             </span>
           </p>
           <h3 className="section-heading display flex flex-nowrap items-baseline gap-x-2 whitespace-nowrap lg:gap-x-4">
@@ -994,18 +1099,24 @@ export default function Contact() {
                     >
                       Name
                     </label>
-                    <input
-                      id="contact-name"
-                      name="name"
-                      type="text"
-                      autoComplete="name"
-                      maxLength={80}
-                      placeholder="Your name"
-                      aria-invalid={errors.name ? "true" : undefined}
-                      aria-describedby={errors.name ? "contact-name-error" : undefined}
-                      onChange={() => clearError("name")}
-                      className="contact-field"
-                    />
+                    <div className="contact-input is-single">
+                      <svg className="contact-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                      </svg>
+                      <input
+                        id="contact-name"
+                        name="name"
+                        type="text"
+                        autoComplete="name"
+                        maxLength={80}
+                        placeholder="Your name"
+                        aria-invalid={errors.name ? "true" : undefined}
+                        aria-describedby={errors.name ? "contact-name-error" : undefined}
+                        onChange={() => clearError("name")}
+                        className="contact-field"
+                      />
+                      <span className="contact-ghost" aria-hidden="true" />
+                    </div>
                     {errors.name && (
                       <p id="contact-name-error" className="mt-1.5 text-[0.85rem] leading-snug text-red">
                         {errors.name}
@@ -1020,17 +1131,23 @@ export default function Contact() {
                     >
                       Email
                     </label>
-                    <input
-                      id="contact-email"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
-                      placeholder="you@example.com"
-                      aria-invalid={errors.email ? "true" : undefined}
-                      aria-describedby={errors.email ? "contact-email-error" : undefined}
-                      onChange={() => clearError("email")}
-                      className="contact-field"
-                    />
+                    <div className="contact-input is-single">
+                      <svg className="contact-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                      </svg>
+                      <input
+                        id="contact-email"
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="you@example.com"
+                        aria-invalid={errors.email ? "true" : undefined}
+                        aria-describedby={errors.email ? "contact-email-error" : undefined}
+                        onChange={() => clearError("email")}
+                        className="contact-field"
+                      />
+                      <span className="contact-ghost" aria-hidden="true" />
+                    </div>
                     {errors.email && (
                       <p id="contact-email-error" className="mt-1.5 text-[0.85rem] leading-snug text-red">
                         {errors.email}
@@ -1045,17 +1162,27 @@ export default function Contact() {
                     >
                       Message
                     </label>
-                    <textarea
-                      id="contact-message"
-                      name="message"
-                      rows={3}
-                      maxLength={2000}
-                      placeholder="Tell me what you have in mind"
-                      aria-invalid={errors.message ? "true" : undefined}
-                      aria-describedby={errors.message ? "contact-message-error" : undefined}
-                      onChange={() => clearError("message")}
-                      className="contact-field resize-none"
-                    />
+                    <div className="contact-input is-multi">
+                      <svg className="contact-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                      </svg>
+                      <textarea
+                        id="contact-message"
+                        name="message"
+                        rows={3}
+                        maxLength={2000}
+                        placeholder="Tell me what you have in mind"
+                        aria-invalid={errors.message ? "true" : undefined}
+                        aria-describedby={errors.message ? "contact-message-error" : undefined}
+                        onChange={(e) => {
+                          clearError("message");
+                          setMsgLen(e.target.value.length);
+                        }}
+                        className="contact-field resize-none"
+                      />
+                      <span className="contact-ghost" aria-hidden="true" />
+                      <span className="contact-count" aria-hidden="true">{msgLen}/2000</span>
+                    </div>
                     {errors.message && (
                       <p id="contact-message-error" className="mt-1.5 text-[0.85rem] leading-snug text-red">
                         {errors.message}
@@ -1063,8 +1190,8 @@ export default function Contact() {
                     )}
                   </div>
 
-                  <div data-submit className="mt-1 flex h-[44px] w-full items-center justify-center lg:h-[48px]">
-                    <div ref={shapeRef} className="relative h-[44px] w-full shrink-0 lg:h-[48px]">
+                  <div data-submit className="mt-1 flex h-[44px] w-full items-center justify-center lg:h-[48px] [@media(max-height:560px)]:!h-[38px]">
+                    <div ref={shapeRef} className="relative h-[44px] w-full shrink-0 lg:h-[48px] [@media(max-height:560px)]:!h-[38px]">
                       <button
                         ref={btnRef}
                         type="submit"
